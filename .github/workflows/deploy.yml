@@ -1,0 +1,48 @@
+name: Deploy to VPS
+on:
+  push:
+    branches: [ "main" ]   # change if your default branch is different
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (optional—helps with version info)
+        uses: actions/checkout@v4
+
+      - name: Prepare SSH for this job
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Rsync source to server
+        uses: burnett01/rsync-deployments@6.0.0
+        with:
+          switches: -az --delete --exclude='.git' --exclude='node_modules'
+          path: .
+          remote_path: ${{ secrets.APP_DIR }}
+          remote_host: ${{ secrets.SSH_HOST }}
+          remote_user: ${{ secrets.SSH_USER }}
+          remote_key: ${{ secrets.SSH_PRIVATE_KEY }}
+          remote_port: ${{ secrets.SSH_PORT }}
+
+      - name: Install, build, and restart with PM2 (on the VPS)
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            set -e
+            cd ${{ secrets.APP_DIR }}
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            nvm install --lts
+            node -v
+            npm ci
+            npm run build
+            pm2 reload vipfuneralfunding || pm2 start "npm run start" --name vipfuneralfunding
+            pm2 save
