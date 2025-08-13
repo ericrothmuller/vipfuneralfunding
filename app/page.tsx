@@ -21,7 +21,7 @@ export default function Home() {
             .
           </li>
           <li className="tracking-[-.01em]">
-            The Future of Funeral Funding. VIP Funeral Funding.
+            The Future of Funeral Funding. VIP Funeral Funding.Yay!
           </li>
         </ol>
 
