@@ -21,7 +21,7 @@ export default function Home() {
             .
           </li>
           <li className="tracking-[-.01em]">
-            The Future of Funeral Funding. VIP Funeral Funding.Yay! Testing live page.
+            The Future of Funeral Funding. The latest and greatest Funeral Funding CRM is coming soon! Stay tuned!
           </li>
         </ol>
 
