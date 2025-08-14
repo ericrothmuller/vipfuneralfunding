@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -31,22 +32,32 @@ export default function LoginForm() {
   }
 
   return (
-    <main style={{ maxWidth: 420, margin: "64px auto", padding: 24 }}>
-      <h1>Login</h1>
-      <form onSubmit={onSubmit} style={{ display: "grid", gap: 12 }}>
-        <label>
-          Email
-          <input type="email" value={email} onChange={e => setEmail(e.target.value)} required style={{ width: "100%", padding: 8 }} />
-        </label>
-        <label>
-          Password
-          <input type="password" value={password} onChange={e => setPassword(e.target.value)} required style={{ width: "100%", padding: 8 }} />
-        </label>
-        <button disabled={loading} type="submit" style={{ padding: 10 }}>
-          {loading ? "Signing in..." : "Sign in"}
-        </button>
-        {msg && <p style={{ color: "crimson" }}>{msg}</p>}
-      </form>
+    <main className="centered" style={{paddingTop: 25}}>
+      <Image
+        src="/VIP-Funeral-Funding-Logo-Gold.png"
+        alt="VIP Funeral Funding logo"
+        width={898}
+        height={152}
+        style={{ width: "30%", height: "auto" }}
+        priority
+      />
+      <div style={{ maxWidth: 420, margin: "64px auto", padding: 24 }}>
+        <h1>Login</h1>
+        <form onSubmit={onSubmit} style={{ display: "grid", gap: 12 }}>
+          <label>
+            Email
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} required style={{ width: "100%", padding: 8 }} />
+          </label>
+          <label>
+            Password
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} required style={{ width: "100%", padding: 8 }} />
+          </label>
+          <button disabled={loading} type="submit" style={{ padding: 10 }}>
+            {loading ? "Signing in..." : "Sign in"}
+          </button>
+          {msg && <p style={{ color: "crimson" }}>{msg}</p>}
+        </form>
+      </div>
     </main>
   );
 }
