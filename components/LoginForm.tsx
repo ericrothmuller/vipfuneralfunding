@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function LoginPage() {
+export default function LoginForm() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -21,11 +21,8 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
       const data = await res.json();
-      if (!res.ok) {
-        setMsg(data?.error || "Login failed");
-      } else {
-        router.push("/dashboard");
-      }
+      if (!res.ok) setMsg(data?.error || "Login failed");
+      else router.push("/dashboard");
     } catch {
       setMsg("Network error");
     } finally {
@@ -39,23 +36,11 @@ export default function LoginPage() {
       <form onSubmit={onSubmit} style={{ display: "grid", gap: 12 }}>
         <label>
           Email
-          <input
-            type="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            required
-            style={{ width: "100%", padding: 8 }}
-          />
+          <input type="email" value={email} onChange={e => setEmail(e.target.value)} required style={{ width: "100%", padding: 8 }} />
         </label>
         <label>
           Password
-          <input
-            type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            required
-            style={{ width: "100%", padding: 8 }}
-          />
+          <input type="password" value={password} onChange={e => setPassword(e.target.value)} required style={{ width: "100%", padding: 8 }} />
         </label>
         <button disabled={loading} type="submit" style={{ padding: 10 }}>
           {loading ? "Signing in..." : "Sign in"}

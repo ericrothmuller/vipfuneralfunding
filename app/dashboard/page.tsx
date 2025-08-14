@@ -1,12 +1,11 @@
 import { redirect } from "next/navigation";
 import { getUserFromCookie } from "@/lib/auth";
 
+export const runtime = "nodejs";
+
 export default function DashboardPage() {
   const user = getUserFromCookie();
-  if (!user) {
-    // Server-side redirect if not logged in
-    redirect("/login");
-  }
+  if (!user) redirect("/login");
 
   return (
     <main style={{ maxWidth: 720, margin: "64px auto", padding: 24 }}>
