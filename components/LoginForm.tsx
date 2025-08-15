@@ -57,6 +57,14 @@ export default function LoginForm() {
           </button>
           {msg && <p style={{ color: "crimson" }}>{msg}</p>}
         </form>
+        <br/>
+        <button
+          type="button"
+          onClick={() => router.push("/register")}
+          style={{ padding: 10, marginTop: 8 }}
+        >
+          Need an account? Register
+        </button>
       </div>
     </main>
   );
