@@ -1,22 +1,50 @@
 name: Deploy to VPS
 on:
   push:
-    branches: [ "main" ]   # change if your default branch is different
+    branches: ["main"]
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout (optional—helps with version info)
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Prepare SSH for this job
+      # Optional: stamp the build so you can verify what commit is live
+      - name: Stamp build with commit hash
+        run: |
+          mkdir -p public
+          echo "${GITHUB_SHA::7}" > public/__commit.txt
+
+      - name: Validate required secrets
+        run: |
+          set -e
+          [ -n "${{ secrets.APP_DIR }}" ] || { echo "::error::APP_DIR missing"; exit 1; }
+          [ -n "${{ secrets.SSH_HOST }}" ] || { echo "::error::SSH_HOST missing"; exit 1; }
+          [ -n "${{ secrets.SSH_USER }}" ] || { echo "::error::SSH_USER missing"; exit 1; }
+          [ -n "${{ secrets.SSH_PRIVATE_KEY }}" ] || { echo "::error::SSH_PRIVATE_KEY missing"; exit 1; }
+          [ -n "${{ secrets.SSH_PORT }}" ] || { echo "::error::SSH_PORT missing"; exit 1; }
+          [ -n "${{ secrets.MONGODB_URI }}" ] || { echo "::error::MONGODB_URI missing"; exit 1; }
+          [ -n "${{ secrets.JWT_SECRET }}" ] || { echo "::error::JWT_SECRET missing"; exit 1; }
+          echo "Using APP_DIR=${{ secrets.APP_DIR }}"
+
+      - name: Prepare known_hosts for rsync
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
-      - name: Rsync source to server
+
+      - name: Ensure APP_DIR exists on server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            mkdir -p "${{ secrets.APP_DIR }}"
+
+      - name: Sync source to server (exclude junk)
         uses: burnett01/rsync-deployments@6.0.0
         with:
           switches: -az --delete --exclude='.git' --exclude='node_modules'
@@ -27,7 +55,7 @@ jobs:
           remote_key: ${{ secrets.SSH_PRIVATE_KEY }}
           remote_port: ${{ secrets.SSH_PORT }}
 
-      - name: Install, build, and restart with PM2 (on the VPS)
+      - name: Write .env.local on server
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -36,12 +64,43 @@ jobs:
           port: ${{ secrets.SSH_PORT }}
           script: |
             set -e
-            cd ${{ secrets.APP_DIR }}
+            cd "${{ secrets.APP_DIR }}"
+            cat > .env.local << 'EOF'
+MONGODB_URI=${{ secrets.MONGODB_URI }}
+JWT_SECRET=${{ secrets.JWT_SECRET }}
+NODE_ENV=production
+PORT=3000
+EOF
+            chmod 600 .env.local
+            echo ".env.local written (values hidden)"
+
+      - name: Build and (re)start with PM2
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            set -euo pipefail
+            APP_DIR="${{ secrets.APP_DIR }}"
+
+            # Load Node
             export NVM_DIR="$HOME/.nvm"
             [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-            nvm install --lts
-            node -v
+            nvm install --lts >/dev/null
+
+            # Build
+            cd "$APP_DIR"
+            node -v && npm -v
             npm ci
+            rm -rf .next
             npm run build
-            pm2 reload vipfuneralfunding || pm2 start "npm run start" --name vipfuneralfunding
+
+            # Start or reload exactly one instance, pinned to APP_DIR
+            pm2 reload vipfuneralfunding || pm2 start "npm run start" --name vipfuneralfunding --cwd "$APP_DIR"
             pm2 save
+
+            # Quick local health check (doesn't fail the job)
+            echo "Live commit: $(cat public/__commit.txt || echo 'no-stamp')"
+            curl -fsS -I http://127.0.0.1:3000 || true
