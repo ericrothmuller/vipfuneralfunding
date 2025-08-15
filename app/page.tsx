@@ -1,12 +1,11 @@
-import Image from "next/image";
-import './globals.css';
-export const runtime = "nodejs";
 import { redirect } from "next/navigation";
 import { getUserFromCookie } from "@/lib/auth";
 import LoginForm from "@/components/LoginForm";
 
-export default function Home() {  
-  const user = getUserFromCookie();
-  if (user) redirect("/dashboard"); // already logged in → skip login
+export const runtime = "nodejs";
+
+export default async function LoginPage() {
+  const user = await getUserFromCookie();   // ⬅️ await
+  if (user) redirect("/dashboard");
   return <LoginForm />;
 }

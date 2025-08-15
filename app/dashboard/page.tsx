@@ -3,8 +3,8 @@ import { getUserFromCookie } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
-export default function DashboardPage() {
-  const user = getUserFromCookie();
+export default async function DashboardPage() {
+  const user = await getUserFromCookie();   // ⬅️ await
   if (!user) redirect("/login");
 
   return (

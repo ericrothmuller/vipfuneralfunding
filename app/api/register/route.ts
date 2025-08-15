@@ -1,4 +1,4 @@
-// app/api/register/route.ts
+export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { User } from "@/models/User";
