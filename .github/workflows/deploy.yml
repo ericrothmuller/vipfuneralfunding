@@ -90,9 +90,3 @@ EOF
             npm ci
             rm -rf .next
             npm run build
-            # ensure exactly one instance, pinned to APP_DIR (port from .env.local)
-            pm2 reload vipfuneralfunding || pm2 start "npm run start" --name vipfuneralfunding --cwd "$APP_DIR"
-            pm2 save
-            echo "Live commit: $(cat public/__commit.txt || echo 'no-stamp')"
-            # quick local health check (does not fail the job)
-            curl -fsS -I http://127.0.0.1:3000 || true
