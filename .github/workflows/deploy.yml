@@ -85,22 +85,18 @@ EOF
             set -euo pipefail
             APP_DIR="${{ secrets.APP_DIR }}"
 
-            # Load Node
             export NVM_DIR="$HOME/.nvm"
             [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
             nvm install --lts >/dev/null
 
-            # Build
             cd "$APP_DIR"
             node -v && npm -v
             npm ci
             rm -rf .next
             npm run build
 
-            # Start or reload exactly one instance, pinned to APP_DIR
             pm2 reload vipfuneralfunding || pm2 start "npm run start" --name vipfuneralfunding --cwd "$APP_DIR"
             pm2 save
 
-            # Quick local health check (doesn't fail the job)
             echo "Live commit: $(cat public/__commit.txt || echo 'no-stamp')"
             curl -fsS -I http://127.0.0.1:3000 || true
