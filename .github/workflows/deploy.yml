@@ -11,14 +11,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Explicit, valid checks (no dynamic indexing)
       - name: Validate required secrets
         run: |
-          set -e
-          for v in APP_DIR SSH_HOST SSH_USER SSH_PRIVATE_KEY SSH_PORT MONGODB_URI JWT_SECRET; do
-            if [ -z "${{ secrets[$v] }}" ]; then
-              echo "::error::$v missing in Settings → Secrets and variables → Actions"; exit 1
-            fi
-          done
+          test -n "${{ secrets.APP_DIR }}" || { echo "::error::APP_DIR missing"; exit 1; }
+          test -n "${{ secrets.SSH_HOST }}" || { echo "::error::SSH_HOST missing"; exit 1; }
+          test -n "${{ secrets.SSH_USER }}" || { echo "::error::SSH_USER missing"; exit 1; }
+          test -n "${{ secrets.SSH_PRIVATE_KEY }}" || { echo "::error::SSH_PRIVATE_KEY missing"; exit 1; }
+          test -n "${{ secrets.SSH_PORT }}" || { echo "::error::SSH_PORT missing"; exit 1; }
+          test -n "${{ secrets.MONGODB_URI }}" || { echo "::error::MONGODB_URI missing"; exit 1; }
+          test -n "${{ secrets.JWT_SECRET }}" || { echo "::error::JWT_SECRET missing"; exit 1; }
           echo "APP_DIR=${{ secrets.APP_DIR }}"
 
       - name: Prepare known_hosts for rsync
@@ -49,7 +51,7 @@ jobs:
           remote_key: ${{ secrets.SSH_PRIVATE_KEY }}
           remote_port: ${{ secrets.SSH_PORT }}
 
-      # Write .env.local using envs (properly exported to the step)
+      # Write .env.local safely via env handoff (no YAML quoting issues)
       - name: Write .env.local on server
         uses: appleboy/ssh-action@v1.2.0
         env:
@@ -99,9 +101,9 @@ jobs:
             rm -rf .next
             npm run build
 
-            # ensure exactly one instance, pinned to APP_DIR
+            # Single instance, pinned to APP_DIR
             pm2 reload vipfuneralfunding || pm2 start "npm run start" --name vipfuneralfunding --cwd "$APP_DIR"
             pm2 save
 
-            # quick local health check (won't fail job)
+            # Local health check (won't fail job)
             curl -fsS -I http://127.0.0.1:3000 || true
