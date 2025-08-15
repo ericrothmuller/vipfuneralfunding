@@ -6,7 +6,6 @@ export const runtime = "nodejs";
 export default async function DashboardPage() {
   const user = await getUserFromCookie();   // ⬅️ await
   if (!user) redirect("/login");
-
   return (
     <main style={{ maxWidth: 720, margin: "64px auto", padding: 24 }}>
       <h1>Dashboard</h1>

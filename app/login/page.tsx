@@ -4,9 +4,8 @@ import LoginForm from "@/components/LoginForm";
 
 export const runtime = "nodejs";
 
-export default function LoginPage() {
-  const user = getUserFromCookie();
-  // If already logged in, skip the login page
+export default async function LoginPage() {
+  const user = await getUserFromCookie();   // ⬅️ await
   if (user) redirect("/dashboard");
   return <LoginForm />;
 }
