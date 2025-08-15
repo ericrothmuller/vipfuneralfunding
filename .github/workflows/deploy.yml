@@ -11,8 +11,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Optional: stamp the build so you can verify what commit is live
-      - name: Stamp build with commit hash
+      - name: Stamp build with commit hash (for verification)
         run: |
           mkdir -p public
           echo "${GITHUB_SHA::7}" > public/__commit.txt
@@ -20,21 +19,19 @@ jobs:
       - name: Validate required secrets
         run: |
           set -e
-          [ -n "${{ secrets.APP_DIR }}" ] || { echo "::error::APP_DIR missing"; exit 1; }
-          [ -n "${{ secrets.SSH_HOST }}" ] || { echo "::error::SSH_HOST missing"; exit 1; }
-          [ -n "${{ secrets.SSH_USER }}" ] || { echo "::error::SSH_USER missing"; exit 1; }
-          [ -n "${{ secrets.SSH_PRIVATE_KEY }}" ] || { echo "::error::SSH_PRIVATE_KEY missing"; exit 1; }
-          [ -n "${{ secrets.SSH_PORT }}" ] || { echo "::error::SSH_PORT missing"; exit 1; }
-          [ -n "${{ secrets.MONGODB_URI }}" ] || { echo "::error::MONGODB_URI missing"; exit 1; }
-          [ -n "${{ secrets.JWT_SECRET }}" ] || { echo "::error::JWT_SECRET missing"; exit 1; }
-          echo "Using APP_DIR=${{ secrets.APP_DIR }}"
+          for v in APP_DIR SSH_HOST SSH_USER SSH_PRIVATE_KEY SSH_PORT MONGODB_URI JWT_SECRET; do
+            if [ -z "${{ secrets[$v] }}" ]; then
+              echo "::error::$v missing in Settings → Secrets and variables → Actions"; exit 1
+            fi
+          done
+          echo "APP_DIR=${{ secrets.APP_DIR }}"
 
       - name: Prepare known_hosts for rsync
         run: |
           mkdir -p ~/.ssh
           ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Ensure APP_DIR exists on server
+      - name: Ensure APP_DIR exists and is writable
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -42,7 +39,16 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT }}
           script: |
+            set -euxo pipefail
             mkdir -p "${{ secrets.APP_DIR }}"
+            # ensure ownership by the SSH user (no sudo needed if already owned)
+            if [ -w "${{ secrets.APP_DIR }}" ]; then
+              echo "APP_DIR is writable"
+            else
+              echo "Attempting to take ownership (may require sudo privileges on server policy)"
+              sudo chown -R "$(whoami)":"$(whoami)" "${{ secrets.APP_DIR }}" || true
+            fi
+            ls -ld "${{ secrets.APP_DIR }}"
 
       - name: Sync source to server (exclude junk)
         uses: burnett01/rsync-deployments@6.0.0
@@ -63,7 +69,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT }}
           script: |
-            set -e
+            set -euxo pipefail
             cd "${{ secrets.APP_DIR }}"
             cat > .env.local << 'EOF'
 MONGODB_URI=${{ secrets.MONGODB_URI }}
@@ -72,7 +78,7 @@ NODE_ENV=production
 PORT=3000
 EOF
             chmod 600 .env.local
-            echo ".env.local written (values hidden)"
+            echo "Wrote .env.local (values hidden)."
 
       - name: Build and (re)start with PM2
         uses: appleboy/ssh-action@v1.2.0
@@ -81,22 +87,27 @@ EOF
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT }}
+          script_stop: true
           script: |
-            set -euo pipefail
+            set -euxo pipefail
             APP_DIR="${{ secrets.APP_DIR }}"
+            cd "$APP_DIR"
 
             export NVM_DIR="$HOME/.nvm"
-            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-            nvm install --lts >/dev/null
-
-            cd "$APP_DIR"
+            if [ ! -s "$NVM_DIR/nvm.sh" ]; then
+              curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+            fi
+            . "$NVM_DIR/nvm.sh"
+            nvm install --lts
             node -v && npm -v
+
             npm ci
             rm -rf .next
             npm run build
 
             pm2 reload vipfuneralfunding || pm2 start "npm run start" --name vipfuneralfunding --cwd "$APP_DIR"
             pm2 save
+            pm2 list
 
             echo "Live commit: $(cat public/__commit.txt || echo 'no-stamp')"
             curl -fsS -I http://127.0.0.1:3000 || true
