@@ -8,11 +8,91 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Call deploy.sh on the server
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # (optional but handy) write a commit stamp so you can verify what's live
+      - name: Stamp build with commit hash
+        run: |
+          mkdir -p public
+          echo "${GITHUB_SHA::7}" > public/__commit.txt
+
+      - name: Validate required secrets
+        run: |
+          test -n "${{ secrets.APP_DIR }}" || (echo "::error::APP_DIR missing" && exit 1)
+          test -n "${{ secrets.SSH_HOST }}" || (echo "::error::SSH_HOST missing" && exit 1)
+          test -n "${{ secrets.SSH_USER }}" || (echo "::error::SSH_USER missing" && exit 1)
+          test -n "${{ secrets.SSH_PRIVATE_KEY }}" || (echo "::error::SSH_PRIVATE_KEY missing" && exit 1)
+          test -n "${{ secrets.SSH_PORT }}" || (echo "::error::SSH_PORT missing" && exit 1)
+          test -n "${{ secrets.MONGODB_URI }}" || (echo "::error::MONGODB_URI missing" && exit 1)
+          test -n "${{ secrets.JWT_SECRET }}" || (echo "::error::JWT_SECRET missing" && exit 1)
+
+      - name: Prepare known_hosts for rsync
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Ensure APP_DIR exists on server
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT }}
-          script: /home/deploy/apps/vipfuneralfunding/deploy.sh
+          script: |
+            mkdir -p "${{ secrets.APP_DIR }}"
+
+      - name: Sync source to server (exclude junk)
+        uses: burnett01/rsync-deployments@6.0.0
+        with:
+          switches: -az --delete --exclude='.git' --exclude='node_modules'
+          path: .
+          remote_path: ${{ secrets.APP_DIR }}
+          remote_host: ${{ secrets.SSH_HOST }}
+          remote_user: ${{ secrets.SSH_USER }}
+          remote_key: ${{ secrets.SSH_PRIVATE_KEY }}
+          remote_port: ${{ secrets.SSH_PORT }}
+
+      - name: Write .env.local on server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            set -euo pipefail
+            cd "${{ secrets.APP_DIR }}"
+            cat > .env.local << 'EOF'
+MONGODB_URI=${{ secrets.MONGODB_URI }}
+JWT_SECRET=${{ secrets.JWT_SECRET }}
+NODE_ENV=production
+PORT=3000
+EOF
+            chmod 600 .env.local
+            echo "Wrote .env.local (values hidden)"
+
+      - name: Build and (re)start app with PM2
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            set -euo pipefail
+            APP_DIR="${{ secrets.APP_DIR }}"
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            nvm install --lts >/dev/null
+            cd "$APP_DIR"
+            node -v && npm -v
+            npm ci
+            rm -rf .next
+            npm run build
+            # ensure exactly one instance, pinned to APP_DIR (port from .env.local)
+            pm2 reload vipfuneralfunding || pm2 start "npm run start" --name vipfuneralfunding --cwd "$APP_DIR"
+            pm2 save
+            echo "Live commit: $(cat public/__commit.txt || echo 'no-stamp')"
+            # quick local health check (does not fail the job)
+            curl -fsS -I http://127.0.0.1:3000 || true
