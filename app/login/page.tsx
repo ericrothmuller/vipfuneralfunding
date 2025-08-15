@@ -5,7 +5,7 @@ import LoginForm from "@/components/LoginForm";
 export const runtime = "nodejs";
 
 export default async function LoginPage() {
-  const user = await getUserFromCookie();   // ⬅️ await
+  const user = await getUserFromCookie();
   if (user) redirect("/dashboard");
   return <LoginForm />;
 }

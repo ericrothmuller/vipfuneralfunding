@@ -4,7 +4,7 @@ import { getUserFromCookie } from "@/lib/auth";
 export const runtime = "nodejs";
 
 export default async function DashboardPage() {
-  const user = await getUserFromCookie();   // ⬅️ await
+  const user = await getUserFromCookie();
   if (!user) redirect("/login");
   return (
     <main style={{ maxWidth: 720, margin: "64px auto", padding: 24 }}>
