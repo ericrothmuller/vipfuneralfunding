@@ -1,18 +1,29 @@
-// models/User.ts
-import { Schema, model, models, InferSchemaType, Model } from "mongoose";
+import mongoose, { Schema, Document } from "mongoose";
 
-const UserSchema = new Schema({
-  email: { type: String, unique: true, required: true, index: true },
-  passwordHash: { type: String, required: true },
+export interface IUser extends Document {
+  email: string;
+  password: string;
+  fhName?: string;
+  businessPhone?: string;
+  businessFax?: string;
+  mailingAddress?: string;
+  contactName?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  notes?: string;
+}
 
-  // NEW profile fields
-  fhName: { type: String, default: "" },           // FH/CEM Name
-  businessPhone: { type: String, default: "" },
-  businessFax: { type: String, default: "" },
-  mailingAddress: { type: String, default: "" },
-}, { timestamps: true });
+const UserSchema = new Schema<IUser>({
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  fhName: String,
+  businessPhone: String,
+  businessFax: String,
+  mailingAddress: String,
+  contactName: String,
+  contactPhone: String,
+  contactEmail: String,
+  notes: String,
+});
 
-export type UserDoc = InferSchemaType<typeof UserSchema>;
-
-export const User: Model<UserDoc> =
-  (models.User as Model<UserDoc>) || model<UserDoc>("User", UserSchema);
+export default mongoose.models.User || mongoose.model<IUser>("User", UserSchema);
