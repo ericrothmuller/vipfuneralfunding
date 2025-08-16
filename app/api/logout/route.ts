@@ -1,17 +1,18 @@
 export const runtime = "nodejs";
 import { NextResponse } from "next/server";
-import { serialize } from "cookie";
 
-export async function POST() {
-  const cookie = serialize("token", "", {
+export async function POST(req: Request) {
+  // Build a 303 redirect to "/" (or "/login" if you prefer)
+  const res = NextResponse.redirect(new URL("/", req.url), { status: 303 });
+
+  // Clear the token cookie
+  res.cookies.set("token", "", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: 0,
+    expires: new Date(0), // immediately expired
   });
-  return new NextResponse(JSON.stringify({ ok: true }), {
-    status: 200,
-    headers: { "Set-Cookie": cookie, "Content-Type": "application/json" },
-  });
+
+  return res;
 }
