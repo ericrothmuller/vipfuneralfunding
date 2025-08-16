@@ -1,29 +1,29 @@
-import mongoose, { Schema, Document } from "mongoose";
+// models/User.ts
+import { Schema, model, models, InferSchemaType, Model } from "mongoose";
 
-export interface IUser extends Document {
-  email: string;
-  password: string;
-  fhName?: string;
-  businessPhone?: string;
-  businessFax?: string;
-  mailingAddress?: string;
-  contactName?: string;
-  contactPhone?: string;
-  contactEmail?: string;
-  notes?: string;
-}
+const UserSchema = new Schema(
+  {
+    // Auth
+    email: { type: String, unique: true, required: true, index: true },
+    passwordHash: { type: String, required: true },
 
-const UserSchema = new Schema<IUser>({
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-  fhName: String,
-  businessPhone: String,
-  businessFax: String,
-  mailingAddress: String,
-  contactName: String,
-  contactPhone: String,
-  contactEmail: String,
-  notes: String,
-});
+    // Profile fields
+    fhName: { type: String, default: "" },           // FH/CEM Name
+    businessPhone: { type: String, default: "" },
+    businessFax: { type: String, default: "" },
+    mailingAddress: { type: String, default: "" },
 
-export default mongoose.models.User || mongoose.model<IUser>("User", UserSchema);
+    // NEW profile fields
+    contactName: { type: String, default: "" },
+    contactPhone: { type: String, default: "" },
+    contactEmail: { type: String, default: "" },
+    notes: { type: String, default: "" },
+  },
+  { timestamps: true }
+);
+
+// In TS, this infers the shape of a document from the schema
+export type UserDoc = InferSchemaType<typeof UserSchema>;
+
+export const User: Model<UserDoc> =
+  (models.User as Model<UserDoc>) || model<UserDoc>("User", UserSchema);
