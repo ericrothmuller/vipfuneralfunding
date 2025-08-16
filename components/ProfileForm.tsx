@@ -8,6 +8,10 @@ type Profile = {
   businessPhone: string;
   businessFax: string;
   mailingAddress: string;
+  contactName: string;
+  contactPhone: string;
+  contactEmail: string;
+  notes: string;
 };
 
 export default function ProfileForm() {
@@ -16,6 +20,10 @@ export default function ProfileForm() {
     businessPhone: "",
     businessFax: "",
     mailingAddress: "",
+    contactName: "",
+    contactPhone: "",
+    contactEmail: "",
+    notes: "",
   });
   const [msg, setMsg] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -28,12 +36,17 @@ export default function ProfileForm() {
         const res = await fetch("/api/profile", { cache: "no-store" });
         if (!res.ok) throw new Error("Failed to load profile");
         const data = await res.json();
+
         if (mounted && data?.user) {
           setProfile({
             fhName: data.user.fhName || "",
             businessPhone: data.user.businessPhone || "",
             businessFax: data.user.businessFax || "",
             mailingAddress: data.user.mailingAddress || "",
+            contactName: data.user.contactName || "",
+            contactPhone: data.user.contactPhone || "",
+            contactEmail: data.user.contactEmail || "",
+            notes: data.user.notes || "",
           });
         }
       } catch (e: any) {
@@ -42,7 +55,10 @@ export default function ProfileForm() {
         if (mounted) setLoading(false);
       }
     })();
-    return () => { mounted = false; };
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   async function onSubmit(e: React.FormEvent) {
@@ -68,7 +84,7 @@ export default function ProfileForm() {
   }
 
   function set<K extends keyof Profile>(key: K, val: string) {
-    setProfile(p => ({ ...p, [key]: val }));
+    setProfile((p) => ({ ...p, [key]: val }));
   }
 
   if (loading) return <p>Loading…</p>;
@@ -80,7 +96,7 @@ export default function ProfileForm() {
         <input
           type="text"
           value={profile.fhName}
-          onChange={e => set("fhName", e.target.value)}
+          onChange={(e) => set("fhName", e.target.value)}
           style={{ width: "100%", padding: 8 }}
         />
       </label>
@@ -90,7 +106,7 @@ export default function ProfileForm() {
         <input
           type="tel"
           value={profile.businessPhone}
-          onChange={e => set("businessPhone", e.target.value)}
+          onChange={(e) => set("businessPhone", e.target.value)}
           placeholder="e.g. (555) 555-5555"
           style={{ width: "100%", padding: 8 }}
         />
@@ -101,7 +117,7 @@ export default function ProfileForm() {
         <input
           type="tel"
           value={profile.businessFax}
-          onChange={e => set("businessFax", e.target.value)}
+          onChange={(e) => set("businessFax", e.target.value)}
           style={{ width: "100%", padding: 8 }}
         />
       </label>
@@ -110,7 +126,51 @@ export default function ProfileForm() {
         Mailing Address
         <textarea
           value={profile.mailingAddress}
-          onChange={e => set("mailingAddress", e.target.value)}
+          onChange={(e) => set("mailingAddress", e.target.value)}
+          rows={3}
+          style={{ width: "100%", padding: 8 }}
+        />
+      </label>
+
+      <hr style={{ margin: "12px 0", border: "none", borderTop: "1px solid #eee" }} />
+
+      <label>
+        Contact Name
+        <input
+          type="text"
+          value={profile.contactName}
+          onChange={(e) => set("contactName", e.target.value)}
+          style={{ width: "100%", padding: 8 }}
+        />
+      </label>
+
+      <label>
+        Contact Phone
+        <input
+          type="tel"
+          value={profile.contactPhone}
+          onChange={(e) => set("contactPhone", e.target.value)}
+          placeholder="e.g. (555) 555-5555"
+          style={{ width: "100%", padding: 8 }}
+        />
+      </label>
+
+      <label>
+        Contact Email
+        <input
+          type="email"
+          value={profile.contactEmail}
+          onChange={(e) => set("contactEmail", e.target.value)}
+          placeholder="name@example.com"
+          style={{ width: "100%", padding: 8 }}
+        />
+      </label>
+
+      <label>
+        Notes
+        <textarea
+          value={profile.notes}
+          onChange={(e) => set("notes", e.target.value)}
           rows={4}
           style={{ width: "100%", padding: 8 }}
         />
