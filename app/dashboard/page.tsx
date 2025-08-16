@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getUserFromCookie } from "@/lib/auth";
 export const runtime = "nodejs";
 import LogoutButton from "@/components/LogoutButton";
+import Link from "next/link";
 
 export default async function DashboardPage() {
   const user = await getUserFromCookie();
@@ -11,6 +12,7 @@ export default async function DashboardPage() {
     <main style={{ maxWidth: 720, margin: "64px auto", padding: 24 }}>
       <h1>Dashboard</h1>
       <p>Welcome, {user.email}!</p>
+      <p><Link href="/profile">Edit Profile</Link></p>
       <LogoutButton />
     </main>
   );
