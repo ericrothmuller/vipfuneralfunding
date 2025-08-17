@@ -22,15 +22,18 @@ function fmtDate(d?: string | Date | null) {
   return isNaN(dt.getTime()) ? "" : dt.toLocaleDateString();
 }
 
+// ⬇️ NOTE: params is a Promise<{ id: string }>
 export default async function FundingRequestDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
   const me = await getUserFromCookie();
   if (!me) redirect("/login");
 
-  const req = await fetchRequest(params.id);
+  const { id } = await params; // ⬅️ await the params
+  const req = await fetchRequest(id);
+
   if (!req) {
     return (
       <main style={{ maxWidth: 900, margin: "40px auto", padding: 24 }}>
@@ -76,8 +79,7 @@ export default async function FundingRequestDetailPage({
         <div>State: <strong>{req.decPODState}</strong></div>
         <div>In the United States?: <strong>{fmtBool(req.deathInUS)}</strong></div>
         <div>
-          Cause of Death:
-          {" "}
+          Cause of Death:{" "}
           <strong>
             {[
               req.codNatural && "Natural",
@@ -85,7 +87,9 @@ export default async function FundingRequestDetailPage({
               req.codHomicide && "Homicide",
               req.codPending && "Pending",
               req.codSuicide && "Suicide",
-            ].filter(Boolean).join(", ")}
+            ]
+              .filter(Boolean)
+              .join(", ")}
           </strong>
         </div>
         <div>Final Death Certificate?: <strong>{fmtBool(req.hasFinalDC)}</strong></div>
@@ -135,13 +139,9 @@ export default async function FundingRequestDetailPage({
         <h3>Additional</h3>
         <div>Notes: <div style={{ whiteSpace: "pre-wrap" }}><strong>{req.notes}</strong></div></div>
         <div>
-          Assignment Upload:
-          {" "}
+          Assignment Upload:{" "}
           {req.assignmentUploadPath ? (
-            <span>
-              <code>{req.assignmentUploadPath}</code>
-              {/* To serve this file publicly, map /uploads in Nginx or add a file-serving route */}
-            </span>
+            <span><code>{req.assignmentUploadPath}</code></span>
           ) : (
             <em>None</em>
           )}
