@@ -4,10 +4,15 @@ export const runtime = "nodejs";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getUserFromCookie } from "@/lib/auth";
+import { headers } from "next/headers";
 
 async function fetchRequests() {
-  const base = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-  const res = await fetch(`${base}/api/requests`, { cache: "no-store" });
+  const h = await headers();                    // Next 15: await dynamic API
+  const cookie = h.get("cookie") ?? "";
+  const res = await fetch(`/api/requests`, {
+    cache: "no-store",
+    headers: { cookie },                        // forward cookie to API
+  });
   if (!res.ok) return [];
   const data = await res.json();
   return data?.requests || [];
