@@ -4,25 +4,28 @@ export const runtime = "nodejs";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getUserFromCookie } from "@/lib/auth";
-import { headers } from "next/headers";
-
-async function fetchRequests() {
-  const h = await headers();                    // Next 15: await dynamic API
-  const cookie = h.get("cookie") ?? "";
-  const res = await fetch(`/api/requests`, {
-    cache: "no-store",
-    headers: { cookie },                        // forward cookie to API
-  });
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data?.requests || [];
-}
+import { connectDB } from "@/lib/db";
+import { FundingRequest } from "@/models/FundingRequest";
 
 export default async function RequestsListPage() {
   const me = await getUserFromCookie();
   if (!me) redirect("/login");
 
-  const rows = await fetchRequests();
+  await connectDB();
+  const rows = await FundingRequest.find({ userId: me.sub })
+    .sort({ createdAt: -1 })
+    .select("decFirstName decLastName insuranceCompany policyNumbers createdAt fhRep assignmentAmount")
+    .lean();
+
+  const data = rows.map((r: any) => ({
+    id: String(r._id),
+    decName: [r.decFirstName, r.decLastName].filter(Boolean).join(" "),
+    insuranceCompany: r.insuranceCompany || "",
+    policyNumbers: r.policyNumbers || "",
+    createdAt: r.createdAt ? new Date(r.createdAt).toLocaleString() : "",
+    fhRep: r.fhRep || "",
+    assignmentAmount: r.assignmentAmount || "",
+  }));
 
   return (
     <main style={{ maxWidth: 1000, margin: "40px auto", padding: 24 }}>
@@ -48,12 +51,12 @@ export default async function RequestsListPage() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((r: any) => (
+            {data.map((r) => (
               <tr key={r.id} style={{ borderBottom: "1px solid #f2f2f2" }}>
                 <td style={{ padding: 8 }}>{r.decName}</td>
                 <td style={{ padding: 8 }}>{r.insuranceCompany}</td>
                 <td style={{ padding: 8 }}>{r.policyNumbers}</td>
-                <td style={{ padding: 8 }}>{r.createdAt ? new Date(r.createdAt).toLocaleString() : ""}</td>
+                <td style={{ padding: 8 }}>{r.createdAt}</td>
                 <td style={{ padding: 8 }}>{r.fhRep}</td>
                 <td style={{ padding: 8 }}>{r.assignmentAmount}</td>
                 <td style={{ padding: 8 }}>
@@ -66,7 +69,7 @@ export default async function RequestsListPage() {
                 </td>
               </tr>
             ))}
-            {rows.length === 0 && (
+            {data.length === 0 && (
               <tr>
                 <td colSpan={7} style={{ padding: 16, color: "#666" }}>
                   No funding requests yet.
