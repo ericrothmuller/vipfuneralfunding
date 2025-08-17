@@ -13,6 +13,8 @@ export default async function DashboardPage() {
       <h1>Dashboard</h1>
       <p>Welcome, {user.email}!</p>
       <p><Link href="/profile">Edit Profile</Link></p>
+      <p style={{ marginTop: 12 }}><Link href="/requests">View Funding Requests</Link> &nbsp;|&nbsp; <Link href="/requests/new">Submit a Funding Request</Link>
+</p>
       <LogoutButton />
     </main>
   );
