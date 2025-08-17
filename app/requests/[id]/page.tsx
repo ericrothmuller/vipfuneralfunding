@@ -3,11 +3,19 @@ export const runtime = "nodejs";
 
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { headers } from "next/headers";
 import { getUserFromCookie } from "@/lib/auth";
 
 async function fetchRequest(id: string) {
-  const base = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-  const res = await fetch(`${base}/api/requests/${id}`, { cache: "no-store" });
+  // Forward the incoming request's cookie to your API so it can authenticate
+  const h = await headers();
+  const cookie = h.get("cookie") ?? "";
+
+  const res = await fetch(`/api/requests/${id}`, {
+    cache: "no-store",
+    headers: { cookie },
+  });
+
   if (!res.ok) return null;
   const data = await res.json();
   return data?.request || null;
@@ -16,13 +24,14 @@ async function fetchRequest(id: string) {
 function fmtBool(b: any) {
   return b ? "Yes" : "No";
 }
+
 function fmtDate(d?: string | Date | null) {
   if (!d) return "";
   const dt = new Date(d);
   return isNaN(dt.getTime()) ? "" : dt.toLocaleDateString();
 }
 
-// ⬇️ NOTE: params is a Promise<{ id: string }>
+// NOTE: In React 19 / Next 15, `params` can be a Promise and must be awaited.
 export default async function FundingRequestDetailPage({
   params,
 }: {
@@ -31,7 +40,7 @@ export default async function FundingRequestDetailPage({
   const me = await getUserFromCookie();
   if (!me) redirect("/login");
 
-  const { id } = await params; // ⬅️ await the params
+  const { id } = await params; // await the params object
   const req = await fetchRequest(id);
 
   if (!req) {
