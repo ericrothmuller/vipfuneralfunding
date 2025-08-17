@@ -1,108 +1,186 @@
-// app/components/ProfileForm.tsx
+// components/ProfileForm.tsx
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-export default function ProfileForm({ profile }: { profile: any }) {
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState<null | "ok" | "err">(null);
+type Profile = {
+  fhName: string;
+  businessPhone: string;
+  businessFax: string;
+  mailingAddress: string;
+  contactName: string;
+  contactPhone: string;
+  contactEmail: string;
+  notes: string;
+};
 
-  const [form, setForm] = useState({
-    email: profile?.email ?? "",
-    name: profile?.name ?? "",
-    funeralHomeName: profile?.funeralHomeName ?? "",
-    funeralHomePhone: profile?.funeralHomePhone ?? "",
-    funeralHomeAddress: profile?.funeralHomeAddress ?? "",
-    notes: profile?.notes ?? "",
+export default function ProfileForm() {
+  const [profile, setProfile] = useState<Profile>({
+    fhName: "",
+    businessPhone: "",
+    businessFax: "",
+    mailingAddress: "",
+    contactName: "",
+    contactPhone: "",
+    contactEmail: "",
+    notes: "",
   });
+  const [msg, setMsg] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/profile", { cache: "no-store" });
+        if (!res.ok) throw new Error("Failed to load profile");
+        const data = await res.json();
+
+        if (mounted && data?.user) {
+          setProfile({
+            fhName: data.user.fhName || "",
+            businessPhone: data.user.businessPhone || "",
+            businessFax: data.user.businessFax || "",
+            mailingAddress: data.user.mailingAddress || "",
+            contactName: data.user.contactName || "",
+            contactPhone: data.user.contactPhone || "",
+            contactEmail: data.user.contactEmail || "",
+            notes: data.user.notes || "",
+          });
+        }
+      } catch (e: any) {
+        setMsg(e?.message || "Could not load profile");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setMsg(null);
     setSaving(true);
-    setSaved(null);
     try {
       const res = await fetch("/api/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(form),
+        body: JSON.stringify(profile),
       });
-      if (!res.ok) throw new Error("Failed");
-      setSaved("ok");
-    } catch {
-      setSaved("err");
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || "Save failed");
+      }
+      setMsg("Saved.");
+    } catch (e: any) {
+      setMsg(e?.message || "Save failed");
     } finally {
       setSaving(false);
     }
   }
 
+  function set<K extends keyof Profile>(key: K, val: string) {
+    setProfile((p) => ({ ...p, [key]: val }));
+  }
+
+  if (loading) return <p>Loading…</p>;
+
   return (
-    <form onSubmit={onSubmit} className="form">
-      <div className="grid2">
-        <div className="field">
-          <label>Name</label>
-          <input
-            value={form.name}
-            onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
-            placeholder="Your name"
-          />
-        </div>
-        <div className="field">
-          <label>Email</label>
-          <input
-            type="email"
-            value={form.email}
-            onChange={(e) => setForm((s) => ({ ...s, email: e.target.value }))}
-            placeholder="you@example.com"
-          />
-        </div>
-      </div>
-
-      <div className="grid2">
-        <div className="field">
-          <label>Funeral Home</label>
-          <input
-            value={form.funeralHomeName}
-            onChange={(e) => setForm((s) => ({ ...s, funeralHomeName: e.target.value }))}
-            placeholder="Business name"
-          />
-        </div>
-        <div className="field">
-          <label>Phone</label>
-          <input
-            value={form.funeralHomePhone}
-            onChange={(e) => setForm((s) => ({ ...s, funeralHomePhone: e.target.value }))}
-            placeholder="(555) 123-4567"
-          />
-        </div>
-      </div>
-
-      <div className="field">
-        <label>Address</label>
+    <form onSubmit={onSubmit} style={{ display: "grid", gap: 12, marginTop: 16 }}>
+      <label>
+        FH/CEM Name
         <input
-          value={form.funeralHomeAddress}
-          onChange={(e) => setForm((s) => ({ ...s, funeralHomeAddress: e.target.value }))}
-          placeholder="Street, City, State"
+          type="text"
+          value={profile.fhName}
+          onChange={(e) => set("fhName", e.target.value)}
+          style={{ width: "100%", padding: 8 }}
         />
-      </div>
+      </label>
 
-      <div className="field">
-        <label>Notes</label>
+      <label>
+        Business Phone
+        <input
+          type="tel"
+          value={profile.businessPhone}
+          onChange={(e) => set("businessPhone", e.target.value)}
+          placeholder="e.g. (555) 555-5555"
+          style={{ width: "100%", padding: 8 }}
+        />
+      </label>
+
+      <label>
+        Business Fax
+        <input
+          type="tel"
+          value={profile.businessFax}
+          onChange={(e) => set("businessFax", e.target.value)}
+          style={{ width: "100%", padding: 8 }}
+        />
+      </label>
+
+      <label>
+        Mailing Address
         <textarea
-          rows={4}
-          value={form.notes}
-          onChange={(e) => setForm((s) => ({ ...s, notes: e.target.value }))}
-          placeholder="Any internal notes"
+          value={profile.mailingAddress}
+          onChange={(e) => set("mailingAddress", e.target.value)}
+          rows={3}
+          style={{ width: "100%", padding: 8 }}
         />
-      </div>
+      </label>
 
-      <div className="row">
-        <button className="btn" disabled={saving}>
-          {saving ? "Saving..." : "Save Changes"}
-        </button>
-        {saved === "ok" && <span className="pill success">Saved</span>}
-        {saved === "err" && <span className="pill danger">Save failed</span>}
-      </div>
+      <hr style={{ margin: "12px 0", border: "none", borderTop: "1px solid #eee" }} />
+
+      <label>
+        Contact Name
+        <input
+          type="text"
+          value={profile.contactName}
+          onChange={(e) => set("contactName", e.target.value)}
+          style={{ width: "100%", padding: 8 }}
+        />
+      </label>
+
+      <label>
+        Contact Phone
+        <input
+          type="tel"
+          value={profile.contactPhone}
+          onChange={(e) => set("contactPhone", e.target.value)}
+          placeholder="e.g. (555) 555-5555"
+          style={{ width: "100%", padding: 8 }}
+        />
+      </label>
+
+      <label>
+        Contact Email
+        <input
+          type="email"
+          value={profile.contactEmail}
+          onChange={(e) => set("contactEmail", e.target.value)}
+          placeholder="name@example.com"
+          style={{ width: "100%", padding: 8 }}
+        />
+      </label>
+
+      <label>
+        Notes
+        <textarea
+          value={profile.notes}
+          onChange={(e) => set("notes", e.target.value)}
+          rows={4}
+          style={{ width: "100%", padding: 8 }}
+        />
+      </label>
+
+      <button disabled={saving} type="submit" style={{ padding: 10 }}>
+        {saving ? "Saving…" : "Save"}
+      </button>
+
+      {msg && <p style={{ color: msg === "Saved." ? "green" : "crimson" }}>{msg}</p>}
     </form>
   );
 }
