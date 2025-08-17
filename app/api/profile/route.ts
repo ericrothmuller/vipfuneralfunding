@@ -32,16 +32,15 @@ export async function PUT(req: Request) {
 
     const body = await req.json();
 
-    const {
-      fhName = "",
-      businessPhone = "",
-      businessFax = "",
-      mailingAddress = "",
-      contactName = "",
-      contactPhone = "",
-      contactEmail = "",
-      notes = "",
-    } = body || {};
+    // Pull values (fallback to empty strings so fields always exist)
+    const fhName = body?.fhName ?? "";
+    const businessPhone = body?.businessPhone ?? "";
+    const businessFax = body?.businessFax ?? "";
+    const mailingAddress = body?.mailingAddress ?? "";
+    const contactName = body?.contactName ?? "";
+    const contactPhone = body?.contactPhone ?? "";
+    const contactEmail = body?.contactEmail ?? "";
+    const notes = body?.notes ?? "";
 
     await connectDB();
     const updated = await User.findByIdAndUpdate(
