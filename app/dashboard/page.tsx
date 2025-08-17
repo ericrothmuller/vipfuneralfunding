@@ -1,9 +1,9 @@
 // app/dashboard/page.tsx
 import { cookies } from "next/headers";
 import Link from "next/link";
-import dbConnect from "@/lib/db";
-import User from "@/models/User";
-import FundingRequest from "@/models/FundingRequest";
+import { connectDB } from "@/lib/db";
+import { User } from "@/models/User";
+import { FundingRequest } from "@/models/FundingRequest";
 import { getUserFromCookie } from "@/lib/auth";
 import ProfileForm from "@/components/ProfileForm";
 import RequestsTable from "@/components/RequestsTable";
@@ -12,17 +12,17 @@ import NewFundingRequestForm from "@/components/NewFundingRequestForm";
 export const runtime = "nodejs";
 
 export default async function DashboardPage() {
-  await dbConnect();
+  await connectDB();
 
   const cookieStore = await cookies();
-  const me = await getUserFromCookie(cookieStore);
+  const me = await getUserFromCookie();
 
   if (!me) {
     return (
       <main className="dash-wrap">
         <div className="card">
           <h1 className="title">You’re not signed in</h1>
-          <p>Please log in to view your dashboard.</p>
+        <p>Please log in to view your dashboard.</p>
           <div className="row">
             <Link href="/login" className="btn">Go to Login</Link>
           </div>
@@ -39,24 +39,24 @@ export default async function DashboardPage() {
   const profile = profileDoc
     ? {
         id: String(profileDoc._id),
-        email: profileDoc.email || "",
-        name: profileDoc.name || "",
-        funeralHomeName: profileDoc.funeralHomeName || "",
-        funeralHomePhone: profileDoc.funeralHomePhone || "",
-        funeralHomeAddress: profileDoc.funeralHomeAddress || "",
-        notes: profileDoc.notes || "",
+        email: (profileDoc as any).email || "",
+        name: (profileDoc as any).name || "",
+        funeralHomeName: (profileDoc as any).funeralHomeName || "",
+        funeralHomePhone: (profileDoc as any).funeralHomePhone || "",
+        funeralHomeAddress: (profileDoc as any).funeralHomeAddress || "",
+        notes: (profileDoc as any).notes || "",
       }
     : null;
 
   const rows =
-    requests?.map((r: any) => ({
+    (requests ?? []).map((r: any) => ({
       id: String(r._id),
       decedentName: r.decedentName || "",
       insurer: r.insuranceCompany || "",
       policyNumber: r.policyNumber || "",
       assignmentAmount: r.assignmentAmount || "",
       createdAt: r.createdAt ? new Date(r.createdAt).toISOString().slice(0, 10) : "",
-    })) ?? [];
+    }));
 
   return (
     <main className="dash-wrap">
