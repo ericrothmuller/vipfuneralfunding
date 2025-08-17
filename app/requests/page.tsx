@@ -2,12 +2,12 @@
 export const runtime = "nodejs";
 
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getUserFromCookie } from "@/lib/auth";
 
 async function fetchRequests() {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/requests`, {
-    cache: "no-store",
-  });
+  const base = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+  const res = await fetch(`${base}/api/requests`, { cache: "no-store" });
   if (!res.ok) return [];
   const data = await res.json();
   return data?.requests || [];
@@ -20,13 +20,13 @@ export default async function RequestsListPage() {
   const rows = await fetchRequests();
 
   return (
-    <main style={{ maxWidth: 960, margin: "40px auto", padding: 24 }}>
+    <main style={{ maxWidth: 1000, margin: "40px auto", padding: 24 }}>
       <h1>Funding Requests</h1>
 
       <div style={{ margin: "12px 0 20px" }}>
-        <a href="/requests/new" style={{ padding: "8px 12px", border: "1px solid #ccc", borderRadius: 6 }}>
+        <Link href="/requests/new" style={{ padding: "8px 12px", border: "1px solid #ccc", borderRadius: 6 }}>
           + New Funding Request
-        </a>
+        </Link>
       </div>
 
       <div style={{ overflowX: "auto" }}>
@@ -39,6 +39,7 @@ export default async function RequestsListPage() {
               <th style={{ padding: 8 }}>Create Date</th>
               <th style={{ padding: 8 }}>FH/CEM Rep</th>
               <th style={{ padding: 8 }}>Assignment Amount</th>
+              <th style={{ padding: 8 }} />
             </tr>
           </thead>
           <tbody>
@@ -47,17 +48,25 @@ export default async function RequestsListPage() {
                 <td style={{ padding: 8 }}>{r.decName}</td>
                 <td style={{ padding: 8 }}>{r.insuranceCompany}</td>
                 <td style={{ padding: 8 }}>{r.policyNumbers}</td>
-                <td style={{ padding: 8 }}>
-                  {r.createdAt ? new Date(r.createdAt).toLocaleString() : ""}
-                </td>
+                <td style={{ padding: 8 }}>{r.createdAt ? new Date(r.createdAt).toLocaleString() : ""}</td>
                 <td style={{ padding: 8 }}>{r.fhRep}</td>
                 <td style={{ padding: 8 }}>{r.assignmentAmount}</td>
+                <td style={{ padding: 8 }}>
+                  <Link
+                    href={`/requests/${r.id}`}
+                    style={{ padding: "6px 10px", border: "1px solid #ccc", borderRadius: 6 }}
+                  >
+                    View Request
+                  </Link>
+                </td>
               </tr>
             ))}
             {rows.length === 0 && (
-              <tr><td colSpan={6} style={{ padding: 16, color: "#666" }}>
-                No funding requests yet.
-              </td></tr>
+              <tr>
+                <td colSpan={7} style={{ padding: 16, color: "#666" }}>
+                  No funding requests yet.
+                </td>
+              </tr>
             )}
           </tbody>
         </table>
