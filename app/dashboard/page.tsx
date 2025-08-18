@@ -9,7 +9,8 @@ export default async function DashboardPage() {
   const user = await getUserFromCookie();
   if (!user) redirect("/login");
 
-  const isAdmin = user.role === "ADMIN";
+  const role = user.role; // "ADMIN" | "FH_CEM" | "NEW"
+  const isAdmin = role === "ADMIN";
 
   return (
     <main className="wrap">
@@ -34,7 +35,7 @@ export default async function DashboardPage() {
       </header>
 
       <section className="card">
-        <DashboardTabs isAdmin={isAdmin} />
+        <DashboardTabs isAdmin={isAdmin} role={role as "ADMIN" | "FH_CEM" | "NEW"} />
       </section>
     </main>
   );
