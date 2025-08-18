@@ -1,36 +1,59 @@
 // components/DashboardTabs.tsx
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import ProfileForm from "@/components/ProfileForm";
 import FundingRequestForm from "@/components/FundingRequestForm";
 import RequestsTable from "@/components/RequestsTable";
+import UsersAdminPanel from "@/components/UsersAdminPanel";
 
-type TabKey = "profile" | "requests" | "new";
+type TabKey = "profile" | "requests" | "new" | "users";
 
-const TABS: { key: TabKey; label: string }[] = [
+const BASE_TABS: ReadonlyArray<{ key: TabKey; label: string }> = [
   { key: "profile",  label: "Profile" },
   { key: "requests", label: "Funding Requests" },
   { key: "new",      label: "New Funding Request" },
 ];
 
-export default function DashboardTabs() {
+export default function DashboardTabs({ isAdmin }: { isAdmin: boolean }) {
+  // Build the tab list safely with useMemo (and keep types intact)
+  const tabs = useMemo<ReadonlyArray<{ key: TabKey; label: string }>>(
+    () => (isAdmin ? [...BASE_TABS, { key: "users", label: "Users" }] : BASE_TABS),
+    [isAdmin]
+  );
+
+  // Use a safe default rather than tabs[0].key
   const [active, setActive] = useState<TabKey>("profile");
   const labelId = useId();
 
-  // Load/save the last tab to localStorage
+  // Load last tab from localStorage (if valid for current role)
   useEffect(() => {
-    const saved = window.localStorage.getItem("vipff.activeTab") as TabKey | null;
-    if (saved && TABS.find(t => t.key === saved)) setActive(saved);
-  }, []);
+    const saved = (typeof window !== "undefined"
+      ? (window.localStorage.getItem("vipff.activeTab") as TabKey | null)
+      : null);
+
+    if (saved && tabs.some(t => t.key === saved)) {
+      setActive(saved);
+    } else {
+      // If we lost access to "users" because role changed, fall back to "profile"
+      if (!tabs.some(t => t.key === active)) {
+        setActive("profile");
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabs.length]); // re-evaluate when tabs set changes (i.e., role toggles)
+
+  // Persist active tab
   useEffect(() => {
-    window.localStorage.setItem("vipff.activeTab", active);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("vipff.activeTab", active);
+    }
   }, [active]);
 
   return (
     <div className="tabs">
       <div className="tablist" role="tablist" aria-label="Dashboard Sections" id={labelId}>
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t.key}
             role="tab"
@@ -82,6 +105,20 @@ export default function DashboardTabs() {
         <p className="muted">Submit a new funding request. Upload an assignment if available.</p>
         <FundingRequestForm />
       </div>
+
+      {isAdmin && (
+        <div
+          role="tabpanel"
+          id="users-panel"
+          aria-labelledby="users-tab"
+          hidden={active !== "users"}
+          className="tabpanel"
+        >
+          <h2 className="panel-title">Users</h2>
+          <p className="muted">Manage roles and activation status.</p>
+          <UsersAdminPanel />
+        </div>
+      )}
     </div>
   );
 }

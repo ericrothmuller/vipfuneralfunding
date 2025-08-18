@@ -9,6 +9,8 @@ export default async function DashboardPage() {
   const user = await getUserFromCookie();
   if (!user) redirect("/login");
 
+  const isAdmin = user.role === "ADMIN";
+
   return (
     <main className="wrap">
       <header className="dash-header">
@@ -32,7 +34,7 @@ export default async function DashboardPage() {
       </header>
 
       <section className="card">
-        <DashboardTabs />
+        <DashboardTabs isAdmin={isAdmin} />
       </section>
     </main>
   );
