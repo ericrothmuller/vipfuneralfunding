@@ -7,6 +7,7 @@ import FundingRequestForm from "@/components/FundingRequestForm";
 import RequestsTable from "@/components/RequestsTable";
 import UsersAdminPanel from "@/components/UsersAdminPanel";
 import InfoModal from "@/components/InfoModal";
+import ThemeToggle from "@/components/ThemeToggle";
 
 type Role = "ADMIN" | "FH_CEM" | "NEW";
 type TabKey = "profile" | "requests" | "new" | "users";
@@ -33,7 +34,6 @@ export default function DashboardTabs({
   const [showGate, setShowGate] = useState(false);
   const labelId = useId();
 
-  // When role/tabs change, ensure the saved tab is valid
   useEffect(() => {
     const saved = (typeof window !== "undefined"
       ? (window.localStorage.getItem("vipff.activeTab") as TabKey | null)
@@ -49,7 +49,6 @@ export default function DashboardTabs({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tabs.length, role]);
 
-  // Persist active tab
   useEffect(() => {
     if (typeof window !== "undefined") {
       window.localStorage.setItem("vipff.activeTab", active);
@@ -57,10 +56,9 @@ export default function DashboardTabs({
   }, [active]);
 
   function onSelectTab(next: TabKey) {
-    // NEW users can only edit Profile. Gate the other tabs with a modal.
     if (role === "NEW" && (next === "requests" || next === "new")) {
       setShowGate(true);
-      return; // do not change active tab
+      return;
     }
     setActive(next);
   }
@@ -91,7 +89,10 @@ export default function DashboardTabs({
           hidden={active !== "profile"}
           className="tabpanel"
         >
-          <h2 className="panel-title">Profile</h2>
+          <div className="panel-row">
+            <h2 className="panel-title">Profile</h2>
+            <ThemeToggle />
+          </div>
           <p className="muted">Update your business and contact information.</p>
           <ProfileForm />
         </div>
@@ -107,7 +108,6 @@ export default function DashboardTabs({
             <h2 className="panel-title">Funding Requests</h2>
             <button className="btn" onClick={() => onSelectTab("new")}>+ New Request</button>
           </div>
-          {/* If the user somehow got here (e.g. via saved state), still gate it */}
           {role === "NEW" ? (
             <p className="muted" style={{ paddingTop: 8 }}>
               Your account needs to be approved before you can submit or view funding requests.
