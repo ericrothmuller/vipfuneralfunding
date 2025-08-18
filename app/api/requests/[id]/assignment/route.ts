@@ -45,7 +45,7 @@ export async function GET(_req: Request, context: any) {
       );
     }
 
-    // In Next 15, context.params can be a Promise — await it safely.
+    // In Next 15, context.params might be async; this works for both cases.
     const { id } = await (context?.params ?? {});
     if (!id || typeof id !== "string") {
       return NextResponse.json({ error: "Missing id" }, { status: 400 });
@@ -64,22 +64,27 @@ export async function GET(_req: Request, context: any) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const stored = doc.assignmentUploadPath as string | undefined;
+    const stored = (doc.assignmentUploadPath as string | undefined) || "";
     if (!stored) {
       return NextResponse.json({ error: "No assignment uploaded" }, { status: 404 });
     }
 
-    // Resolve absolute path inside UPLOAD_DIR (prevent path traversal)
+    // ---- Resolve a safe absolute path inside UPLOAD_DIR ----
+    // Supports either a relative like "2025/08/file.pdf" or an absolute saved earlier.
     const root = path.resolve(UPLOAD_DIR);
-    const abs = path.isAbsolute(stored) ? stored : path.join(root, stored);
-    const resolved = path.resolve(abs);
+    const resolved = path.isAbsolute(stored)
+      ? path.resolve(stored)
+      : path.resolve(root, stored.replace(/^[/\\]+/, "")); // strip any accidental leading slash
 
-    const normalizedRoot = root.endsWith(path.sep) ? root : root + path.sep;
-    if (!resolved.startsWith(normalizedRoot)) {
+    // Use path.relative to verify `resolved` is inside `root`
+    const rel = path.relative(root, resolved);
+    if (rel.startsWith("..") || path.isAbsolute(rel)) {
+      // Log details on the server for troubleshooting, but don't leak paths to the client
+      console.warn("[assignment download] blocked path", { root, stored, resolved, rel });
       return NextResponse.json({ error: "Invalid file path" }, { status: 400 });
     }
+    // --------------------------------------------------------
 
-    // Exists and is a file?
     const stat = await fs.stat(resolved).catch(() => null);
     if (!stat || !stat.isFile()) {
       return NextResponse.json({ error: "File missing" }, { status: 404 });
