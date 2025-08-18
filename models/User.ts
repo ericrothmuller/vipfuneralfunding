@@ -7,13 +7,22 @@ const UserSchema = new Schema(
     email: { type: String, unique: true, required: true, index: true },
     passwordHash: { type: String, required: true },
 
+    // Role & status
+    role: {
+      type: String,
+      enum: ["ADMIN", "FH_CEM", "NEW"],
+      default: "NEW",
+      index: true,
+    },
+    active: { type: Boolean, default: true, index: true },
+
     // Profile fields
     fhName: { type: String, default: "" },           // FH/CEM Name
     businessPhone: { type: String, default: "" },
     businessFax: { type: String, default: "" },
     mailingAddress: { type: String, default: "" },
 
-    // NEW profile fields
+    // Extended profile
     contactName: { type: String, default: "" },
     contactPhone: { type: String, default: "" },
     contactEmail: { type: String, default: "" },
@@ -22,7 +31,6 @@ const UserSchema = new Schema(
   { timestamps: true }
 );
 
-// In TS, this infers the shape of a document from the schema
 export type UserDoc = InferSchemaType<typeof UserSchema>;
 
 export const User: Model<UserDoc> =
