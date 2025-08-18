@@ -67,9 +67,7 @@ type RequestDetail = {
   updatedAt?: string | Date | null;
 };
 
-function fmtBool(b: any) {
-  return b ? "Yes" : "No";
-}
+function fmtBool(b: any) { return b ? "Yes" : "No"; }
 function fmtDate(d?: string | Date | null) {
   if (!d) return "";
   const dt = new Date(d);
@@ -87,11 +85,8 @@ export default function RequestDetailModal({
   const [msg, setMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // ESC to close
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
@@ -100,7 +95,6 @@ export default function RequestDetailModal({
     let mounted = true;
     (async () => {
       try {
-        // Browser fetch sends cookies automatically
         const res = await fetch(`/api/requests/${id}`, { cache: "no-store" });
         const json = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(json?.error || "Failed to load request");
@@ -200,9 +194,18 @@ export default function RequestDetailModal({
                 <h4>Additional</h4>
                 <div><span>Notes</span><div style={{ whiteSpace: "pre-wrap" }}><strong>{data.notes || ""}</strong></div></div>
                 <div><span>Assignment Upload</span>
-                  {data.assignmentUploadPath
-                    ? <code>{data.assignmentUploadPath}</code>
-                    : <em>None</em>}
+                  {data.assignmentUploadPath ? (
+                    <a
+                      className="btn"
+                      href={`/api/requests/${id}/assignment`}
+                      target="_blank"
+                      rel="noopener"
+                    >
+                      Download Assignment
+                    </a>
+                  ) : (
+                    <em>None</em>
+                  )}
                 </div>
                 <div><span>Created</span><strong>{fmtDate(data.createdAt)}</strong></div>
                 <div><span>Updated</span><strong>{fmtDate(data.updatedAt)}</strong></div>
