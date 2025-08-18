@@ -1,10 +1,14 @@
-export const runtime = "nodejs";
+// app/api/login/route.ts
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { User } from "@/models/User";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { serialize } from "cookie";
+
+export const runtime = "nodejs";
+
+const ADMIN_EMAILS = new Set(["eric@vipfuneralfunding.com", "liou@vipfuneralfunding.com"]);
 
 export async function POST(req: Request) {
   try {
@@ -15,19 +19,24 @@ export async function POST(req: Request) {
 
     await connectDB();
 
-    // Do NOT use .lean() here so we keep a typed document (simplest for TS)
     const user = await User.findOne({ email }).exec();
-    if (!user) {
-      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+    if (!user) return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+
+    // Optional auto-promotion: ensure your two emails are admins.
+    if (ADMIN_EMAILS.has(user.email) && user.role !== "ADMIN") {
+      user.role = "ADMIN";
+      await user.save();
+    }
+
+    if (!user.active) {
+      return NextResponse.json({ error: "Account is deactivated. Contact support." }, { status: 403 });
     }
 
     const ok = await bcrypt.compare(password, user.passwordHash);
-    if (!ok) {
-      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
-    }
+    if (!ok) return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
 
     const token = jwt.sign(
-      { sub: String(user._id), email: user.email },
+      { sub: String(user._id), email: user.email, role: user.role, active: user.active },
       process.env.JWT_SECRET!,
       { expiresIn: "7d" }
     );
