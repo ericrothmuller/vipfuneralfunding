@@ -13,8 +13,8 @@ function makeRedirectResponse() {
     maxAge: 0,
   });
 
-  // Always redirect to your live domain home page or if in production, localhost.
-  const redirectUrl = `${process.env.BASE_URL || "http://localhost:3000"}`;
+  // Always redirect to your live domain home page
+  const redirectUrl = "https://vipfuneralfunding.net/";
 
   const res = NextResponse.redirect(redirectUrl);
   res.headers.set("Set-Cookie", cleared);
