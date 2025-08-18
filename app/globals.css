@@ -316,3 +316,116 @@ textarea {
 .error {
   color: #ff6b6b;
 }
+
+/* ---------- Light Theme Variables ---------- */
+:root[data-theme="light"] {
+  --bg: #f7f7fb;               /* page background */
+  --card: #ffffff;             /* card background */
+  --muted: #5e6470;            /* secondary text */
+  --text: #111318;             /* primary text */
+  --border: #e3e6ee;           /* borders */
+  --accent: #b18b3f;           /* gold accent (slightly deeper for light) */
+  --accent-weak: #e9d9b2;
+}
+
+:root[data-theme="light"] body {
+  background: radial-gradient(1200px 800px at 20% -10%, #e9ecf7 0%, var(--bg) 55%) no-repeat,
+              var(--bg);
+  color: var(--text);
+}
+
+:root[data-theme="light"] .card {
+  background: linear-gradient(180deg, #ffffff 0%, #fafbff 100%);
+  border-color: var(--border);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+}
+
+:root[data-theme="light"] .dash-header .muted,
+:root[data-theme="light"] .muted {
+  color: var(--muted);
+}
+
+:root[data-theme="light"] .btn {
+  background: #f3f5fb;
+  border-color: var(--border);
+  color: var(--text);
+}
+:root[data-theme="light"] .btn:hover {
+  background: #eef1f8;
+  border-color: #d8ddec;
+}
+:root[data-theme="light"] .btn-ghost {
+  background: transparent;
+}
+
+:root[data-theme="light"] .tablist {
+  background: #f3f5fb;
+  border-color: var(--border);
+}
+:root[data-theme="light"] .tab {
+  color: var(--muted);
+}
+:root[data-theme="light"] .tab:hover {
+  background: #eef1f8;
+  color: var(--text);
+}
+:root[data-theme="light"] .tab[aria-selected="true"] {
+  background: #ffffff;
+  border-color: var(--border);
+  box-shadow: inset 0 -3px 0 0 var(--accent);
+}
+
+:root[data-theme="light"] input[type="text"],
+:root[data-theme="light"] input[type="email"],
+:root[data-theme="light"] input[type="tel"],
+:root[data-theme="light"] input[type="date"],
+:root[data-theme="light"] input[type="file"],
+:root[data-theme="light"] textarea {
+  background: #ffffff;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+:root[data-theme="light"] input::placeholder,
+:root[data-theme="light"] textarea::placeholder {
+  color: #9aa1ad;
+}
+
+:root[data-theme="light"] .table-wrap {
+  border-color: var(--border);
+}
+:root[data-theme="light"] .table thead th {
+  background: #f6f8fd;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+}
+:root[data-theme="light"] .table tbody td {
+  border-bottom: 1px solid #edf0f7;
+}
+:root[data-theme="light"] .table tbody tr:hover {
+  background: #f9fbff;
+}
+
+/* Small helper styles for the toggle */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.theme-toggle .toggle-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+  user-select: none;
+}
+.theme-toggle .toggle-opt.active {
+  background: rgba(214, 177, 109, 0.12); /* hint of gold */
+  border-color: var(--accent);
+}
+.theme-toggle input {
+  accent-color: var(--accent);
+}
