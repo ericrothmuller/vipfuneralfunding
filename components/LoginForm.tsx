@@ -34,6 +34,7 @@ export default function LoginForm() {
   return (
     <main className="centered" style={{paddingTop: 25}}>
       <Image
+        className="centered"
         src="/VIP-Funeral-Funding-Logo-Gold.png"
         alt="VIP Funeral Funding logo"
         width={898}
