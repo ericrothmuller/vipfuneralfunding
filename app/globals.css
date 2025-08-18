@@ -1,3 +1,238 @@
+/* globals.css — vanilla CSS */
+
+/* ------------- Centered Class ------------- */
+
 .centered {
   text-align: center;
+}
+
+/* ------------- CSS Reset (light) ------------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+html, body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+img {
+  max-width: 100%;
+  display: block;
+}
+
+/* ------------- Theme ------------- */
+:root {
+  --bg: #0f1115;           /* page background */
+  --card: #151821;         /* card background */
+  --muted: #a0a7b4;        /* secondary text */
+  --text: #e9edf5;         /* primary text */
+  --border: #232835;       /* borders */
+  --accent: #d6b16d;       /* gold accent */
+  --accent-weak: #f3e4c1;
+  --focus: 0 0 0 3px rgba(214, 177, 109, 0.35);
+}
+
+body {
+  background: radial-gradient(1200px 800px at 20% -10%, #1b2030 0%, var(--bg) 55%) no-repeat,
+              var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+  line-height: 1.4;
+}
+
+/* ------------- Layout ------------- */
+.wrap {
+  max-width: 1100px;
+  margin: 32px auto 64px;
+  padding: 0 20px;
+}
+
+.card {
+  background: linear-gradient(180deg, #171b26 0%, #151821 100%);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+}
+
+/* ------------- Header ------------- */
+.dash-header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.brand-logo {
+  width: 160px;
+  height: auto;
+  filter: drop-shadow(0 4px 16px rgba(0,0,0,0.25));
+}
+.brand-copy h1 {
+  margin: 0 0 4px;
+  font-size: 26px;
+  letter-spacing: 0.2px;
+}
+.muted {
+  color: var(--muted);
+  margin: 0;
+}
+
+/* ------------- Buttons ------------- */
+.btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: #1b2030;
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform .06s ease, background .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+.btn:hover {
+  background: #20263a;
+  border-color: #2a3147;
+}
+.btn:active {
+  transform: translateY(1px);
+}
+.btn:focus {
+  outline: none;
+  box-shadow: var(--focus);
+}
+.btn-ghost {
+  background: transparent;
+  border-color: var(--border);
+}
+.btn-ghost:hover {
+  background: #181c28;
+}
+
+/* ------------- Tabs ------------- */
+.tabs {
+  display: block;
+}
+.tablist {
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  background: #121622;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+.tab {
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--muted);
+  padding: 10px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background .2s ease, color .2s ease, border-color .2s ease, transform .06s ease;
+}
+.tab:hover {
+  color: var(--text);
+  background: #181d2a;
+}
+.tab[aria-selected="true"] {
+  color: var(--text);
+  background: #1b2030;
+  border-color: var(--border);
+  box-shadow: inset 0 -3px 0 0 var(--accent);
+}
+.tab:focus {
+  outline: none;
+  box-shadow: var(--focus);
+}
+.tabpanel {
+  padding: 12px 6px 4px;
+}
+
+/* ------------- Panel headers ------------- */
+.panel-title {
+  margin: 4px 0 6px;
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: 0.2px;
+}
+.panel-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* ------------- Forms ------------- */
+label {
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+}
+input[type="text"],
+input[type="email"],
+input[type="tel"],
+input[type="date"],
+input[type="file"],
+textarea {
+  background: #0f1320;
+  color: var(--text);
+  border: 1px solid #29314b;
+  border-radius: 10px;
+  padding: 10px 12px;
+  transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
+}
+input::placeholder,
+textarea::placeholder {
+  color: #77809a;
+}
+input:focus,
+textarea:focus {
+  outline: none;
+  border-color: #394264;
+  box-shadow: var(--focus);
+}
+textarea {
+  resize: vertical;
+}
+
+/* ------------- Tables ------------- */
+.table-wrap {
+  width: 100%;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.table thead th {
+  text-align: left;
+  padding: 12px;
+  background: #121622;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-weight: 600;
+}
+.table tbody td {
+  padding: 12px;
+  border-bottom: 1px solid #1c2134;
+}
+.table tbody tr:hover {
+  background: #141a28;
+}
+
+/* ------------- Utility ------------- */
+.error {
+  color: #ff6b6b;
 }
