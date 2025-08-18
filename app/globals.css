@@ -6,11 +6,11 @@
   text-align: center;
 }
 
-/* ---------- Modal (vanilla CSS) ---------- */
+/* ---------- Modal (theme-aware) ---------- */
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(6, 8, 12, 0.6);
+  background: var(--overlay);
   backdrop-filter: blur(2px);
   display: grid;
   place-items: center;
@@ -22,12 +22,13 @@
   width: min(960px, 100%);
   max-height: min(85vh, 1200px);
   overflow: hidden;
-  background: linear-gradient(180deg, #171b26 0%, #151821 100%);
-  border: 1px solid var(--border);
+  background: var(--card);                 /* <- theme-aware */
+  border: 1px solid var(--border);         /* <- theme-aware */
   border-radius: 16px;
-  box-shadow: 0 20px 80px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 20px 80px rgba(0, 0, 0, 0.35);
   display: grid;
   grid-template-rows: auto 1fr auto;
+  color: var(--text);                      /* <- theme-aware text */
 }
 
 .modal-header,
@@ -65,7 +66,7 @@
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 12px;
-  background: #121622;
+  background: var(--card);                 /* <- use card color for both themes */
 }
 .detail-grid h4 {
   margin: 0 0 8px;
@@ -76,7 +77,7 @@
   grid-template-columns: 220px 1fr;
   gap: 8px;
   padding: 6px 0;
-  border-bottom: 1px dashed #1e2433;
+  border-bottom: 1px dashed var(--border); /* <- theme-aware divider */
 }
 .detail-grid section > div:last-child {
   border-bottom: none;
@@ -102,6 +103,14 @@ img {
   display: block;
 }
 
+/* --- Theme-aware logos --- */
+.theme-logo-light { display: none; }
+.theme-logo-dark  { display: inline-block; }
+
+:root[data-theme="light"] .theme-logo-dark  { display: none; }
+:root[data-theme="light"] .theme-logo-light { display: inline-block; }
+
+
 /* ------------- Theme ------------- */
 :root {
   --bg: #0f1115;           /* page background */
@@ -112,6 +121,7 @@ img {
   --accent: #d6b16d;       /* gold accent */
   --accent-weak: #f3e4c1;
   --focus: 0 0 0 3px rgba(214, 177, 109, 0.35);
+  --overlay: rgba(6, 8, 12, 0.6); /* dark: richer dim */
 }
 
 body {
@@ -326,6 +336,7 @@ textarea {
   --border: #e3e6ee;           /* borders */
   --accent: #b18b3f;           /* gold accent (slightly deeper for light) */
   --accent-weak: #e9d9b2;
+  --overlay: rgba(17, 19, 24, 0.35); /* light: softer dim */
 }
 
 :root[data-theme="light"] body {
