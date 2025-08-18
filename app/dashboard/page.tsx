@@ -9,17 +9,27 @@ export default async function DashboardPage() {
   const user = await getUserFromCookie();
   if (!user) redirect("/login");
 
-  const role = user.role; // "ADMIN" | "FH_CEM" | "NEW"
-  const isAdmin = role === "ADMIN";
+  const isAdmin = user.role === "ADMIN";
 
   return (
     <main className="wrap">
       <header className="dash-header">
         <div className="brand">
+          {/* Dark theme logo (gold) */}
           <img
             src="/VIP-Funeral-Funding-Logo-Gold.png"
             alt="VIP Funeral Funding"
-            className="brand-logo"
+            className="brand-logo theme-logo-dark"
+            width={160}
+            height={40}
+          />
+          {/* Light theme logo (black) */}
+          <img
+            src="/VIP-Funeral-Funding-Logo-Black.png"
+            alt="VIP Funeral Funding"
+            className="brand-logo theme-logo-light"
+            width={160}
+            height={40}
           />
           <div className="brand-copy">
             <h1>Dashboard</h1>
@@ -35,7 +45,7 @@ export default async function DashboardPage() {
       </header>
 
       <section className="card">
-        <DashboardTabs isAdmin={isAdmin} role={role as "ADMIN" | "FH_CEM" | "NEW"} />
+        <DashboardTabs isAdmin={isAdmin} role={user.role as "ADMIN" | "FH_CEM" | "NEW"} />
       </section>
     </main>
   );
