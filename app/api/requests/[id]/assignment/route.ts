@@ -32,15 +32,12 @@ function guessContentType(p: string): string {
   return map[ext] || "application/octet-stream";
 }
 
-export async function GET(
-  _req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_req: Request, context: any) {
   try {
     const me = await getUserFromCookie();
     if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    // Gate NEW users at the backend, too.
+    // Backend gate for NEW users too
     if (me.role === "NEW") {
       return NextResponse.json(
         { error: "Approval required before accessing funding requests." },
@@ -48,8 +45,11 @@ export async function GET(
       );
     }
 
-    const id = params?.id;
-    if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+    // In Next 15, context.params can be a Promise — await it safely.
+    const { id } = await (context?.params ?? {});
+    if (!id || typeof id !== "string") {
+      return NextResponse.json({ error: "Missing id" }, { status: 400 });
+    }
 
     await connectDB();
     const doc: any = await FundingRequest.findById(id)
@@ -69,17 +69,17 @@ export async function GET(
       return NextResponse.json({ error: "No assignment uploaded" }, { status: 404 });
     }
 
-    // Resolve path within UPLOAD_DIR (prevent path traversal)
+    // Resolve absolute path inside UPLOAD_DIR (prevent path traversal)
     const root = path.resolve(UPLOAD_DIR);
     const abs = path.isAbsolute(stored) ? stored : path.join(root, stored);
     const resolved = path.resolve(abs);
 
-    // Must be inside UPLOAD_DIR
-    if (!resolved.startsWith(root + path.sep)) {
+    const normalizedRoot = root.endsWith(path.sep) ? root : root + path.sep;
+    if (!resolved.startsWith(normalizedRoot)) {
       return NextResponse.json({ error: "Invalid file path" }, { status: 400 });
     }
 
-    // Check file exists and get size for Content-Length
+    // Exists and is a file?
     const stat = await fs.stat(resolved).catch(() => null);
     if (!stat || !stat.isFile()) {
       return NextResponse.json({ error: "File missing" }, { status: 404 });
@@ -88,7 +88,7 @@ export async function GET(
     const filename = path.basename(resolved);
     const type = guessContentType(resolved);
 
-    // Stream the file. Convert Node Readable to Web ReadableStream.
+    // Stream the file; convert Node Readable to Web ReadableStream for Response
     const nodeStream = createReadStream(resolved);
     const webStream = Readable.toWeb(nodeStream) as unknown as ReadableStream;
 
