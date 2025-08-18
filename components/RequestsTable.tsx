@@ -1,46 +1,80 @@
-// app/components/RequestsTable.tsx
+// components/RequestsTable.tsx
 "use client";
 
-import Link from "next/link";
+import { useEffect, useState } from "react";
 
-export type RequestRow = {
+type Row = {
   id: string;
-  decedentName: string;
-  insurer: string;
-  policyNumber: string;
-  assignmentAmount: string;
+  decName: string;
+  insuranceCompany: string;
+  policyNumbers: string;
   createdAt: string;
+  fhRep: string;
+  assignmentAmount: string;
 };
 
-export default function RequestsTable({ rows }: { rows: RequestRow[] }) {
+export default function RequestsTable() {
+  const [rows, setRows] = useState<Row[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/requests", { cache: "no-store" });
+        if (!res.ok) throw new Error("Failed to load funding requests");
+        const data = await res.json();
+        if (mounted) setRows(data?.requests || []);
+      } catch (e: any) {
+        setMsg(e?.message || "Could not load funding requests");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  if (loading) return <p>Loading…</p>;
+  if (msg) return <p className="error">{msg}</p>;
+
   return (
     <div className="table-wrap">
       <table className="table">
         <thead>
           <tr>
-            <th>Decedent</th>
-            <th>Insurer</th>
-            <th>Policy #</th>
-            <th>Assignment</th>
-            <th>Created</th>
-            <th></th>
+            <th>DEC Name</th>
+            <th>Insurance Company</th>
+            <th>Policy Number(s)</th>
+            <th>Create Date</th>
+            <th>FH/CEM Rep</th>
+            <th>Assignment Amount</th>
+            <th />
           </tr>
         </thead>
         <tbody>
           {rows.map((r) => (
             <tr key={r.id}>
-              <td>{r.decedentName || "—"}</td>
-              <td>{r.insurer || "—"}</td>
-              <td>{r.policyNumber || "—"}</td>
-              <td>{r.assignmentAmount || "—"}</td>
-              <td>{r.createdAt || "—"}</td>
+              <td>{r.decName}</td>
+              <td>{r.insuranceCompany}</td>
+              <td>{r.policyNumbers}</td>
+              <td>{r.createdAt ? new Date(r.createdAt).toLocaleString() : ""}</td>
+              <td>{r.fhRep}</td>
+              <td>{r.assignmentAmount}</td>
               <td>
-                <Link className="btn tiny" href={`/requests/${r.id}`}>
+                <a className="btn btn-ghost" href={`/requests/${r.id}`}>
                   View
-                </Link>
+                </a>
               </td>
             </tr>
           ))}
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={7} className="muted" style={{ padding: 16 }}>
+                No funding requests yet.
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
     </div>
