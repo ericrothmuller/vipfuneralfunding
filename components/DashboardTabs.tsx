@@ -99,7 +99,7 @@ export default function DashboardTabs({ isAdmin, role }: { isAdmin: boolean; rol
               Your account needs to be approved before you can submit or view funding requests.
             </p>
           ) : (
-            <RequestsTable />
+            <RequestsTable isAdmin={isAdmin} />
           )}
         </div>
 
