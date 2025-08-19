@@ -18,13 +18,7 @@ const BASE_TABS: ReadonlyArray<{ key: TabKey; label: string }> = [
   { key: "new",      label: "New Funding Request" },
 ];
 
-export default function DashboardTabs({
-  isAdmin,
-  role,
-}: {
-  isAdmin: boolean;
-  role: Role;
-}) {
+export default function DashboardTabs({ isAdmin, role }: { isAdmin: boolean; role: Role }) {
   const tabs = useMemo<ReadonlyArray<{ key: TabKey; label: string }>>(
     () => (isAdmin ? [...BASE_TABS, { key: "users", label: "Users" }] : BASE_TABS),
     [isAdmin]
@@ -34,25 +28,29 @@ export default function DashboardTabs({
   const [showGate, setShowGate] = useState(false);
   const labelId = useId();
 
+  // Pick initial tab from ?tab=, then localStorage, then default "profile"
   useEffect(() => {
-    const saved = (typeof window !== "undefined"
-      ? (window.localStorage.getItem("vipff.activeTab") as TabKey | null)
-      : null);
+    const url = new URL(window.location.href);
+    const qTab = (url.searchParams.get("tab") || "") as TabKey;
+    const lsTab = (localStorage.getItem("vipff.activeTab") || "") as TabKey;
 
-    if (saved && tabs.some(t => t.key === saved)) {
-      setActive(saved);
-    } else {
-      if (!tabs.some(t => t.key === active)) {
-        setActive("profile");
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const candidate: TabKey | "" =
+      (qTab && tabs.some(t => t.key === qTab) && qTab) ||
+      (lsTab && tabs.some(t => t.key === lsTab) && lsTab) ||
+      "";
+
+    if (candidate) setActive(candidate);
+    else if (!tabs.some(t => t.key === active)) setActive("profile");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tabs.length, role]);
 
+  // Persist & reflect tab in URL when it changes (no page reload)
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("vipff.activeTab", active);
-    }
+    if (!active) return;
+    localStorage.setItem("vipff.activeTab", active);
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", active);
+    window.history.replaceState({}, "", url.toString());
   }, [active]);
 
   function onSelectTab(next: TabKey) {
@@ -82,13 +80,7 @@ export default function DashboardTabs({
           ))}
         </div>
 
-        <div
-          role="tabpanel"
-          id="profile-panel"
-          aria-labelledby="profile-tab"
-          hidden={active !== "profile"}
-          className="tabpanel"
-        >
+        <div role="tabpanel" id="profile-panel" aria-labelledby="profile-tab" hidden={active !== "profile"} className="tabpanel">
           <div className="panel-row">
             <h2 className="panel-title">Profile</h2>
             <ThemeToggle />
@@ -97,13 +89,7 @@ export default function DashboardTabs({
           <ProfileForm />
         </div>
 
-        <div
-          role="tabpanel"
-          id="requests-panel"
-          aria-labelledby="requests-tab"
-          hidden={active !== "requests"}
-          className="tabpanel"
-        >
+        <div role="tabpanel" id="requests-panel" aria-labelledby="requests-tab" hidden={active !== "requests"} className="tabpanel">
           <div className="panel-row">
             <h2 className="panel-title">Funding Requests</h2>
             <button className="btn" onClick={() => onSelectTab("new")}>+ New Request</button>
@@ -117,13 +103,7 @@ export default function DashboardTabs({
           )}
         </div>
 
-        <div
-          role="tabpanel"
-          id="new-panel"
-          aria-labelledby="new-tab"
-          hidden={active !== "new"}
-          className="tabpanel"
-        >
+        <div role="tabpanel" id="new-panel" aria-labelledby="new-tab" hidden={active !== "new"} className="tabpanel">
           <h2 className="panel-title">New Funding Request</h2>
           <p className="muted">Submit a new funding request. Upload an assignment if available.</p>
           {role === "NEW" ? (
@@ -136,13 +116,7 @@ export default function DashboardTabs({
         </div>
 
         {isAdmin && (
-          <div
-            role="tabpanel"
-            id="users-panel"
-            aria-labelledby="users-tab"
-            hidden={active !== "users"}
-            className="tabpanel"
-          >
+          <div role="tabpanel" id="users-panel" aria-labelledby="users-tab" hidden={active !== "users"} className="tabpanel">
             <h2 className="panel-title">Users</h2>
             <p className="muted">Manage roles and activation status.</p>
             <UsersAdminPanel />
@@ -151,10 +125,7 @@ export default function DashboardTabs({
       </div>
 
       {showGate && (
-        <InfoModal
-          title="Approval Required"
-          onClose={() => setShowGate(false)}
-        >
+        <InfoModal title="Approval Required" onClose={() => setShowGate(false)}>
           Your account needs to be approved before you can submit or view funding requests.
         </InfoModal>
       )}
