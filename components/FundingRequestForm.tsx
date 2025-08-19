@@ -15,7 +15,7 @@ export default function FundingRequestForm() {
     setSaving(true);
 
     try {
-      const fd = new FormData(e.currentTarget); // includes ALL inputs + file
+      const fd = new FormData(e.currentTarget); // includes file + all fields
       const res = await fetch("/api/requests", { method: "POST", body: fd });
       const json = await res.json().catch(() => ({}));
 
@@ -23,11 +23,11 @@ export default function FundingRequestForm() {
         throw new Error(json?.error || `Server error (code ${res.status})`);
       }
 
-      // ✅ After success, open Dashboard on the Funding Requests tab
-      try {
-        window.localStorage.setItem("vipff.activeTab", "requests");
-      } catch {}
-      router.push("/dashboard");
+      // Preselect the "requests" tab for the dashboard
+      try { window.localStorage.setItem("vipff.activeTab", "requests"); } catch {}
+
+      // ✅ Redirect to dashboard with a tab query so the tab picker sees it
+      router.replace("/dashboard?tab=requests");
     } catch (err: any) {
       setMsg(err?.message || "Submit failed");
     } finally {
@@ -199,7 +199,6 @@ export default function FundingRequestForm() {
       {/* -------- Upload -------- */}
       <fieldset className="card" style={{ padding: 12 }}>
         <legend className="panel-title">Upload Assignment</legend>
-        {/* IMPORTANT: must stay 'assignmentUpload' for the API to see it */}
         <input
           name="assignmentUpload"
           type="file"
