@@ -13,22 +13,20 @@ export default function FundingRequestForm() {
     e.preventDefault();
     setMsg(null);
     setSaving(true);
+
     try {
-      const fd = new FormData(e.currentTarget); // includes file + all fields
-
-      const res = await fetch("/api/requests", {
-        method: "POST",
-        body: fd, // browser sets multipart/form-data boundary automatically
-      });
-
+      const fd = new FormData(e.currentTarget); // includes ALL inputs + file
+      const res = await fetch("/api/requests", { method: "POST", body: fd });
       const json = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        // surface the server error if provided
         throw new Error(json?.error || `Server error (code ${res.status})`);
       }
 
-      // Success → send user back to the dashboard
+      // ✅ After success, open Dashboard on the Funding Requests tab
+      try {
+        window.localStorage.setItem("vipff.activeTab", "requests");
+      } catch {}
       router.push("/dashboard");
     } catch (err: any) {
       setMsg(err?.message || "Submit failed");
@@ -201,7 +199,7 @@ export default function FundingRequestForm() {
       {/* -------- Upload -------- */}
       <fieldset className="card" style={{ padding: 12 }}>
         <legend className="panel-title">Upload Assignment</legend>
-        {/* IMPORTANT: the name MUST remain 'assignmentUpload' for the API to see it */}
+        {/* IMPORTANT: must stay 'assignmentUpload' for the API to see it */}
         <input
           name="assignmentUpload"
           type="file"
@@ -216,7 +214,6 @@ export default function FundingRequestForm() {
         {saving ? "Submitting…" : "Submit Funding Request"}
       </button>
 
-      {/* Error / info message */}
       {msg && (
         <p role="alert" style={{ color: "crimson", marginTop: 8 }}>
           {msg}
