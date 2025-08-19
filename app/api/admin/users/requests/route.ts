@@ -9,12 +9,17 @@ import { FundingRequest } from "@/models/FundingRequest";
 export async function GET() {
   try {
     const me = await getUserFromCookie();
-    if (!me || me.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!me || me.role !== "ADMIN") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     await connectDB();
+
     const rows = await FundingRequest.find({})
       .sort({ createdAt: -1 })
-      .select("userId decFirstName decLastName insuranceCompany policyNumbers createdAt fhRep assignmentAmount")
+      .select(
+        "userId decFirstName decLastName insuranceCompany policyNumbers createdAt fhRep assignmentAmount"
+      )
       .lean();
 
     const data = rows.map((r: any) => ({
@@ -25,7 +30,7 @@ export async function GET() {
       createdAt: r.createdAt,
       fhRep: r.fhRep || "",
       assignmentAmount: r.assignmentAmount || "",
-      userId: String(r.userId),
+      userId: String(r.userId || ""),
     }));
 
     return NextResponse.json({ requests: data });
