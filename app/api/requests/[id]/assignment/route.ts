@@ -1,3 +1,4 @@
+// app/api/requests/[id]/assignment/route.ts
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -16,16 +17,9 @@ const LEGACY_PARENT = "/home/deploy/uploads";
 function guessContentType(p: string): string {
   const ext = path.extname(p).toLowerCase();
   const map: Record<string, string> = {
-    ".pdf": "application/pdf",
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".gif": "image/gif",
-    ".webp": "image/webp",
-    ".tif": "image/tiff",
-    ".tiff": "image/tiff",
-    ".doc": "application/msword",
-    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".pdf": "application/pdf", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+    ".gif": "image/gif", ".webp": "image/webp", ".tif": "image/tiff", ".tiff": "image/tiff",
+    ".doc": "application/msword", ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     ".txt": "text/plain; charset=utf-8",
   };
   return map[ext] || "application/octet-stream";
@@ -53,14 +47,13 @@ export async function GET(_req: Request, context: any) {
     let stored = (doc.assignmentUploadPath as string | undefined) || "";
     if (!stored) return NextResponse.json({ error: "No assignment uploaded" }, { status: 404 });
 
-    // normalize: strip leading slashes; strip "uploads/" prefix if present
+    // Normalize legacy values: strip leading slashes and optional "uploads/"
     let relative = stored.trim().replace(/^[/\\]+/, "");
-    if (relative.toLowerCase().startsWith("uploads/")) {
-      relative = relative.slice("uploads/".length);
-    }
+    if (relative.toLowerCase().startsWith("uploads/")) relative = relative.slice("uploads/".length);
 
-    const root      = path.resolve(UPLOAD_DIR);
-    const legacyRoot= path.resolve(LEGACY_PARENT);
+    const root       = path.resolve(UPLOAD_DIR);
+    const legacyRoot = path.resolve(LEGACY_PARENT);
+
     const candidates = [
       path.resolve(root, relative),
       path.resolve(root, path.basename(relative)),
