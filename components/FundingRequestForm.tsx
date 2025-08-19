@@ -14,17 +14,22 @@ export default function FundingRequestForm() {
     setMsg(null);
     setSaving(true);
     try {
-      const fd = new FormData(e.currentTarget); // includes the file automatically
+      const fd = new FormData(e.currentTarget); // includes file + all fields
+
       const res = await fetch("/api/requests", {
         method: "POST",
-        body: fd, // browser sets multipart/form-data boundaries
+        body: fd, // browser sets multipart/form-data boundary automatically
       });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json?.error || "Submit failed");
 
-      setMsg("Submitted.");
-      // Take user to their list so they can see the new request
-      router.push("/requests");
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        // surface the server error if provided
+        throw new Error(json?.error || `Server error (code ${res.status})`);
+      }
+
+      // Success → send user back to the dashboard
+      router.push("/dashboard");
     } catch (err: any) {
       setMsg(err?.message || "Submit failed");
     } finally {
@@ -82,7 +87,7 @@ export default function FundingRequestForm() {
         <label>DEC Address
           <input name="decAddress" type="text" style={{ width: "100%", padding: 8 }} />
         </label>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 120px 120px 120px", gap: 8 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 140px", gap: 8 }}>
           <label>City
             <input name="decCity" type="text" style={{ width: "100%", padding: 8 }} />
           </label>
@@ -210,7 +215,13 @@ export default function FundingRequestForm() {
       <button disabled={saving} className="btn" type="submit">
         {saving ? "Submitting…" : "Submit Funding Request"}
       </button>
-      {msg && <p style={{ color: msg === "Submitted." ? "limegreen" : "crimson" }}>{msg}</p>}
+
+      {/* Error / info message */}
+      {msg && (
+        <p role="alert" style={{ color: "crimson", marginTop: 8 }}>
+          {msg}
+        </p>
+      )}
     </form>
   );
 }
