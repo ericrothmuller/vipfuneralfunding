@@ -16,26 +16,35 @@ export default function FundingRequestForm() {
 
     try {
       const formEl = e.currentTarget;
-      const fd = new FormData(formEl); // includes file + all fields
+      const fd = new FormData(formEl); // includes ALL fields + file automatically
 
       const res = await fetch("/api/requests", { method: "POST", body: fd });
-      const json = await res.json().catch(() => ({}));
+      const json = await res.json().catch(() => ({} as any));
 
       if (!res.ok) {
         throw new Error(json?.error || `Server error (code ${res.status})`);
       }
 
-      // Clear form inputs immediately
+      // Clear the form immediately
       formEl.reset();
 
-      // Preselect dashboard tab to "requests"
-      try { window.localStorage.setItem("vipff.activeTab", "profile"); } catch {}
+      // Preselect dashboard tab to "profile"
+      try {
+        window.localStorage.setItem("vipff.activeTab", "profile");
+      } catch {}
 
-      // Navigate to the Funding Requests tab and force a light refresh
+      // Navigate to profile tab and refresh so tables reflect the new request
       router.replace("/dashboard?tab=profile", { scroll: false });
-      router.refresh(); // ensure client/server bits see the latest
+      router.refresh();
+
+      // Hard fallback (belt & suspenders) in case SPA state blocks the change
+      setTimeout(() => {
+        if (!window.location.search.includes("tab=profile")) {
+          window.location.assign("/dashboard?tab=profile");
+        }
+      }, 200);
     } catch (err: any) {
-      setMsg(err?.message || "Submit failed. Please make sure you filled out all required fields.");
+      setMsg(err?.message || "Submit failed");
     } finally {
       setSaving(false);
     }
@@ -205,13 +214,14 @@ export default function FundingRequestForm() {
       {/* -------- Upload -------- */}
       <fieldset className="card" style={{ padding: 12 }}>
         <legend className="panel-title">Upload Assignment</legend>
+        {/* MUST stay 'assignmentUpload' for API to see it */}
         <input
           name="assignmentUpload"
           type="file"
           accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.tif,.tiff,.webp,.gif,.txt"
         />
         <p className="muted" style={{ marginTop: 6 }}>
-          Max 25MB. Accepted: PDF, DOC/DOCX, PNG/JPG, TIFF, WEBP, TXT.
+          Max 500MB. Accepted: PDF, DOC/DOCX, PNG/JPG, TIFF, WEBP, TXT.
         </p>
       </fieldset>
 
