@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import ProfileForm from "@/components/ProfileForm";
 import FundingRequestForm from "@/components/FundingRequestForm";
 import RequestsTable from "@/components/RequestsTable";
@@ -24,34 +25,39 @@ export default function DashboardTabs({ isAdmin, role }: { isAdmin: boolean; rol
     [isAdmin]
   );
 
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [active, setActive] = useState<TabKey>("profile");
   const [showGate, setShowGate] = useState(false);
   const labelId = useId();
 
-  // Pick initial tab from ?tab=, then localStorage, then default "profile"
+  // Read initial tab from ?tab= or localStorage, then sync when ?tab= changes
   useEffect(() => {
-    const url = new URL(window.location.href);
-    const qTab = (url.searchParams.get("tab") || "") as TabKey;
-    const lsTab = (localStorage.getItem("vipff.activeTab") || "") as TabKey;
+    const q = (searchParams.get("tab") || "") as TabKey;
+    const ls = (typeof window !== "undefined" ? localStorage.getItem("vipff.activeTab") : "") as TabKey;
+    const first =
+      (q && tabs.some(t => t.key === q) && q) ||
+      (ls && tabs.some(t => t.key === ls) && ls) ||
+      "profile";
+    setActive(first);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabs.length]); // run on mount / when tabs set changes
 
-    const candidate: TabKey | "" =
-      (qTab && tabs.some(t => t.key === qTab) && qTab) ||
-      (lsTab && tabs.some(t => t.key === lsTab) && lsTab) ||
-      "";
+  // If the URL ?tab= changes later (e.g., after form submit), update active
+  useEffect(() => {
+    const q = (searchParams.get("tab") || "") as TabKey;
+    if (q && tabs.some(t => t.key === q) && q !== active) {
+      setActive(q);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]); // responds to query param changes
 
-    if (candidate) setActive(candidate);
-    else if (!tabs.some(t => t.key === active)) setActive("profile");
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tabs.length, role]);
-
-  // Persist & reflect tab in URL when it changes (no page reload)
+  // Persist active tab and reflect it in the URL (without reloading or scrolling)
   useEffect(() => {
     if (!active) return;
-    localStorage.setItem("vipff.activeTab", active);
-    const url = new URL(window.location.href);
-    url.searchParams.set("tab", active);
-    window.history.replaceState({}, "", url.toString());
-  }, [active]);
+    try { localStorage.setItem("vipff.activeTab", active); } catch {}
+    router.replace(`?tab=${active}`, { scroll: false });
+  }, [active, router]);
 
   function onSelectTab(next: TabKey) {
     if (role === "NEW" && (next === "requests" || next === "new")) {
