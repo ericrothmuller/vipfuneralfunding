@@ -32,10 +32,10 @@ export default function FundingRequestForm() {
       try { window.localStorage.setItem("vipff.activeTab", "requests"); } catch {}
 
       // Navigate to the Funding Requests tab and force a light refresh
-      router.replace("/dashboard?tab=requests", { scroll: false });
+      router.replace("/dashboard?tab=profile", { scroll: false });
       router.refresh(); // ensure client/server bits see the latest
     } catch (err: any) {
-      setMsg(err?.message || "Submit failed");
+      setMsg(err?.message || "Submit failed. Please make sure you filled out all required fields.");
     } finally {
       setSaving(false);
     }
