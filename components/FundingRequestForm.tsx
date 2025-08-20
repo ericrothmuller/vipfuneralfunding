@@ -29,7 +29,7 @@ export default function FundingRequestForm() {
       formEl.reset();
 
       // Preselect dashboard tab to "requests"
-      try { window.localStorage.setItem("vipff.activeTab", "requests"); } catch {}
+      try { window.localStorage.setItem("vipff.activeTab", "profile"); } catch {}
 
       // Navigate to the Funding Requests tab and force a light refresh
       router.replace("/dashboard?tab=profile", { scroll: false });
