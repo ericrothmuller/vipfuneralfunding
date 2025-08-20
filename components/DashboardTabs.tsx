@@ -31,7 +31,7 @@ export default function DashboardTabs({ isAdmin, role }: { isAdmin: boolean; rol
   const [showGate, setShowGate] = useState(false);
   const labelId = useId();
 
-  // Read initial tab from ?tab= or localStorage, then sync when ?tab= changes
+  // Initial tab (query param overrides, then localStorage)
   useEffect(() => {
     const q = (searchParams.get("tab") || "") as TabKey;
     const ls = (typeof window !== "undefined" ? localStorage.getItem("vipff.activeTab") : "") as TabKey;
@@ -41,18 +41,18 @@ export default function DashboardTabs({ isAdmin, role }: { isAdmin: boolean; rol
       "profile";
     setActive(first);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tabs.length]); // run on mount / when tabs set changes
+  }, [tabs.length]);
 
-  // If the URL ?tab= changes later (e.g., after form submit), update active
+  // React to later query changes (e.g., after submit)
   useEffect(() => {
     const q = (searchParams.get("tab") || "") as TabKey;
     if (q && tabs.some(t => t.key === q) && q !== active) {
       setActive(q);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]); // responds to query param changes
+  }, [searchParams]);
 
-  // Persist active tab and reflect it in the URL (without reloading or scrolling)
+  // Persist to localStorage and reflect in URL without scrolling
   useEffect(() => {
     if (!active) return;
     try { localStorage.setItem("vipff.activeTab", active); } catch {}
@@ -86,43 +86,50 @@ export default function DashboardTabs({ isAdmin, role }: { isAdmin: boolean; rol
           ))}
         </div>
 
-        <div role="tabpanel" id="profile-panel" aria-labelledby="profile-tab" hidden={active !== "profile"} className="tabpanel">
-          <div className="panel-row">
-            <h2 className="panel-title">Profile</h2>
-            <ThemeToggle />
+        {/* Render only the active panel (unmount others to clear state/forms) */}
+        {active === "profile" && (
+          <div role="tabpanel" id="profile-panel" aria-labelledby="profile-tab" className="tabpanel">
+            <div className="panel-row">
+              <h2 className="panel-title">Profile</h2>
+              <ThemeToggle />
+            </div>
+            <p className="muted">Update your business and contact information.</p>
+            <ProfileForm />
           </div>
-          <p className="muted">Update your business and contact information.</p>
-          <ProfileForm />
-        </div>
+        )}
 
-        <div role="tabpanel" id="requests-panel" aria-labelledby="requests-tab" hidden={active !== "requests"} className="tabpanel">
-          <div className="panel-row">
-            <h2 className="panel-title">Funding Requests</h2>
-            <button className="btn" onClick={() => onSelectTab("new")}>+ New Request</button>
+        {active === "requests" && (
+          <div role="tabpanel" id="requests-panel" aria-labelledby="requests-tab" className="tabpanel">
+            <div className="panel-row">
+              <h2 className="panel-title">Funding Requests</h2>
+              <button className="btn" onClick={() => onSelectTab("new")}>+ New Request</button>
+            </div>
+            {role === "NEW" ? (
+              <p className="muted" style={{ paddingTop: 8 }}>
+                Your account needs to be approved before you can submit or view funding requests.
+              </p>
+            ) : (
+              <RequestsTable isAdmin={isAdmin} />
+            )}
           </div>
-          {role === "NEW" ? (
-            <p className="muted" style={{ paddingTop: 8 }}>
-              Your account needs to be approved before you can submit or view funding requests.
-            </p>
-          ) : (
-            <RequestsTable isAdmin={isAdmin} />
-          )}
-        </div>
+        )}
 
-        <div role="tabpanel" id="new-panel" aria-labelledby="new-tab" hidden={active !== "new"} className="tabpanel">
-          <h2 className="panel-title">New Funding Request</h2>
-          <p className="muted">Submit a new funding request. Upload an assignment if available.</p>
-          {role === "NEW" ? (
-            <p className="muted" style={{ paddingTop: 8 }}>
-              Your account needs to be approved before you can submit or view funding requests.
-            </p>
-          ) : (
-            <FundingRequestForm />
-          )}
-        </div>
+        {active === "new" && (
+          <div role="tabpanel" id="new-panel" aria-labelledby="new-tab" className="tabpanel">
+            <h2 className="panel-title">New Funding Request</h2>
+            <p className="muted">Submit a new funding request. Upload an assignment if available.</p>
+            {role === "NEW" ? (
+              <p className="muted" style={{ paddingTop: 8 }}>
+                Your account needs to be approved before you can submit or view funding requests.
+              </p>
+            ) : (
+              <FundingRequestForm />
+            )}
+          </div>
+        )}
 
-        {isAdmin && (
-          <div role="tabpanel" id="users-panel" aria-labelledby="users-tab" hidden={active !== "users"} className="tabpanel">
+        {isAdmin && active === "users" && (
+          <div role="tabpanel" id="users-panel" aria-labelledby="users-tab" className="tabpanel">
             <h2 className="panel-title">Users</h2>
             <p className="muted">Manage roles and activation status.</p>
             <UsersAdminPanel />
