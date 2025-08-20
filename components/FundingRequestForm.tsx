@@ -15,7 +15,9 @@ export default function FundingRequestForm() {
     setSaving(true);
 
     try {
-      const fd = new FormData(e.currentTarget); // includes file + all fields
+      const formEl = e.currentTarget;
+      const fd = new FormData(formEl); // includes file + all fields
+
       const res = await fetch("/api/requests", { method: "POST", body: fd });
       const json = await res.json().catch(() => ({}));
 
@@ -23,11 +25,15 @@ export default function FundingRequestForm() {
         throw new Error(json?.error || `Server error (code ${res.status})`);
       }
 
-      // Preselect the "requests" tab for the dashboard
+      // Clear form inputs immediately
+      formEl.reset();
+
+      // Preselect dashboard tab to "requests"
       try { window.localStorage.setItem("vipff.activeTab", "requests"); } catch {}
 
-      // ✅ Redirect to dashboard with a tab query so the tab picker sees it
-      router.replace("/dashboard?tab=requests");
+      // Navigate to the Funding Requests tab and force a light refresh
+      router.replace("/dashboard?tab=requests", { scroll: false });
+      router.refresh(); // ensure client/server bits see the latest
     } catch (err: any) {
       setMsg(err?.message || "Submit failed");
     } finally {
