@@ -80,7 +80,7 @@ const FundingRequestSchema = new Schema(
           required: true,
         },
         at: { type: Date, default: Date.now },
-        by: { type: Schema.Types.ObjectId, ref: "User" }, // admin id
+        by: { type: Schema.Types.ObjectId, ref: "User" }, // admin user id
         note: { type: String, default: "" },
       },
     ],

@@ -9,15 +9,7 @@ import { FundingRequest } from "@/models/FundingRequest";
 import fs from "node:fs/promises";
 import path from "node:path";
 
-const UPLOAD_DIR    = process.env.UPLOAD_DIR || "/home/deploy/uploads/vipfuneralfunding";
-const LEGACY_PARENT = "/home/deploy/uploads";
-
-function within(root: string, p: string) {
-  const rel = path.relative(root, p);
-  return !rel.startsWith("..") && !path.isAbsolute(rel);
-}
-
-// ---------- GET (detail) ----------
+/* ---------- GET (detail) ---------- */
 export async function GET(_req: Request, context: any) {
   try {
     const me = await getUserFromCookie();
@@ -30,14 +22,12 @@ export async function GET(_req: Request, context: any) {
 
     await connectDB();
     const doc: any = await FundingRequest.findById(id).lean();
-
     if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const isOwner = String(doc.userId) === String(me.sub);
     const isAdmin = me.role === "ADMIN";
     if (!isOwner && !isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    // return full doc (id included)
     return NextResponse.json({ request: { id: String(doc._id), ...doc } });
   } catch (err) {
     console.error(err);
@@ -45,7 +35,7 @@ export async function GET(_req: Request, context: any) {
   }
 }
 
-// ---------- DELETE ----------
+/* ---------- DELETE ---------- */
 export async function DELETE(_req: Request, context: any) {
   try {
     const me = await getUserFromCookie();
@@ -70,12 +60,9 @@ export async function DELETE(_req: Request, context: any) {
       if (!isOwner) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Best-effort file cleanup (unchanged from your version)
+    // Best-effort file cleanup
     const UPLOAD_DIR = process.env.UPLOAD_DIR || "/home/deploy/uploads/vipfuneralfunding";
     const LEGACY_PARENT = "/home/deploy/uploads";
-    const path = (await import("node:path")).default;
-    const fs = (await import("node:fs/promises")).default;
-
     const within = (root: string, p: string) => {
       const rel = path.relative(root, p);
       return !rel.startsWith("..") && !path.isAbsolute(rel);
