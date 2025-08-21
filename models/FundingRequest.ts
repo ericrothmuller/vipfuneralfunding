@@ -7,8 +7,8 @@ const FundingRequestSchema = new Schema(
     userId: { type: Schema.Types.ObjectId, ref: "User", index: true, required: true },
 
     // Funeral Home / Cemetery
-    fhName: { type: String, default: "" },          // FH/CEM Name
-    fhRep: { type: String, default: "" },           // FH/CEM REP
+    fhName: { type: String, default: "" },
+    fhRep: { type: String, default: "" },
     contactPhone: { type: String, default: "" },
     contactEmail: { type: String, default: "" },
 
@@ -47,7 +47,7 @@ const FundingRequestSchema = new Schema(
     // Employer
     employerPhone: { type: String, default: "" },
     employerContact: { type: String, default: "" },
-    employmentStatus: { type: String, default: "" }, // Active / Retired / On Leave
+    employmentStatus: { type: String, default: "" },
 
     // Insurance
     insuranceCompany: { type: String, default: "" },
@@ -63,9 +63,27 @@ const FundingRequestSchema = new Schema(
 
     // Misc
     notes: { type: String, default: "" },
+    assignmentUploadPath: { type: String, default: "" },
 
-    // Uploads
-    assignmentUploadPath: { type: String, default: "" }, // local file path (or URL if you later move to S3)
+    // Workflow status
+    status: {
+      type: String,
+      enum: ["Submitted", "Verifying", "Approved", "Funded", "Closed"],
+      default: "Submitted",
+      index: true,
+    },
+    statusHistory: [
+      {
+        status: {
+          type: String,
+          enum: ["Submitted", "Verifying", "Approved", "Funded", "Closed"],
+          required: true,
+        },
+        at: { type: Date, default: Date.now },
+        by: { type: Schema.Types.ObjectId, ref: "User" }, // admin id
+        note: { type: String, default: "" },
+      },
+    ],
   },
   { timestamps: true }
 );
