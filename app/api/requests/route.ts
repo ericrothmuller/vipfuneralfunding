@@ -67,7 +67,7 @@ export async function GET() {
     await connectDB();
     const rows = await FundingRequest.find({ userId: me.sub })
       .sort({ createdAt: -1 })
-      .select("decFirstName decLastName insuranceCompany policyNumbers createdAt fhRep assignmentAmount")
+      .select("decFirstName decLastName insuranceCompany policyNumbers createdAt fhRep assignmentAmount status")
       .lean();
 
     const data = rows.map((r: any) => ({
@@ -78,6 +78,7 @@ export async function GET() {
       createdAt: r.createdAt,
       fhRep: r.fhRep || "",
       assignmentAmount: r.assignmentAmount || "",
+      status: r.status || "Submitted",
     }));
     return NextResponse.json({ requests: data });
   } catch (err) {
