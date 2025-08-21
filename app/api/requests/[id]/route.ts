@@ -50,12 +50,9 @@ export async function DELETE(_req: Request, context: any) {
   try {
     const me = await getUserFromCookie();
     if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (me.role === "NEW") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const { id } = await (context?.params ?? {});
-    if (!id || typeof id !== "string") {
-      return NextResponse.json({ error: "Missing id" }, { status: 400 });
-    }
+    if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
     await connectDB();
     const doc: any = await FundingRequest.findById(id).lean();
@@ -63,32 +60,45 @@ export async function DELETE(_req: Request, context: any) {
 
     const isOwner = String(doc.userId) === String(me.sub);
     const isAdmin = me.role === "ADMIN";
-    if (!isOwner && !isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    // Attempt file cleanup (best-effort)
+    // New rule: FH/CEM can delete only while status is Submitted
+    if (!isAdmin) {
+      if (me.role !== "FH_CEM") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      if ((doc.status || "Submitted") !== "Submitted") {
+        return NextResponse.json({ error: "Cannot delete once status is not Submitted" }, { status: 403 });
+      }
+      if (!isOwner) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // Best-effort file cleanup (unchanged from your version)
+    const UPLOAD_DIR = process.env.UPLOAD_DIR || "/home/deploy/uploads/vipfuneralfunding";
+    const LEGACY_PARENT = "/home/deploy/uploads";
+    const path = (await import("node:path")).default;
+    const fs = (await import("node:fs/promises")).default;
+
+    const within = (root: string, p: string) => {
+      const rel = path.relative(root, p);
+      return !rel.startsWith("..") && !path.isAbsolute(rel);
+    };
+
     const stored = (doc.assignmentUploadPath as string | undefined) || "";
     if (stored) {
       try {
-        // normalize to relative under UPLOAD_DIR; also support legacy "/uploads/.."
         let rel = stored.trim().replace(/^[/\\]+/, "");
         if (rel.toLowerCase().startsWith("uploads/")) rel = rel.slice("uploads/".length);
 
         const root = path.resolve(UPLOAD_DIR);
         const legacy = path.resolve(LEGACY_PARENT);
-
         const candidates = [
           path.resolve(root, rel),
           path.resolve(root, path.basename(rel)),
           path.resolve(legacy, rel),
           path.resolve(legacy, path.basename(rel)),
         ];
-
         for (const p of candidates) {
           try {
-            if (within(root, p) || within(legacy, p)) {
-              await fs.rm(p, { force: true });
-            }
-          } catch {/* ignore */}
+            if (within(root, p) || within(legacy, p)) await fs.rm(p, { force: true });
+          } catch {}
         }
       } catch (e) {
         console.warn("[delete] file cleanup error", e);
@@ -96,7 +106,6 @@ export async function DELETE(_req: Request, context: any) {
     }
 
     await FundingRequest.deleteOne({ _id: id });
-
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error(err);
