@@ -14,13 +14,13 @@ export async function GET(req: Request) {
     await connectDB();
 
     const url = new URL(req.url);
-    const role = url.searchParams.get("role"); // ADMIN | FH_CEM | NEW or null
-    const q: any = {};
-    if (role && ["ADMIN", "FH_CEM", "NEW"].includes(role)) q.role = role;
+    const role = url.searchParams.get("role"); // optional: ADMIN | FH_CEM | NEW
+    const query: any = {};
+    if (role && ["ADMIN", "FH_CEM", "NEW"].includes(role)) query.role = role;
 
-    const users = await User.find(q)
-      .select("email role active createdAt updatedAt")
-      .sort({ createdAt: -1 })
+    const users = await User.find(query)
+      .select("email role active createdAt")
+      .sort({ email: 1 })
       .lean();
 
     const data = users.map((u: any) => ({
