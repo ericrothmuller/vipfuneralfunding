@@ -14,7 +14,7 @@ type Row = {
   assignmentAmount: string;
   status: "Submitted" | "Verifying" | "Approved" | "Funded" | "Closed" | string;
   userId?: string;
-  ownerEmail?: string; // present in admin list
+  ownerEmail?: string; // admin
 };
 
 const STATUS_OPTS = ["Submitted", "Verifying", "Approved", "Funded", "Closed"] as const;
@@ -38,26 +38,27 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
   const [msg, setMsg] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  // (Optional) Simple admin filters (status/from/to)
+  // Filters: now visible to both roles
+  const [q, setQ] = useState<string>("");
   const [status, setStatus] = useState<string>("");
   const [from, setFrom] = useState<string>("");
   const [to, setTo] = useState<string>("");
 
   const query = useMemo(() => {
-    if (!isAdmin) return "";
     const p = new URLSearchParams();
+    if (q) p.set("q", q);
     if (status) p.set("status", status);
     if (from) p.set("from", from);
     if (to) p.set("to", to);
     const s = p.toString();
     return s ? `?${s}` : "";
-  }, [isAdmin, status, from, to]);
+  }, [q, status, from, to]);
 
   async function load() {
     setLoading(true);
     setMsg(null);
     try {
-      const url = isAdmin ? `/api/admin/requests${query}` : "/api/requests";
+      const url = isAdmin ? `/api/admin/requests${query}` : `/api/requests${query}`;
       const data = await fetchJSON(url, { cache: "no-store" });
       setRows(data?.requests || []);
     } catch (e: any) {
@@ -67,10 +68,7 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
     }
   }
 
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAdmin, query]);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [isAdmin, query]);
 
   async function onDelete(id: string) {
     setMsg(null);
@@ -85,7 +83,6 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
   async function onChangeStatus(id: string, nextStatus: string) {
     setMsg(null);
     try {
-      // optimistic UI
       setRows(prev => prev.map(r => (r.id === id ? { ...r, status: nextStatus } : r)));
       await fetchJSON(`/api/requests/${id}/status`, {
         method: "PATCH",
@@ -94,7 +91,7 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
       });
     } catch (e: any) {
       setMsg(e?.message || "Status update failed");
-      load(); // revert if failed
+      load();
     }
   }
 
@@ -103,36 +100,48 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
 
   return (
     <>
-      {isAdmin && (
-        <div className="card" style={{ padding: 12, marginBottom: 12 }}>
-          <h3 className="panel-title" style={{ marginBottom: 8 }}>Filters</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "220px 180px 180px 1fr", gap: 8 }}>
-            <label>
-              Status
-              <select value={status} onChange={(e) => setStatus(e.target.value)}>
-                <option value="">All</option>
-                {STATUS_OPTS.map(s => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              From
-              <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-            </label>
-            <label>
-              To
-              <input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-            </label>
-            <div style={{ display: "flex", alignItems: "end", gap: 8 }}>
-              <button className="btn" onClick={load}>Apply</button>
-              <button className="btn btn-ghost" onClick={() => { setStatus(""); setFrom(""); setTo(""); }}>
-                Clear
-              </button>
-            </div>
+      {/* Filters: visible to Admin and FH/CEM */}
+      <div className="card" style={{ padding: 12, marginBottom: 12 }}>
+        <h3 className="panel-title" style={{ marginBottom: 8 }}>Filters</h3>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(220px, 1fr) 180px 180px 180px auto", gap: 8 }}>
+          <label>
+            Search
+            <input
+              type="search"
+              placeholder="Decedent, policy, other company…"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+          </label>
+
+          <label>
+            Status
+            <select value={status} onChange={(e) => setStatus(e.target.value)}>
+              <option value="">All</option>
+              {STATUS_OPTS.map(s => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            From
+            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+          </label>
+
+          <label>
+            To
+            <input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+          </label>
+
+          <div style={{ display: "flex", alignItems: "end", gap: 8 }}>
+            <button className="btn" onClick={load}>Apply</button>
+            <button className="btn btn-ghost" onClick={() => { setQ(""); setStatus(""); setFrom(""); setTo(""); }}>
+              Clear
+            </button>
           </div>
         </div>
-      )}
+      </div>
 
       <div className="table-wrap">
         <table className="table">
@@ -146,13 +155,13 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
               <th>Assignment Amount</th>
               <th>Status</th>
               {isAdmin && <th>Owner</th>}
-              <th /> {/* Actions column (View / Delete) */}
+              <th />
             </tr>
           </thead>
           <tbody>
             {rows.map((r) => {
               const showDelete =
-                isAdmin || (!isAdmin && r.status === "Submitted"); // FH/CEM only when Submitted
+                isAdmin || (!isAdmin && r.status === "Submitted");
 
               return (
                 <tr key={r.id}>
@@ -189,7 +198,7 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
             {rows.length === 0 && (
               <tr>
                 <td colSpan={isAdmin ? 9 : 8} className="muted" style={{ padding: 16 }}>
-                  No funding requests{isAdmin ? " match your filters" : ""}.
+                  No funding requests match your filters.
                 </td>
               </tr>
             )}
@@ -201,7 +210,6 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
         <RequestDetailModal
           id={selectedId}
           onClose={() => setSelectedId(null)}
-          // Admin always allowed; FH/CEM allowed only when Submitted
           canDelete={
             !!rows.find(r => r.id === selectedId && (isAdmin || r.status === "Submitted"))
           }
