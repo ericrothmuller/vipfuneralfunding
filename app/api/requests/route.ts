@@ -78,14 +78,30 @@ async function streamToFile(file: File): Promise<{ relative: string; absolute: s
   return { relative, absolute };
 }
 
-/* GET /api/requests — list current user's requests (includes status & insuranceCompany display) */
-export async function GET() {
+/* GET /api/requests — list current user's requests (supports ?q= search) */
+export async function GET(req: Request) {
   try {
     const me = await getUserFromCookie();
     if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     await connectDB();
-    const rows = await FundingRequest.find({ userId: me.sub })
+
+    const url = new URL(req.url);
+    const q = (url.searchParams.get("q") || "").trim();
+
+    const find: any = { userId: me.sub };
+    if (q) {
+      const rx = { $regex: q, $options: "i" };
+      find.$or = [
+        { decFirstName: rx },
+        { decLastName: rx },
+        { policyNumbers: rx },
+        { insuranceCompany: rx },               // legacy display string
+        { "otherInsuranceCompany.name": rx },   // “Other” company name
+      ];
+    }
+
+    const rows = await FundingRequest.find(find)
       .sort({ createdAt: -1 })
       .select(
         "decFirstName decLastName insuranceCompanyId otherInsuranceCompany insuranceCompany policyNumbers createdAt fhRep assignmentAmount status"
@@ -97,7 +113,7 @@ export async function GET() {
       const companyDisplay =
         (r.insuranceCompanyId && r.insuranceCompanyId.name) ||
         (r.otherInsuranceCompany?.name) ||
-        r.insuranceCompany || ""; // legacy fallback
+        r.insuranceCompany || "";
       return {
         id: String(r._id),
         decName: [r.decFirstName, r.decLastName].filter(Boolean).join(" "),
@@ -117,7 +133,7 @@ export async function GET() {
   }
 }
 
-/* POST /api/requests — create new request; supports insuranceCompanyId OR "Other" */
+/* POST /api/requests — unchanged from your latest version (streams upload, supports company id/other) */
 export async function POST(req: Request) {
   try {
     const me = await getUserFromCookie();
@@ -139,20 +155,17 @@ export async function POST(req: Request) {
 
     if (ctype.includes("multipart/form-data")) {
       const form = await req.formData();
-
-      // File first (must be named 'assignmentUpload')
       const file = form.get("assignmentUpload");
       if (file && file instanceof File && file.size > 0) {
         const saved = await streamToFile(file);
-        assignmentRelative = saved.relative; // store RELATIVE path
+        assignmentRelative = saved.relative;
       }
 
       const text = (k: string) => (form.get(k) ? String(form.get(k)) : "");
       const bool = (k: string) => toBool(form.get(k));
 
-      // Company selection mode
       const insuranceCompanyMode = text("insuranceCompanyMode"); // "id" | "other" | ""
-      const insuranceCompanyId = text("insuranceCompanyId"); // ObjectId string
+      const insuranceCompanyId = text("insuranceCompanyId"); // ObjectId
       const otherIC = {
         name: text("otherIC_name"),
         phone: text("otherIC_phone"),
@@ -160,15 +173,12 @@ export async function POST(req: Request) {
         notes: text("otherIC_notes"),
       };
 
-      // Collect all other fields
       body = {
-        // FH/CEM
         fhName: text("fhName"),
         fhRep: text("fhRep"),
         contactPhone: text("contactPhone"),
         contactEmail: text("contactEmail"),
 
-        // Decedent
         decFirstName: text("decFirstName"),
         decLastName: text("decLastName"),
         decSSN: text("decSSN"),
@@ -178,37 +188,30 @@ export async function POST(req: Request) {
         decState: text("decState"),
         decZip: text("decZip"),
 
-        // Place of death
         decPODCity: text("decPODCity"),
         decPODState: text("decPODState"),
 
-        // Employer
         employerPhone: text("employerPhone"),
         employerContact: text("employerContact"),
         employmentStatus: text("employmentStatus"),
 
-        // Insurance (legacy / extra)
         policyNumbers: text("policyNumbers"),
         faceAmount: text("faceAmount"),
         beneficiaries: text("beneficiaries"),
 
-        // Financials
         totalServiceAmount: text("totalServiceAmount"),
         familyAdvancementAmount: text("familyAdvancementAmount"),
         vipFee: text("vipFee"),
         assignmentAmount: text("assignmentAmount"),
 
-        // Misc
         notes: text("notes"),
       };
 
-      // Dates
       const dob = text("decDOB");
       const dod = text("decDOD");
       if (dob) body.decDOB = parseDate(dob);
       if (dod) body.decDOD = parseDate(dod);
 
-      // Booleans
       body.deathInUS = bool("deathInUS");
       body.codNatural = bool("codNatural");
       body.codAccident = bool("codAccident");
@@ -218,11 +221,9 @@ export async function POST(req: Request) {
       body.hasFinalDC = bool("hasFinalDC");
       body.otherFHTakingAssignment = bool("otherFHTakingAssignment");
 
-      // Other FH fields
       body.otherFHName = text("otherFHName");
       body.otherFHAmount = text("otherFHAmount");
 
-      // Company linkage handling
       if (insuranceCompanyMode === "id" && insuranceCompanyId) {
         body.insuranceCompanyId = insuranceCompanyId;
         body.otherInsuranceCompany = { name: "", phone: "", fax: "", notes: "" };
@@ -230,31 +231,23 @@ export async function POST(req: Request) {
         body.insuranceCompanyId = null;
         body.otherInsuranceCompany = otherIC;
       } else {
-        // If neither selected, clear both (display string computed later if needed)
         body.insuranceCompanyId = null;
         body.otherInsuranceCompany = { name: "", phone: "", fax: "", notes: "" };
       }
     } else {
-      // JSON fallback (no file)
       const json = await req.json().catch(() => ({}));
       body = json || {};
     }
 
-    // Build doc; also set a legacy display field so your table is backward compatible
-    // (list GET recomputes display anyway, but keeping this helps future compatibility)
     let insuranceCompanyDisplay = "";
-    if (body.insuranceCompanyId) {
-      insuranceCompanyDisplay = ""; // will be populated on read via populate
-    } else if (body.otherInsuranceCompany?.name) {
-      insuranceCompanyDisplay = body.otherInsuranceCompany.name;
-    }
+    if (body.insuranceCompanyId) insuranceCompanyDisplay = "";
+    else if (body.otherInsuranceCompany?.name) insuranceCompanyDisplay = body.otherInsuranceCompany.name;
     if (insuranceCompanyDisplay) body.insuranceCompany = insuranceCompanyDisplay;
 
     const doc = await FundingRequest.create({
       userId: me.sub,
       ...body,
       ...(assignmentRelative ? { assignmentUploadPath: assignmentRelative } : {}),
-      // status defaults to "Submitted" in the model
     });
 
     console.log("[upload] created request", {
