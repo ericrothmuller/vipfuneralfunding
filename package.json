@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build",
    "start": "next start -p 3000",
-    "lint": "next lint"
+    "lint": "next lint",
+    "seed:ics": "ts-node --transpile-only scripts/seed-insurance-companies.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
