@@ -49,8 +49,19 @@ const FundingRequestSchema = new Schema(
     employerContact: { type: String, default: "" },
     employmentStatus: { type: String, default: "" },
 
-    // Insurance
-    insuranceCompany: { type: String, default: "" },
+    // Insurance linkage
+    // If set: reference a managed InsuranceCompany
+    insuranceCompanyId: { type: Schema.Types.ObjectId, ref: "InsuranceCompany", default: null },
+    // Else: one-off "Other" info stored within the request
+    otherInsuranceCompany: {
+      name: { type: String, default: "" },
+      phone: { type: String, default: "" },
+      fax: { type: String, default: "" },
+      notes: { type: String, default: "" },
+    },
+
+    // Legacy/display fields still used by your UI (we compute a display string in API):
+    insuranceCompany: { type: String, default: "" }, // not required; used for display compatibility
     policyNumbers: { type: String, default: "" },
     faceAmount: { type: String, default: "" },
     beneficiaries: { type: String, default: "" },
@@ -80,7 +91,7 @@ const FundingRequestSchema = new Schema(
           required: true,
         },
         at: { type: Date, default: Date.now },
-        by: { type: Schema.Types.ObjectId, ref: "User" }, // admin user id
+        by: { type: Schema.Types.ObjectId, ref: "User" },
         note: { type: String, default: "" },
       },
     ],
