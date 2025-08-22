@@ -14,7 +14,7 @@ type Row = {
   assignmentAmount: string;
   status: "Submitted" | "Verifying" | "Approved" | "Funded" | "Closed" | string;
   userId?: string;
-  ownerEmail?: string; // admin
+  ownerEmail?: string; // admin-only
 };
 
 const STATUS_OPTS = ["Submitted", "Verifying", "Approved", "Funded", "Closed"] as const;
@@ -34,28 +34,36 @@ async function fetchJSON(url: string, init?: RequestInit) {
 
 export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }) {
   const [rows, setRows] = useState<Row[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingRows, setLoadingRows] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  // Filters: now visible to both roles
+  // Filters (visible to Admin and FH/CEM)
   const [q, setQ] = useState<string>("");
   const [status, setStatus] = useState<string>("");
   const [from, setFrom] = useState<string>("");
   const [to, setTo] = useState<string>("");
 
+  // Debounce the search box so we don't spam fetches or flicker the UI
+  const [debouncedQ, setDebouncedQ] = useState(q);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(q), 350);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  // Build query only from debounced q + other filters
   const query = useMemo(() => {
     const p = new URLSearchParams();
-    if (q) p.set("q", q);
+    if (debouncedQ) p.set("q", debouncedQ);
     if (status) p.set("status", status);
     if (from) p.set("from", from);
     if (to) p.set("to", to);
     const s = p.toString();
     return s ? `?${s}` : "";
-  }, [q, status, from, to]);
+  }, [debouncedQ, status, from, to]);
 
   async function load() {
-    setLoading(true);
+    setLoadingRows(true);
     setMsg(null);
     try {
       const url = isAdmin ? `/api/admin/requests${query}` : `/api/requests${query}`;
@@ -64,11 +72,15 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
     } catch (e: any) {
       setMsg(e?.message || "Could not load funding requests");
     } finally {
-      setLoading(false);
+      setLoadingRows(false);
     }
   }
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [isAdmin, query]);
+  // Load on mount and whenever role/filters change (with debounced q)
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin, query]);
 
   async function onDelete(id: string) {
     setMsg(null);
@@ -83,6 +95,7 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
   async function onChangeStatus(id: string, nextStatus: string) {
     setMsg(null);
     try {
+      // Optimistic UI
       setRows(prev => prev.map(r => (r.id === id ? { ...r, status: nextStatus } : r)));
       await fetchJSON(`/api/requests/${id}/status`, {
         method: "PATCH",
@@ -91,16 +104,13 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
       });
     } catch (e: any) {
       setMsg(e?.message || "Status update failed");
-      load();
+      load(); // revert if server failed
     }
   }
 
-  if (loading) return <p>Loading…</p>;
-  if (msg) return <p className="error">{msg}</p>;
-
   return (
     <>
-      {/* Filters: visible to Admin and FH/CEM */}
+      {/* Filters (always visible; input stays focused during fetch) */}
       <div className="card" style={{ padding: 12, marginBottom: 12 }}>
         <h3 className="panel-title" style={{ marginBottom: 8 }}>Filters</h3>
         <div style={{ display: "grid", gridTemplateColumns: "minmax(220px, 1fr) 180px 180px 180px auto", gap: 8 }}>
@@ -135,13 +145,25 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
           </label>
 
           <div style={{ display: "flex", alignItems: "end", gap: 8 }}>
+            {/* Manual apply if you want to re-fetch without waiting for debounce changes of q */}
             <button className="btn" onClick={load}>Apply</button>
-            <button className="btn btn-ghost" onClick={() => { setQ(""); setStatus(""); setFrom(""); setTo(""); }}>
+            <button
+              className="btn btn-ghost"
+              onClick={() => { setQ(""); setStatus(""); setFrom(""); setTo(""); }}
+            >
               Clear
             </button>
           </div>
         </div>
       </div>
+
+      {/* Table area – we keep it mounted; show a subtle loader instead of replacing the whole component */}
+      <div className="panel-row" style={{ marginBottom: 8 }}>
+        <div className="muted">{rows.length} result{rows.length === 1 ? "" : "s"}</div>
+        {loadingRows && <div className="muted">Loading…</div>}
+      </div>
+
+      {msg && <p className="error" style={{ marginBottom: 8 }}>{msg}</p>}
 
       <div className="table-wrap">
         <table className="table">
@@ -195,7 +217,7 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
                 </tr>
               );
             })}
-            {rows.length === 0 && (
+            {rows.length === 0 && !loadingRows && (
               <tr>
                 <td colSpan={isAdmin ? 9 : 8} className="muted" style={{ padding: 16 }}>
                   No funding requests match your filters.
