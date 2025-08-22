@@ -5,8 +5,6 @@ import { useEffect, useState } from "react";
 
 type RequestDetail = {
   id: string;
-
-  // Ownership
   userId?: string;
 
   // FH/CEM
@@ -34,7 +32,7 @@ type RequestDetail = {
   decPODState?: string;
   deathInUS?: boolean;
 
-  // Cause of death flags
+  // COD flags
   codNatural?: boolean;
   codAccident?: boolean;
   codHomicide?: boolean;
@@ -68,13 +66,12 @@ type RequestDetail = {
   notes?: string;
   assignmentUploadPath?: string;
 
+  status?: "Submitted" | "Verifying" | "Approved" | "Funded" | "Closed" | string;
   createdAt?: string | Date | null;
   updatedAt?: string | Date | null;
 };
 
-function fmtBool(b: any) {
-  return b ? "Yes" : "No";
-}
+function fmtBool(b: any) { return b ? "Yes" : "No"; }
 function fmtDate(d?: string | Date | null) {
   if (!d) return "";
   const dt = new Date(d);
@@ -89,7 +86,7 @@ export default function RequestDetailModal({
 }: {
   id: string;
   onClose: () => void;
-  canDelete?: boolean;
+  canDelete?: boolean;              // Table logic decides Admin / FH/CEM Submitted
   onDeleted?: (id: string) => void;
 }) {
   const [data, setData] = useState<RequestDetail | null>(null);
@@ -97,7 +94,6 @@ export default function RequestDetailModal({
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
 
-  // ESC closes
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
@@ -143,6 +139,7 @@ export default function RequestDetailModal({
         <div className="modal-header">
           <h3 id="request-modal-title">Funding Request Details</h3>
           <div style={{ display: "flex", gap: 8 }}>
+            {/* Delete shows only if parent decided canDelete=true (Admin OR FH/CEM with Submitted) */}
             {canDelete && (
               <button className="btn" onClick={handleDelete} disabled={deleting}>
                 {deleting ? "Deleting…" : "Delete"}
@@ -158,6 +155,14 @@ export default function RequestDetailModal({
 
           {data && !loading && !msg && (
             <div className="detail-grid">
+              {/* Workflow */}
+              <section>
+                <h4>Workflow</h4>
+                <div><span>Status</span><strong>{data.status || "Submitted"}</strong></div>
+                <div><span>Created</span><strong>{fmtDate(data.createdAt)}</strong></div>
+                <div><span>Updated</span><strong>{fmtDate(data.updatedAt)}</strong></div>
+              </section>
+
               {/* FH / CEM */}
               <section>
                 <h4>Funeral Home / Cemetery</h4>
@@ -257,8 +262,6 @@ export default function RequestDetailModal({
                     <em>None</em>
                   )}
                 </div>
-                <div><span>Created</span><strong>{fmtDate(data.createdAt)}</strong></div>
-                <div><span>Updated</span><strong>{fmtDate(data.updatedAt)}</strong></div>
               </section>
             </div>
           )}
