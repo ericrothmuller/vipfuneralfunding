@@ -36,14 +36,25 @@ export async function GET(req: Request) {
     const fh     = url.searchParams.get("fh");
     const from   = url.searchParams.get("from");
     const to     = url.searchParams.get("to");
+    const q      = (url.searchParams.get("q") || "").trim();
 
-    const q: any = {};
-    if (status && ALLOWED_STATUSES.includes(status as any)) q.status = status;
-    if (fh && mongoose.isValidObjectId(fh)) q.userId = new mongoose.Types.ObjectId(fh);
+    const find: any = {};
+    if (status && ALLOWED_STATUSES.includes(status as any)) find.status = status;
+    if (fh && mongoose.isValidObjectId(fh)) find.userId = new mongoose.Types.ObjectId(fh);
     const createdRange = parseDateRange(from, to);
-    if (createdRange) q.createdAt = createdRange;
+    if (createdRange) find.createdAt = createdRange;
+    if (q) {
+      const rx = { $regex: q, $options: "i" };
+      find.$or = [
+        { decFirstName: rx },
+        { decLastName: rx },
+        { policyNumbers: rx },
+        { insuranceCompany: rx },
+        { "otherInsuranceCompany.name": rx },
+      ];
+    }
 
-    const rows = await FundingRequest.find(q)
+    const rows = await FundingRequest.find(find)
       .sort({ createdAt: -1 })
       .select(
         "userId decFirstName decLastName insuranceCompanyId otherInsuranceCompany insuranceCompany policyNumbers createdAt fhRep assignmentAmount status"
