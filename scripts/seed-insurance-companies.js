@@ -1,26 +1,76 @@
 // scripts/seed-insurance-companies.js
 /**
- * Standalone Insurance Company Seeder (JS-only, no TS imports)
+ * Standalone Insurance Company Seeder (no dotenv, no TS imports)
  *
- * Usage:
+ * Usage (from app root):
  *   node scripts/seed-insurance-companies.js
+ *   node scripts/seed-insurance-companies.js --file=seed/insurance_companies_batch2.json
  */
 
 const path = require("node:path");
-const fs = require("node:fs/promises");
+const fs = require("node:fs");
+const fsp = require("node:fs/promises");
 const mongoose = require("mongoose");
-require("dotenv").config({ path: path.resolve(process.cwd(), ".env.local") });
 
-// ---- Safe runtime check for MONGODB_URI ----
+/* ---------------------------
+   Load env WITHOUT dotenv
+   --------------------------- */
+(function loadEnv() {
+  const envPath = path.resolve(process.cwd(), ".env.local");
+
+  // Node 22+: prefer process.loadEnvFile if available
+  if (typeof process.loadEnvFile === "function") {
+    try {
+      process.loadEnvFile(envPath);
+      return;
+    } catch {
+      // fallthrough to manual parser
+    }
+  }
+
+  // Manual .env parser for simple KEY=VALUE lines
+  try {
+    if (fs.existsSync(envPath)) {
+      const content = fs.readFileSync(envPath, "utf8");
+      for (const raw of content.split(/\r?\n/)) {
+        const line = raw.trim();
+        if (!line || line.startsWith("#")) continue;
+        const m = line.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
+        if (!m) continue;
+        const key = m[1];
+        // Strip outer quotes if present
+        let val = m[2].replace(/^"(.*)"$/, "$1").replace(/^'(.*)'$/, "$1");
+        if (process.env[key] === undefined) process.env[key] = val;
+      }
+    }
+  } catch (e) {
+    console.warn("[seed] Warning: could not read .env.local:", e.message);
+  }
+})();
+
+/* ---------------------------
+   Verify MONGODB_URI
+   --------------------------- */
 const uri = (process.env.MONGODB_URI || "").trim();
 if (!uri) {
-  throw new Error("Missing MONGODB_URI in .env.local");
+  console.error(
+    "[seed] ERROR: MONGODB_URI is missing.\n" +
+      "Add it to .env.local in your app root, e.g.:\n" +
+      'MONGODB_URI="mongodb+srv://user:pass@host/db?options"\n' +
+      "Or pass it inline:\n" +
+      "MONGODB_URI='mongodb+srv://...' node scripts/seed-insurance-companies.js"
+  );
+  process.exit(1);
 }
 
-// Default seed file
+/* ---------------------------
+   Defaults
+   --------------------------- */
 const DEFAULT_SEED_FILE = path.resolve(process.cwd(), "seed", "insurance_companies.json");
 
-// Inline InsuranceCompany schema (to avoid TS import issues)
+/* ---------------------------
+   Inline InsuranceCompany schema
+   --------------------------- */
 const insuranceCompanySchema = new mongoose.Schema(
   {
     name: { type: String, required: true, index: true },
@@ -28,8 +78,8 @@ const insuranceCompanySchema = new mongoose.Schema(
     phone: { type: String, default: "" },
     fax: { type: String, default: "" },
     mailingAddress: { type: String, default: "" },
-    verificationTime: { type: String, default: "" },
-    documentsToFund: { type: String, default: "" },
+    verificationTime: { type: String, default: "" },  // e.g., "TBD"
+    documentsToFund: { type: String, default: "" },   // e.g., "Assignment, CF, DC"
     acceptsAdvancements: { type: Boolean, default: true },
     sendAssignmentBy: {
       type: String,
@@ -41,13 +91,16 @@ const insuranceCompanySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Register model safely
+// Register or reuse model
 const InsuranceCompany =
   mongoose.models.InsuranceCompany ||
   mongoose.model("InsuranceCompany", insuranceCompanySchema);
 
+/* ---------------------------
+   Helpers
+   --------------------------- */
 async function readSeedFile(filePath) {
-  const raw = await fs.readFile(filePath, "utf8");
+  const raw = await fsp.readFile(filePath, "utf8");
   const data = JSON.parse(raw);
   if (!Array.isArray(data)) {
     throw new Error(`Seed file is not an array: ${filePath}`);
@@ -55,12 +108,15 @@ async function readSeedFile(filePath) {
   return data;
 }
 
+/* ---------------------------
+   Main
+   --------------------------- */
 async function main() {
-  console.log(`[seed] Connecting to MongoDB...`);
+  console.log("[seed] Connecting to MongoDB...");
   await mongoose.connect(uri, { dbName: "appdb" });
-  console.log(`[seed] Connected.`);
+  console.log("[seed] Connected.");
 
-  // Allow overriding the file path via --file=...
+  // Allow --file=path override
   const argFile = process.argv.find((a) => a.startsWith("--file="));
   const filePath = argFile ? argFile.slice("--file=".length) : DEFAULT_SEED_FILE;
 
@@ -103,11 +159,11 @@ async function main() {
 
   console.log(`[seed] Done. upserted: ${upserted}, skipped: ${skipped}`);
   await mongoose.disconnect();
-  console.log(`[seed] Disconnected.`);
+  console.log("[seed] Disconnected.");
 }
 
 main().catch(async (err) => {
-  console.error(`[seed] ERROR:`, err);
+  console.error("[seed] ERROR:", err);
   try {
     await mongoose.disconnect();
   } catch {}
