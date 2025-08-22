@@ -112,7 +112,6 @@ export default function InsuranceCompaniesPanel() {
       if (!payload.name) throw new Error("Name is required");
 
       if (editing.id) {
-        // update
         await fetchJSON(`/api/admin/insurance-companies/${editing.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -120,13 +119,11 @@ export default function InsuranceCompaniesPanel() {
         });
         setItems(prev => prev.map(i => (i.id === editing.id ? { ...i, ...payload } : i)));
       } else {
-        // create
-        const data = await fetchJSON(`/api/admin/insurance-companies`, {
+        await fetchJSON(`/api/admin/insurance-companies`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        // reload to get new item sorted in list
         await load();
       }
 
@@ -201,8 +198,19 @@ export default function InsuranceCompaniesPanel() {
               <h3 id="ic-modal-title">{editing.id ? "Edit Insurance Company" : "Add Insurance Company"}</h3>
               <button className="btn btn-ghost modal-close" onClick={onClose} aria-label="Close">✕</button>
             </div>
+
             <form onSubmit={onSave}>
-              <div className="modal-body" style={{ display: "grid", gap: 10 }}>
+              {/* SCROLLABLE body */}
+              <div
+                className="modal-body"
+                style={{
+                  maxHeight: "70vh",
+                  overflow: "auto",
+                  minHeight: 0, // important in CSS grid to allow scrolling
+                  display: "grid",
+                  gap: 10,
+                }}
+              >
                 {msg && <p className="error">{msg}</p>}
 
                 <label>Name
@@ -233,6 +241,7 @@ export default function InsuranceCompaniesPanel() {
                   <textarea name="notes" rows={3} defaultValue={editing.notes} />
                 </label>
               </div>
+
               <div className="modal-footer" style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                 <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
                 <button type="submit" className="btn">{editing.id ? "Save Changes" : "Create"}</button>
