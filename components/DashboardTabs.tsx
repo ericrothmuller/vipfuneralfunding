@@ -7,11 +7,12 @@ import ProfileForm from "@/components/ProfileForm";
 import FundingRequestForm from "@/components/FundingRequestForm";
 import RequestsTable from "@/components/RequestsTable";
 import UsersAdminPanel from "@/components/UsersAdminPanel";
+import InsuranceCompaniesPanel from "@/components/InsuranceCompaniesPanel";
 import InfoModal from "@/components/InfoModal";
 import ThemeToggle from "@/components/ThemeToggle";
 
 type Role = "ADMIN" | "FH_CEM" | "NEW";
-type TabKey = "profile" | "requests" | "new" | "users";
+type TabKey = "profile" | "requests" | "new" | "users" | "ics";
 
 const BASE_TABS: ReadonlyArray<{ key: TabKey; label: string }> = [
   { key: "profile",  label: "Profile" },
@@ -21,7 +22,7 @@ const BASE_TABS: ReadonlyArray<{ key: TabKey; label: string }> = [
 
 export default function DashboardTabs({ isAdmin, role }: { isAdmin: boolean; role: Role }) {
   const tabs = useMemo<ReadonlyArray<{ key: TabKey; label: string }>>(
-    () => (isAdmin ? [...BASE_TABS, { key: "users", label: "Users" }] : BASE_TABS),
+    () => (isAdmin ? [...BASE_TABS, { key: "users", label: "Users" }, { key: "ics", label: "ICs" }] : BASE_TABS),
     [isAdmin]
   );
 
@@ -31,7 +32,7 @@ export default function DashboardTabs({ isAdmin, role }: { isAdmin: boolean; rol
   const [showGate, setShowGate] = useState(false);
   const labelId = useId();
 
-  // Initial tab (query param overrides, then localStorage)
+  // Initial tab (query param > localStorage > profile)
   useEffect(() => {
     const q = (searchParams.get("tab") || "") as TabKey;
     const ls = (typeof window !== "undefined" ? localStorage.getItem("vipff.activeTab") : "") as TabKey;
@@ -43,16 +44,14 @@ export default function DashboardTabs({ isAdmin, role }: { isAdmin: boolean; rol
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tabs.length]);
 
-  // React to later query changes (e.g., after submit)
+  // Respond to ?tab= changes (e.g., after form submit)
   useEffect(() => {
     const q = (searchParams.get("tab") || "") as TabKey;
-    if (q && tabs.some(t => t.key === q) && q !== active) {
-      setActive(q);
-    }
+    if (q && tabs.some(t => t.key === q) && q !== active) setActive(q);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  // Persist to localStorage and reflect in URL without scrolling
+  // Persist & reflect in URL without scrolling
   useEffect(() => {
     if (!active) return;
     try { localStorage.setItem("vipff.activeTab", active); } catch {}
@@ -86,7 +85,6 @@ export default function DashboardTabs({ isAdmin, role }: { isAdmin: boolean; rol
           ))}
         </div>
 
-        {/* Render only the active panel (unmount others to clear state/forms) */}
         {active === "profile" && (
           <div role="tabpanel" id="profile-panel" aria-labelledby="profile-tab" className="tabpanel">
             <div className="panel-row">
@@ -133,6 +131,14 @@ export default function DashboardTabs({ isAdmin, role }: { isAdmin: boolean; rol
             <h2 className="panel-title">Users</h2>
             <p className="muted">Manage roles and activation status.</p>
             <UsersAdminPanel />
+          </div>
+        )}
+
+        {isAdmin && active === "ics" && (
+          <div role="tabpanel" id="ics-panel" aria-labelledby="ics-tab" className="tabpanel">
+            <h2 className="panel-title">Insurance Companies</h2>
+            <p className="muted">Create, edit, search, and delete insurance companies.</p>
+            <InsuranceCompaniesPanel />
           </div>
         )}
       </div>
