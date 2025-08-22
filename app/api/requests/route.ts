@@ -15,7 +15,6 @@ import { Readable, Transform } from "node:stream";
 const UPLOAD_DIR = process.env.UPLOAD_DIR || "/home/deploy/uploads/vipfuneralfunding";
 const MAX_UPLOAD_BYTES = 500 * 1024 * 1024; // 500 MB
 
-/** Allow-listed extensions (we still detect type on download) */
 function safeExt(filename?: string | null): string {
   if (!filename) return ".bin";
   const ext = path.extname(String(filename)).toLowerCase();
@@ -37,7 +36,6 @@ function parseDate(v: string | null): Date | undefined {
   return isNaN(d.getTime()) ? undefined : d;
 }
 
-/** Stream a Web File to disk under UPLOAD_DIR/YYYY/MM/uuid.ext, return relative+absolute paths */
 async function streamToFile(file: File): Promise<{ relative: string; absolute: string }> {
   if (file.size <= 0) throw new Error("Empty file");
   if (file.size > MAX_UPLOAD_BYTES) throw new Error("File too large (>500 MB)");
@@ -56,9 +54,7 @@ async function streamToFile(file: File): Promise<{ relative: string; absolute: s
   const absolute = path.join(dir, filename);
   const relative = path.join(subdir, filename).replace(/\\/g, "/");
 
-  // Convert Web ReadableStream → Node stream and write with a size limiter
   const webStream = file.stream();
-
   const nodeStream: NodeJS.ReadableStream =
     typeof (Readable as any).fromWeb === "function"
       ? ((Readable as any).fromWeb(webStream) as NodeJS.ReadableStream)
@@ -75,21 +71,14 @@ async function streamToFile(file: File): Promise<{ relative: string; absolute: s
 
   await new Promise<void>((resolve, reject) => {
     const out = createWriteStream(absolute, { mode: 0o640 });
-    nodeStream
-      .pipe(limiter)
-      .pipe(out)
-      .on("finish", resolve)
-      .on("error", reject);
+    nodeStream.pipe(limiter).pipe(out).on("finish", resolve).on("error", reject);
   });
 
   console.log("[upload] saved", { absolute, relative, size: total });
   return { relative, absolute };
 }
 
-/* ============================
- * GET /api/requests
- * List current user's requests (includes status)
- * ============================ */
+/* GET /api/requests — list current user's requests (includes status & insuranceCompany display) */
 export async function GET() {
   try {
     const me = await getUserFromCookie();
@@ -99,20 +88,27 @@ export async function GET() {
     const rows = await FundingRequest.find({ userId: me.sub })
       .sort({ createdAt: -1 })
       .select(
-        "decFirstName decLastName insuranceCompany policyNumbers createdAt fhRep assignmentAmount status"
+        "decFirstName decLastName insuranceCompanyId otherInsuranceCompany insuranceCompany policyNumbers createdAt fhRep assignmentAmount status"
       )
+      .populate({ path: "insuranceCompanyId", select: "name" })
       .lean();
 
-    const requests = rows.map((r: any) => ({
-      id: String(r._id),
-      decName: [r.decFirstName, r.decLastName].filter(Boolean).join(" "),
-      insuranceCompany: r.insuranceCompany || "",
-      policyNumbers: r.policyNumbers || "",
-      createdAt: r.createdAt,
-      fhRep: r.fhRep || "",
-      assignmentAmount: r.assignmentAmount || "",
-      status: r.status || "Submitted",
-    }));
+    const requests = rows.map((r: any) => {
+      const companyDisplay =
+        (r.insuranceCompanyId && r.insuranceCompanyId.name) ||
+        (r.otherInsuranceCompany?.name) ||
+        r.insuranceCompany || ""; // legacy fallback
+      return {
+        id: String(r._id),
+        decName: [r.decFirstName, r.decLastName].filter(Boolean).join(" "),
+        insuranceCompany: companyDisplay,
+        policyNumbers: r.policyNumbers || "",
+        createdAt: r.createdAt,
+        fhRep: r.fhRep || "",
+        assignmentAmount: r.assignmentAmount || "",
+        status: r.status || "Submitted",
+      };
+    });
 
     return NextResponse.json({ requests });
   } catch (err) {
@@ -121,12 +117,7 @@ export async function GET() {
   }
 }
 
-/* ============================
- * POST /api/requests
- * Create a new request (multipart form-data)
- * - NEW users blocked
- * - streams assignmentUpload (optional) to disk (500MB max)
- * ============================ */
+/* POST /api/requests — create new request; supports insuranceCompanyId OR "Other" */
 export async function POST(req: Request) {
   try {
     const me = await getUserFromCookie();
@@ -157,7 +148,19 @@ export async function POST(req: Request) {
       }
 
       const text = (k: string) => (form.get(k) ? String(form.get(k)) : "");
+      const bool = (k: string) => toBool(form.get(k));
 
+      // Company selection mode
+      const insuranceCompanyMode = text("insuranceCompanyMode"); // "id" | "other" | ""
+      const insuranceCompanyId = text("insuranceCompanyId"); // ObjectId string
+      const otherIC = {
+        name: text("otherIC_name"),
+        phone: text("otherIC_phone"),
+        fax: text("otherIC_fax"),
+        notes: text("otherIC_notes"),
+      };
+
+      // Collect all other fields
       body = {
         // FH/CEM
         fhName: text("fhName"),
@@ -184,8 +187,7 @@ export async function POST(req: Request) {
         employerContact: text("employerContact"),
         employmentStatus: text("employmentStatus"),
 
-        // Insurance
-        insuranceCompany: text("insuranceCompany"),
+        // Insurance (legacy / extra)
         policyNumbers: text("policyNumbers"),
         faceAmount: text("faceAmount"),
         beneficiaries: text("beneficiaries"),
@@ -207,23 +209,46 @@ export async function POST(req: Request) {
       if (dod) body.decDOD = parseDate(dod);
 
       // Booleans
-      body.deathInUS = toBool(form.get("deathInUS"));
-      body.codNatural = toBool(form.get("codNatural"));
-      body.codAccident = toBool(form.get("codAccident"));
-      body.codHomicide = toBool(form.get("codHomicide"));
-      body.codPending = toBool(form.get("codPending"));
-      body.codSuicide = toBool(form.get("codSuicide"));
-      body.hasFinalDC = toBool(form.get("hasFinalDC"));
-      body.otherFHTakingAssignment = toBool(form.get("otherFHTakingAssignment"));
+      body.deathInUS = bool("deathInUS");
+      body.codNatural = bool("codNatural");
+      body.codAccident = bool("codAccident");
+      body.codHomicide = bool("codHomicide");
+      body.codPending = bool("codPending");
+      body.codSuicide = bool("codSuicide");
+      body.hasFinalDC = bool("hasFinalDC");
+      body.otherFHTakingAssignment = bool("otherFHTakingAssignment");
 
       // Other FH fields
       body.otherFHName = text("otherFHName");
       body.otherFHAmount = text("otherFHAmount");
+
+      // Company linkage handling
+      if (insuranceCompanyMode === "id" && insuranceCompanyId) {
+        body.insuranceCompanyId = insuranceCompanyId;
+        body.otherInsuranceCompany = { name: "", phone: "", fax: "", notes: "" };
+      } else if (insuranceCompanyMode === "other" && otherIC.name) {
+        body.insuranceCompanyId = null;
+        body.otherInsuranceCompany = otherIC;
+      } else {
+        // If neither selected, clear both (display string computed later if needed)
+        body.insuranceCompanyId = null;
+        body.otherInsuranceCompany = { name: "", phone: "", fax: "", notes: "" };
+      }
     } else {
       // JSON fallback (no file)
       const json = await req.json().catch(() => ({}));
       body = json || {};
     }
+
+    // Build doc; also set a legacy display field so your table is backward compatible
+    // (list GET recomputes display anyway, but keeping this helps future compatibility)
+    let insuranceCompanyDisplay = "";
+    if (body.insuranceCompanyId) {
+      insuranceCompanyDisplay = ""; // will be populated on read via populate
+    } else if (body.otherInsuranceCompany?.name) {
+      insuranceCompanyDisplay = body.otherInsuranceCompany.name;
+    }
+    if (insuranceCompanyDisplay) body.insuranceCompany = insuranceCompanyDisplay;
 
     const doc = await FundingRequest.create({
       userId: me.sub,
@@ -234,6 +259,8 @@ export async function POST(req: Request) {
 
     console.log("[upload] created request", {
       id: String(doc._id),
+      insuranceCompanyId: doc.insuranceCompanyId,
+      otherIC: doc.otherInsuranceCompany,
       assignmentUploadPath: assignmentRelative,
     });
 
