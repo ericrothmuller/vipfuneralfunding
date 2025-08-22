@@ -6,7 +6,7 @@
  *   1) Ensure .env.local contains:
  *        MONGODB_URI="mongodb+srv://user:pass@cluster...."
  *   2) Place your seed file at: seed/insurance_companies.json
- *   3) Run:
+ *   3) Run (from app root):
  *        npx ts-node --transpile-only scripts/seed-insurance-companies.ts
  *      or add to package.json:
  *        "seed:ics": "ts-node --transpile-only scripts/seed-insurance-companies.ts"
@@ -14,22 +14,23 @@
  *        npm run seed:ics
  */
 
+import "dotenv/config"; // <-- loads .env/.env.local automatically (no 'dotenv' identifier needed)
 import path from "node:path";
 import fs from "node:fs/promises";
 import mongoose from "mongoose";
-import dotenv from "dotenv";
 
-// Import your model using your app's alias (Next.js tsconfig path "@/*")
-// If your ts-node can't resolve "@/..." aliases, replace with a relative path like:
-//   import { InsuranceCompany } from "../models/InsuranceCompany";
-import { InsuranceCompany } from "@/models/InsuranceCompany";
+// IMPORTANT: ts-node often can't resolve Next.js path aliases like "@/models/..."
+// Use a relative path instead:
+import { InsuranceCompany } from "../models/InsuranceCompany";
 
-// Load environment from .env.local (in app root)
-dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
+// If your .env is named .env.local and not auto-loaded by dotenv/config in your setup,
+// you can force-load it by uncommenting the next two lines:
+// import * as dotenv from "dotenv";
+// dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
 
-// ---- Option A: Safe runtime check for MONGODB_URI ----
-const MONGODB_URI = process.env.MONGODB_URI;
-if (!MONGODB_URI || typeof MONGODB_URI !== "string" || MONGODB_URI.trim().length === 0) {
+// ---- Safe runtime check for MONGODB_URI ----
+const uri = process.env.MONGODB_URI?.trim() ?? "";
+if (!uri) {
   throw new Error(
     "Missing MONGODB_URI in environment. Add it to .env.local in your app root before running this seed."
   );
@@ -66,12 +67,12 @@ async function readSeedFile(filePath: string): Promise<SeedIC[]> {
 
 async function main() {
   console.log(`[seed] Connecting to MongoDB...`);
-  await mongoose.connect(MONGODB_URI, { dbName: "appdb" });
+  await mongoose.connect(uri, { dbName: "appdb" });
   console.log(`[seed] Connected.`);
 
-  // Choose file: allow an optional CLI arg "--file=/path/to.json"
+  // Optional CLI arg: --file=path/to/file.json
   const argFile = process.argv.find((a) => a.startsWith("--file="));
-  const filePath = argFile ? argFile.replace("--file=", "") : DEFAULT_SEED_FILE;
+  const filePath = argFile ? argFile.slice("--file=".length) : DEFAULT_SEED_FILE;
 
   console.log(`[seed] Loading file: ${filePath}`);
   const items = await readSeedFile(filePath);
