@@ -1,23 +1,50 @@
 // scripts/seed-insurance-companies.js
 /**
- * Seed Insurance Companies into MongoDB (idempotent upsert by name)
+ * Standalone Insurance Company Seeder (JS-only, no TS imports)
  *
  * Usage:
  *   node scripts/seed-insurance-companies.js
  */
 
-require("dotenv").config({ path: ".env.local" });
 const path = require("node:path");
 const fs = require("node:fs/promises");
 const mongoose = require("mongoose");
-const { InsuranceCompany } = require("../models/InsuranceCompany");
+require("dotenv").config({ path: path.resolve(process.cwd(), ".env.local") });
 
+// ---- Safe runtime check for MONGODB_URI ----
 const uri = (process.env.MONGODB_URI || "").trim();
 if (!uri) {
-  throw new Error("Missing MONGODB_URI in environment. Add it to .env.local");
+  throw new Error("Missing MONGODB_URI in .env.local");
 }
 
+// Default seed file
 const DEFAULT_SEED_FILE = path.resolve(process.cwd(), "seed", "insurance_companies.json");
+
+// Inline InsuranceCompany schema (to avoid TS import issues)
+const insuranceCompanySchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, index: true },
+    email: { type: String, default: "" },
+    phone: { type: String, default: "" },
+    fax: { type: String, default: "" },
+    mailingAddress: { type: String, default: "" },
+    verificationTime: { type: String, default: "" },
+    documentsToFund: { type: String, default: "" },
+    acceptsAdvancements: { type: Boolean, default: true },
+    sendAssignmentBy: {
+      type: String,
+      enum: ["Fax", "Email", "Other (see notes)"],
+      default: "Fax",
+    },
+    notes: { type: String, default: "" },
+  },
+  { timestamps: true }
+);
+
+// Register model safely
+const InsuranceCompany =
+  mongoose.models.InsuranceCompany ||
+  mongoose.model("InsuranceCompany", insuranceCompanySchema);
 
 async function readSeedFile(filePath) {
   const raw = await fs.readFile(filePath, "utf8");
@@ -33,6 +60,7 @@ async function main() {
   await mongoose.connect(uri, { dbName: "appdb" });
   console.log(`[seed] Connected.`);
 
+  // Allow overriding the file path via --file=...
   const argFile = process.argv.find((a) => a.startsWith("--file="));
   const filePath = argFile ? argFile.slice("--file=".length) : DEFAULT_SEED_FILE;
 
