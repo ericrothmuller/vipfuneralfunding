@@ -3,6 +3,13 @@
 
 import { useEffect, useState } from "react";
 
+type OtherIC = {
+  name?: string;
+  phone?: string;
+  fax?: string;
+  notes?: string;
+};
+
 type RequestDetail = {
   id: string;
   userId?: string;
@@ -50,8 +57,10 @@ type RequestDetail = {
   employerContact?: string;
   employmentStatus?: string;
 
-  // Insurance
-  insuranceCompany?: string;
+  // Insurance linkage
+  insuranceCompanyId?: string | { _id?: string; name?: string }; // may be populated or just an id string
+  otherInsuranceCompany?: OtherIC; // if "Other" was chosen
+  insuranceCompany?: string; // legacy/display
   policyNumbers?: string;
   faceAmount?: string;
   beneficiaries?: string;
@@ -78,6 +87,33 @@ function fmtDate(d?: string | Date | null) {
   return isNaN(dt.getTime()) ? "" : dt.toLocaleDateString();
 }
 
+/** Compute a display name for the insurance company from the various sources */
+function companyDisplay(data: RequestDetail): string {
+  // Populated object case
+  const populatedName =
+    typeof data.insuranceCompanyId === "object" && data.insuranceCompanyId?.name
+      ? data.insuranceCompanyId.name
+      : "";
+
+  // "Other" fallback
+  const otherName = data.otherInsuranceCompany?.name || "";
+
+  // Legacy string
+  const legacy = data.insuranceCompany || "";
+
+  return populatedName || otherName || legacy || "";
+}
+
+/** True if "Other" was used: we have otherInsuranceCompany.name and no insuranceCompanyId set */
+function usedOther(data: RequestDetail): boolean {
+  const hasOtherName = !!(data.otherInsuranceCompany && data.otherInsuranceCompany.name);
+  const hasManaged =
+    typeof data.insuranceCompanyId === "string"
+      ? !!data.insuranceCompanyId
+      : !!data.insuranceCompanyId?._id || !!data.insuranceCompanyId?.name;
+  return hasOtherName && !hasManaged;
+}
+
 export default function RequestDetailModal({
   id,
   onClose,
@@ -86,7 +122,7 @@ export default function RequestDetailModal({
 }: {
   id: string;
   onClose: () => void;
-  canDelete?: boolean;              // Table logic decides Admin / FH/CEM Submitted
+  canDelete?: boolean;              // Parent decides (Admin: true; FH/CEM: true only when Submitted)
   onDeleted?: (id: string) => void;
 }) {
   const [data, setData] = useState<RequestDetail | null>(null);
@@ -133,13 +169,15 @@ export default function RequestDetailModal({
     }
   }
 
+  const displayCompany = data ? companyDisplay(data) : "";
+  const isOther = data ? usedOther(data) : false;
+
   return (
     <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="request-modal-title">
       <div className="modal">
         <div className="modal-header">
           <h3 id="request-modal-title">Funding Request Details</h3>
           <div style={{ display: "flex", gap: 8 }}>
-            {/* Delete shows only if parent decided canDelete=true (Admin OR FH/CEM with Submitted) */}
             {canDelete && (
               <button className="btn" onClick={handleDelete} disabled={deleting}>
                 {deleting ? "Deleting…" : "Delete"}
@@ -161,6 +199,29 @@ export default function RequestDetailModal({
                 <div><span>Status</span><strong>{data.status || "Submitted"}</strong></div>
                 <div><span>Created</span><strong>{fmtDate(data.createdAt)}</strong></div>
                 <div><span>Updated</span><strong>{fmtDate(data.updatedAt)}</strong></div>
+              </section>
+
+              {/* Insurance */}
+              <section>
+                <h4>Insurance</h4>
+                <div><span>Company</span><strong>{displayCompany}</strong></div>
+                {/* Only show "Other" details when Other was used */}
+                {isOther && (
+                  <>
+                    <div><span>Other Phone</span><strong>{data.otherInsuranceCompany?.phone || ""}</strong></div>
+                    <div><span>Other Fax</span><strong>{data.otherInsuranceCompany?.fax || ""}</strong></div>
+                    <div>
+                      <span>Other Notes</span>
+                      <div style={{ whiteSpace: "pre-wrap" }}>
+                        <strong>{data.otherInsuranceCompany?.notes || ""}</strong>
+                      </div>
+                    </div>
+                  </>
+                )}
+                {/* Legacy details still displayed */}
+                <div><span>Policy Number(s)</span><strong>{data.policyNumbers || ""}</strong></div>
+                <div><span>Face Amount</span><strong>{data.faceAmount || ""}</strong></div>
+                <div><span>Beneficiaries</span><strong>{data.beneficiaries || ""}</strong></div>
               </section>
 
               {/* FH / CEM */}
@@ -216,7 +277,7 @@ export default function RequestDetailModal({
                 <h4>Assignments</h4>
                 <div><span>Another FH/CEM Taking Assignment?</span><strong>{fmtBool(data.otherFHTakingAssignment)}</strong></div>
                 <div><span>Other FH/CEM Name</span><strong>{data.otherFHName || ""}</strong></div>
-                <div><span>Amount</span><strong>{data.otherFHAmount || ""}</strong></div>
+                <div><span>Other FH/CEM Amount</span><strong>{data.otherFHAmount || ""}</strong></div>
               </section>
 
               {/* Employer */}
@@ -225,15 +286,6 @@ export default function RequestDetailModal({
                 <div><span>Employer Phone</span><strong>{data.employerPhone || ""}</strong></div>
                 <div><span>Employer Contact</span><strong>{data.employerContact || ""}</strong></div>
                 <div><span>Status</span><strong>{data.employmentStatus || ""}</strong></div>
-              </section>
-
-              {/* Insurance */}
-              <section>
-                <h4>Insurance</h4>
-                <div><span>Company</span><strong>{data.insuranceCompany || ""}</strong></div>
-                <div><span>Policy Number(s)</span><strong>{data.policyNumbers || ""}</strong></div>
-                <div><span>Face Amount</span><strong>{data.faceAmount || ""}</strong></div>
-                <div><span>Beneficiaries</span><strong>{data.beneficiaries || ""}</strong></div>
               </section>
 
               {/* Financials */}
