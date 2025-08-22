@@ -14,10 +14,8 @@ type Row = {
   assignmentAmount: string;
   status: "Submitted" | "Verifying" | "Approved" | "Funded" | "Closed" | string;
   userId?: string;
-  ownerEmail?: string;
+  ownerEmail?: string; // present in admin list
 };
-
-type FH = { id: string; email: string };
 
 const STATUS_OPTS = ["Submitted", "Verifying", "Approved", "Funded", "Closed"] as const;
 
@@ -40,37 +38,20 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
   const [msg, setMsg] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  // Admin filter state
+  // (Optional) Simple admin filters (status/from/to)
   const [status, setStatus] = useState<string>("");
-  const [fh, setFh] = useState<string>("");
   const [from, setFrom] = useState<string>("");
   const [to, setTo] = useState<string>("");
-  const [fhOptions, setFhOptions] = useState<FH[]>([]);
-
-  // Load FH/CEM options for admin dropdown
-  useEffect(() => {
-    if (!isAdmin) return;
-    (async () => {
-      try {
-        const data = await fetchJSON("/api/admin/users?role=FH_CEM");
-        const opts: FH[] = (data?.users || []).map((u: any) => ({ id: u.id, email: u.email }));
-        setFhOptions(opts);
-      } catch (e) {
-        // ignore; dropdown will be empty
-      }
-    })();
-  }, [isAdmin]);
 
   const query = useMemo(() => {
     if (!isAdmin) return "";
     const p = new URLSearchParams();
     if (status) p.set("status", status);
-    if (fh) p.set("fh", fh);
     if (from) p.set("from", from);
     if (to) p.set("to", to);
     const s = p.toString();
     return s ? `?${s}` : "";
-  }, [isAdmin, status, fh, from, to]);
+  }, [isAdmin, status, from, to]);
 
   async function load() {
     setLoading(true);
@@ -86,8 +67,10 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
     }
   }
 
-  // Load whenever filters or admin flag change
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [isAdmin, query]);
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin, query]);
 
   async function onDelete(id: string) {
     setMsg(null);
@@ -111,7 +94,7 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
       });
     } catch (e: any) {
       setMsg(e?.message || "Status update failed");
-      load(); // revert
+      load(); // revert if failed
     }
   }
 
@@ -123,7 +106,7 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
       {isAdmin && (
         <div className="card" style={{ padding: 12, marginBottom: 12 }}>
           <h3 className="panel-title" style={{ marginBottom: 8 }}>Filters</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "220px 260px 180px 180px 1fr", gap: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "220px 180px 180px 1fr", gap: 8 }}>
             <label>
               Status
               <select value={status} onChange={(e) => setStatus(e.target.value)}>
@@ -133,33 +116,17 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
                 ))}
               </select>
             </label>
-
-            <label>
-              FH/CEM (Owner)
-              <select value={fh} onChange={(e) => setFh(e.target.value)}>
-                <option value="">All</option>
-                {fhOptions.map(o => (
-                  <option key={o.id} value={o.id}>{o.email}</option>
-                ))}
-              </select>
-            </label>
-
             <label>
               From
               <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
             </label>
-
             <label>
               To
               <input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
             </label>
-
             <div style={{ display: "flex", alignItems: "end", gap: 8 }}>
               <button className="btn" onClick={load}>Apply</button>
-              <button
-                className="btn btn-ghost"
-                onClick={() => { setStatus(""); setFh(""); setFrom(""); setTo(""); }}
-              >
+              <button className="btn btn-ghost" onClick={() => { setStatus(""); setFrom(""); setTo(""); }}>
                 Clear
               </button>
             </div>
@@ -179,12 +146,14 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
               <th>Assignment Amount</th>
               <th>Status</th>
               {isAdmin && <th>Owner</th>}
-              <th />
+              <th /> {/* Actions column (View / Delete) */}
             </tr>
           </thead>
           <tbody>
             {rows.map((r) => {
-              const canDeleteFH = r.status === "Submitted";
+              const showDelete =
+                isAdmin || (!isAdmin && r.status === "Submitted"); // FH/CEM only when Submitted
+
               return (
                 <tr key={r.id}>
                   <td>{r.decName}</td>
@@ -210,14 +179,9 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
                   {isAdmin && <td>{r.ownerEmail || ""}</td>}
                   <td style={{ whiteSpace: "nowrap", display: "flex", gap: 8 }}>
                     <button className="btn btn-ghost" onClick={() => setSelectedId(r.id)}>View</button>
-                    <button
-                      className="btn"
-                      onClick={() => onDelete(r.id)}
-                      disabled={!isAdmin && !canDeleteFH}
-                      title={!isAdmin && !canDeleteFH ? "Cannot delete after status changes" : "Delete"}
-                    >
-                      Delete
-                    </button>
+                    {showDelete && (
+                      <button className="btn" onClick={() => onDelete(r.id)}>Delete</button>
+                    )}
                   </td>
                 </tr>
               );
@@ -225,7 +189,7 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
             {rows.length === 0 && (
               <tr>
                 <td colSpan={isAdmin ? 9 : 8} className="muted" style={{ padding: 16 }}>
-                  No funding requests match your filters.
+                  No funding requests{isAdmin ? " match your filters" : ""}.
                 </td>
               </tr>
             )}
@@ -237,6 +201,7 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
         <RequestDetailModal
           id={selectedId}
           onClose={() => setSelectedId(null)}
+          // Admin always allowed; FH/CEM allowed only when Submitted
           canDelete={
             !!rows.find(r => r.id === selectedId && (isAdmin || r.status === "Submitted"))
           }
