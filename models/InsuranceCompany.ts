@@ -4,6 +4,7 @@ import { Schema, model, models, InferSchemaType, Model } from "mongoose";
 const InsuranceCompanySchema = new Schema(
   {
     name: { type: String, required: true, index: true },
+    email: { type: String, default: "" },        // <-- NEW
     phone: { type: String, default: "" },
     fax: { type: String, default: "" },
     mailingAddress: { type: String, default: "" },

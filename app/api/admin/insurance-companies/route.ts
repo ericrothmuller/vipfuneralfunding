@@ -23,22 +23,25 @@ export async function GET(req: Request) {
 
     const query: any = {};
     if (q) {
-      // simple case-insensitive search on name + notes + docs
+      // simple case-insensitive search on name/email/notes/docs
+      const rx = { $regex: q, $options: "i" };
       query.$or = [
-        { name: { $regex: q, $options: "i" } },
-        { notes: { $regex: q, $options: "i" } },
-        { documentsToFund: { $regex: q, $options: "i" } },
+        { name: rx },
+        { email: rx },
+        { notes: rx },
+        { documentsToFund: rx },
       ];
     }
 
     const companies = await InsuranceCompany.find(query)
       .sort({ name: 1 })
-      .select("name phone fax mailingAddress verificationTime documentsToFund acceptsAdvancements notes createdAt updatedAt")
+      .select("name email phone fax mailingAddress verificationTime documentsToFund acceptsAdvancements notes createdAt updatedAt")
       .lean();
 
     const items = companies.map((c: any) => ({
       id: String(c._id),
       name: c.name,
+      email: c.email || "",
       phone: c.phone || "",
       fax: c.fax || "",
       mailingAddress: c.mailingAddress || "",
@@ -71,6 +74,7 @@ export async function POST(req: Request) {
 
     const created = await InsuranceCompany.create({
       name,
+      email: body?.email || "",
       phone: body?.phone || "",
       fax: body?.fax || "",
       mailingAddress: body?.mailingAddress || "",

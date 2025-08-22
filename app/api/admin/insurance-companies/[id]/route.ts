@@ -28,6 +28,7 @@ export async function GET(_req: Request, context: any) {
       item: {
         id: String(doc._id),
         name: doc.name,
+        email: doc.email || "",
         phone: doc.phone || "",
         fax: doc.fax || "",
         mailingAddress: doc.mailingAddress || "",
@@ -60,6 +61,7 @@ export async function PATCH(req: Request, context: any) {
 
     const update: any = {};
     if (typeof body?.name === "string") update.name = body.name.trim();
+    if (typeof body?.email === "string") update.email = body.email;
     if (typeof body?.phone === "string") update.phone = body.phone;
     if (typeof body?.fax === "string") update.fax = body.fax;
     if (typeof body?.mailingAddress === "string") update.mailingAddress = body.mailingAddress;

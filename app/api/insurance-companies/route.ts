@@ -11,12 +11,13 @@ export async function GET() {
 
     const rows = await InsuranceCompany.find({})
       .sort({ name: 1 })
-      .select("name phone fax notes")
+      .select("name email phone fax notes")
       .lean();
 
     const items = rows.map((r: any) => ({
       id: String(r._id),
       name: r.name,
+      email: r.email || "",
       phone: r.phone || "",
       fax: r.fax || "",
       notes: r.notes || "",

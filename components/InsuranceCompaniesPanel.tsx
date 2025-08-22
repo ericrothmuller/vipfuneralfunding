@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 type IC = {
   id: string;
   name: string;
+  email: string;
   phone: string;
   fax: string;
   mailingAddress: string;
@@ -59,6 +60,7 @@ export default function InsuranceCompaniesPanel() {
     setEditing({
       id: "",
       name: "",
+      email: "",
       phone: "",
       fax: "",
       mailingAddress: "",
@@ -99,6 +101,7 @@ export default function InsuranceCompaniesPanel() {
     const fd = new FormData(form);
     const payload = {
       name: String(fd.get("name") || "").trim(),
+      email: String(fd.get("email") || ""),
       phone: String(fd.get("phone") || ""),
       fax: String(fd.get("fax") || ""),
       mailingAddress: String(fd.get("mailingAddress") || ""),
@@ -140,7 +143,7 @@ export default function InsuranceCompaniesPanel() {
         <div style={{ display: "flex", gap: 8 }}>
           <input
             type="search"
-            placeholder="Search name, notes, documents…"
+            placeholder="Search name, email, notes, documents…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             style={{ padding: "8px 10px", minWidth: 260 }}
@@ -158,6 +161,7 @@ export default function InsuranceCompaniesPanel() {
             <thead>
               <tr>
                 <th>Name</th>
+                <th>Email</th>      {/* NEW */}
                 <th>Phone</th>
                 <th>Fax</th>
                 <th>Verification Time</th>
@@ -169,6 +173,7 @@ export default function InsuranceCompaniesPanel() {
               {items.map((i) => (
                 <tr key={i.id}>
                   <td>{i.name}</td>
+                  <td>{i.email}</td>
                   <td>{i.phone}</td>
                   <td>{i.fax}</td>
                   <td>{i.verificationTime}</td>
@@ -181,7 +186,7 @@ export default function InsuranceCompaniesPanel() {
               ))}
               {items.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="muted" style={{ padding: 16 }}>
+                  <td colSpan={7} className="muted" style={{ padding: 16 }}>
                     No insurance companies found.
                   </td>
                 </tr>
@@ -206,7 +211,7 @@ export default function InsuranceCompaniesPanel() {
                 style={{
                   maxHeight: "70vh",
                   overflow: "auto",
-                  minHeight: 0, // important in CSS grid to allow scrolling
+                  minHeight: 0,
                   display: "grid",
                   gap: 10,
                 }}
@@ -215,6 +220,9 @@ export default function InsuranceCompaniesPanel() {
 
                 <label>Name
                   <input name="name" type="text" defaultValue={editing.name} required />
+                </label>
+                <label>Email
+                  <input name="email" type="email" defaultValue={editing.email} placeholder="name@example.com" />
                 </label>
                 <label>Phone
                   <input name="phone" type="tel" defaultValue={editing.phone} />
