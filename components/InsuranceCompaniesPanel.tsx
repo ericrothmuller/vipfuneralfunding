@@ -13,6 +13,7 @@ type IC = {
   verificationTime: string;
   documentsToFund: string;
   acceptsAdvancements: boolean;
+  sendAssignmentBy: "Fax" | "Email" | "Other (see notes)";
   notes: string;
   createdAt?: string;
   updatedAt?: string;
@@ -22,7 +23,9 @@ async function fetchJSON(url: string, init?: RequestInit) {
   const res = await fetch(url, init);
   const text = await res.text();
   let data: any = {};
-  try { data = text ? JSON.parse(text) : {}; } catch {
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
     throw new Error(`HTTP ${res.status} at ${url}: ${text.slice(0, 120)}`);
   }
   if (!res.ok) throw new Error(data?.error || `HTTP ${res.status} at ${url}`);
@@ -54,7 +57,10 @@ export default function InsuranceCompaniesPanel() {
     }
   }
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [query]);
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
 
   function onAdd() {
     setEditing({
@@ -67,14 +73,17 @@ export default function InsuranceCompaniesPanel() {
       verificationTime: "",
       documentsToFund: "",
       acceptsAdvancements: false,
+      sendAssignmentBy: "Fax",
       notes: "",
     });
     setOpen(true);
   }
+
   function onEdit(item: IC) {
     setEditing({ ...item });
     setOpen(true);
   }
+
   function onClose() {
     setOpen(false);
     setEditing(null);
@@ -99,7 +108,12 @@ export default function InsuranceCompaniesPanel() {
 
     const form = e.currentTarget;
     const fd = new FormData(form);
-    const payload = {
+
+    // Narrow to the union type for correctness
+    const sendAssignmentBy = (String(fd.get("sendAssignmentBy") || "Fax") as IC["sendAssignmentBy"]);
+
+    // Build a typed payload
+    const payload: Partial<IC> = {
       name: String(fd.get("name") || "").trim(),
       email: String(fd.get("email") || ""),
       phone: String(fd.get("phone") || ""),
@@ -108,6 +122,7 @@ export default function InsuranceCompaniesPanel() {
       verificationTime: String(fd.get("verificationTime") || ""),
       documentsToFund: String(fd.get("documentsToFund") || ""),
       acceptsAdvancements: String(fd.get("acceptsAdvancements") || "No") === "Yes",
+      sendAssignmentBy, // union-typed
       notes: String(fd.get("notes") || ""),
     };
 
@@ -120,14 +135,17 @@ export default function InsuranceCompaniesPanel() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        setItems(prev => prev.map(i => (i.id === editing.id ? { ...i, ...payload } : i)));
+        // Merge safely with proper typing
+        setItems(prev =>
+          prev.map(i => (i.id === editing.id ? ({ ...i, ...payload } as IC) : i))
+        );
       } else {
         await fetchJSON(`/api/admin/insurance-companies`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        await load();
+        await load(); // reload to pick up the inserted company in-sort
       }
 
       onClose();
@@ -161,10 +179,11 @@ export default function InsuranceCompaniesPanel() {
             <thead>
               <tr>
                 <th>Name</th>
-                <th>Email</th>      {/* NEW */}
+                <th>Email</th>
                 <th>Phone</th>
                 <th>Fax</th>
                 <th>Verification Time</th>
+                <th>Send Assignment By</th>
                 <th>Accepts Advancements</th>
                 <th />
               </tr>
@@ -177,6 +196,7 @@ export default function InsuranceCompaniesPanel() {
                   <td>{i.phone}</td>
                   <td>{i.fax}</td>
                   <td>{i.verificationTime}</td>
+                  <td>{i.sendAssignmentBy}</td>
                   <td>{i.acceptsAdvancements ? "Yes" : "No"}</td>
                   <td style={{ whiteSpace: "nowrap", display: "flex", gap: 8 }}>
                     <button className="btn btn-ghost" onClick={() => onEdit(i)}>Edit</button>
@@ -186,7 +206,7 @@ export default function InsuranceCompaniesPanel() {
               ))}
               {items.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="muted" style={{ padding: 16 }}>
+                  <td colSpan={8} className="muted" style={{ padding: 16 }}>
                     No insurance companies found.
                   </td>
                 </tr>
@@ -221,30 +241,46 @@ export default function InsuranceCompaniesPanel() {
                 <label>Name
                   <input name="name" type="text" defaultValue={editing.name} required />
                 </label>
+
                 <label>Email
                   <input name="email" type="email" defaultValue={editing.email} placeholder="name@example.com" />
                 </label>
+
                 <label>Phone
                   <input name="phone" type="tel" defaultValue={editing.phone} />
                 </label>
+
                 <label>Fax
                   <input name="fax" type="tel" defaultValue={editing.fax} />
                 </label>
+
                 <label>Mailing Address
                   <textarea name="mailingAddress" rows={2} defaultValue={editing.mailingAddress} />
                 </label>
+
                 <label>Verification Time
                   <input name="verificationTime" type="text" defaultValue={editing.verificationTime} placeholder="e.g., 24–48 hours" />
                 </label>
+
                 <label>Documents to Fund
                   <textarea name="documentsToFund" rows={2} defaultValue={editing.documentsToFund} placeholder="List docs or notes…" />
                 </label>
+
                 <label>Accepts Advancements
                   <select name="acceptsAdvancements" defaultValue={editing.acceptsAdvancements ? "Yes" : "No"}>
                     <option value="Yes">Yes</option>
                     <option value="No">No</option>
                   </select>
                 </label>
+
+                <label>Send Assignment By
+                  <select name="sendAssignmentBy" defaultValue={editing.sendAssignmentBy || "Fax"}>
+                    <option value="Fax">Fax</option>
+                    <option value="Email">Email</option>
+                    <option value="Other (see notes)">Other (see notes)</option>
+                  </select>
+                </label>
+
                 <label>Notes
                   <textarea name="notes" rows={3} defaultValue={editing.notes} />
                 </label>

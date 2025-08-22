@@ -23,7 +23,6 @@ export async function GET(req: Request) {
 
     const query: any = {};
     if (q) {
-      // simple case-insensitive search on name/email/notes/docs
       const rx = { $regex: q, $options: "i" };
       query.$or = [
         { name: rx },
@@ -35,7 +34,9 @@ export async function GET(req: Request) {
 
     const companies = await InsuranceCompany.find(query)
       .sort({ name: 1 })
-      .select("name email phone fax mailingAddress verificationTime documentsToFund acceptsAdvancements notes createdAt updatedAt")
+      .select(
+        "name email phone fax mailingAddress verificationTime documentsToFund acceptsAdvancements sendAssignmentBy notes createdAt updatedAt"
+      )
       .lean();
 
     const items = companies.map((c: any) => ({
@@ -48,6 +49,7 @@ export async function GET(req: Request) {
       verificationTime: c.verificationTime || "",
       documentsToFund: c.documentsToFund || "",
       acceptsAdvancements: !!c.acceptsAdvancements,
+      sendAssignmentBy: c.sendAssignmentBy || "Fax",
       notes: c.notes || "",
       createdAt: c.createdAt,
       updatedAt: c.updatedAt,
@@ -81,6 +83,7 @@ export async function POST(req: Request) {
       verificationTime: body?.verificationTime || "",
       documentsToFund: body?.documentsToFund || "",
       acceptsAdvancements: !!body?.acceptsAdvancements,
+      sendAssignmentBy: body?.sendAssignmentBy || "Fax",
       notes: body?.notes || "",
     });
 

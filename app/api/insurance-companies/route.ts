@@ -11,7 +11,7 @@ export async function GET() {
 
     const rows = await InsuranceCompany.find({})
       .sort({ name: 1 })
-      .select("name email phone fax notes")
+      .select("name email phone fax notes sendAssignmentBy")
       .lean();
 
     const items = rows.map((r: any) => ({
@@ -20,6 +20,7 @@ export async function GET() {
       email: r.email || "",
       phone: r.phone || "",
       fax: r.fax || "",
+      sendAssignmentBy: r.sendAssignmentBy || "Fax",
       notes: r.notes || "",
     }));
 

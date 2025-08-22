@@ -35,6 +35,7 @@ export async function GET(_req: Request, context: any) {
         verificationTime: doc.verificationTime || "",
         documentsToFund: doc.documentsToFund || "",
         acceptsAdvancements: !!doc.acceptsAdvancements,
+        sendAssignmentBy: doc.sendAssignmentBy || "Fax",
         notes: doc.notes || "",
         createdAt: doc.createdAt,
         updatedAt: doc.updatedAt,
@@ -68,6 +69,7 @@ export async function PATCH(req: Request, context: any) {
     if (typeof body?.verificationTime === "string") update.verificationTime = body.verificationTime;
     if (typeof body?.documentsToFund === "string") update.documentsToFund = body.documentsToFund;
     if (typeof body?.acceptsAdvancements === "boolean") update.acceptsAdvancements = body.acceptsAdvancements;
+    if (typeof body?.sendAssignmentBy === "string") update.sendAssignmentBy = body.sendAssignmentBy; // NEW
     if (typeof body?.notes === "string") update.notes = body.notes;
 
     if (Object.keys(update).length === 0) {
