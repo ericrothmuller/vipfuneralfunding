@@ -1,43 +1,63 @@
 // components/FundingRequestForm.tsx
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+
+type IC = { id: string; name: string; phone?: string; fax?: string; notes?: string };
 
 export default function FundingRequestForm() {
   const router = useRouter();
   const [msg, setMsg] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [companies, setCompanies] = useState<IC[]>([]);
+  const [mode, setMode] = useState<"id" | "other" | "">("");    // selection mode
+  const [companyId, setCompanyId] = useState<string>("");       // selected ID when mode="id"
+
+  // Load companies for dropdown
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/insurance-companies", { cache: "no-store" });
+        const data = await res.json();
+        if (res.ok) setCompanies(data?.items || []);
+      } catch {
+        // ignore; dropdown may be empty
+      }
+    })();
+  }, []);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setMsg(null);
     setSaving(true);
-
     try {
       const formEl = e.currentTarget;
-      const fd = new FormData(formEl); // includes ALL fields + file automatically
+      const fd = new FormData(formEl);
 
-      const res = await fetch("/api/requests", { method: "POST", body: fd });
-      const json = await res.json().catch(() => ({} as any));
-
-      if (!res.ok) {
-        throw new Error(json?.error || `Server error (code ${res.status})`);
+      // Push mode & selected ID so API knows which path to use
+      fd.set("insuranceCompanyMode", mode);
+      if (mode === "id") {
+        fd.set("insuranceCompanyId", companyId);
+        // Clear "other" fields if any stale values
+        fd.set("otherIC_name", "");
+        fd.set("otherIC_phone", "");
+        fd.set("otherIC_fax", "");
+        fd.set("otherIC_notes", "");
       }
 
-      // Clear the form immediately
+      const res = await fetch("/api/requests", { method: "POST", body: fd });
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) throw new Error(json?.error || `Server error (code ${res.status})`);
+
+      // Clear form & go to Profile tab
       formEl.reset();
-
-      // Preselect dashboard tab to "profile"
-      try {
-        window.localStorage.setItem("vipff.activeTab", "profile");
-      } catch {}
-
-      // Navigate to profile tab and refresh so tables reflect the new request
+      try { window.localStorage.setItem("vipff.activeTab", "profile"); } catch {}
       router.replace("/dashboard?tab=profile", { scroll: false });
       router.refresh();
 
-      // Hard fallback (belt & suspenders) in case SPA state blocks the change
+      // Fallback hard nav just in case
       setTimeout(() => {
         if (!window.location.search.includes("tab=profile")) {
           window.location.assign("/dashboard?tab=profile");
@@ -58,16 +78,16 @@ export default function FundingRequestForm() {
       <fieldset className="card" style={{ padding: 12 }}>
         <legend className="panel-title">Funeral Home / Cemetery</legend>
         <label>FH/CEM Name
-          <input name="fhName" type="text" required style={{ width: "100%", padding: 8 }} />
+          <input name="fhName" type="text" required />
         </label>
         <label>FH/CEM REP
-          <input name="fhRep" type="text" style={{ width: "100%", padding: 8 }} />
+          <input name="fhRep" type="text" />
         </label>
         <label>Contact Phone
-          <input name="contactPhone" type="tel" style={{ width: "100%", padding: 8 }} placeholder="(555) 555-5555" />
+          <input name="contactPhone" type="tel" placeholder="(555) 555-5555" />
         </label>
         <label>Contact Email
-          <input name="contactEmail" type="email" style={{ width: "100%", padding: 8 }} placeholder="name@example.com" />
+          <input name="contactEmail" type="email" placeholder="name@example.com" />
         </label>
       </fieldset>
 
@@ -75,22 +95,22 @@ export default function FundingRequestForm() {
       <fieldset className="card" style={{ padding: 12 }}>
         <legend className="panel-title">Decedent</legend>
         <label>DEC First Name
-          <input name="decFirstName" type="text" required style={{ width: "100%", padding: 8 }} />
+          <input name="decFirstName" type="text" required />
         </label>
         <label>DEC Last Name
-          <input name="decLastName" type="text" required style={{ width: "100%", padding: 8 }} />
+          <input name="decLastName" type="text" required />
         </label>
         <label>DEC Social Security Number
-          <input name="decSSN" type="text" style={{ width: "100%", padding: 8 }} placeholder="###-##-####" />
+          <input name="decSSN" type="text" placeholder="###-##-####" />
         </label>
         <label>DEC Date of Birth
-          <input name="decDOB" type="date" style={{ width: "100%", padding: 8 }} />
+          <input name="decDOB" type="date" />
         </label>
         <label>DEC Date of Death
-          <input name="decDOD" type="date" style={{ width: "100%", padding: 8 }} />
+          <input name="decDOD" type="date" />
         </label>
         <label>DEC Marital Status
-          <input name="decMaritalStatus" type="text" style={{ width: "100%", padding: 8 }} />
+          <input name="decMaritalStatus" type="text" />
         </label>
       </fieldset>
 
@@ -98,17 +118,17 @@ export default function FundingRequestForm() {
       <fieldset className="card" style={{ padding: 12 }}>
         <legend className="panel-title">Address</legend>
         <label>DEC Address
-          <input name="decAddress" type="text" style={{ width: "100%", padding: 8 }} />
+          <input name="decAddress" type="text" />
         </label>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 140px", gap: 8 }}>
           <label>City
-            <input name="decCity" type="text" style={{ width: "100%", padding: 8 }} />
+            <input name="decCity" type="text" />
           </label>
           <label>State
-            <input name="decState" type="text" style={{ width: "100%", padding: 8 }} />
+            <input name="decState" type="text" />
           </label>
           <label>Zip Code
-            <input name="decZip" type="text" style={{ width: "100%", padding: 8 }} />
+            <input name="decZip" type="text" />
           </label>
         </div>
       </fieldset>
@@ -117,10 +137,10 @@ export default function FundingRequestForm() {
       <fieldset className="card" style={{ padding: 12 }}>
         <legend className="panel-title">Place of Death</legend>
         <label>Place of Death City
-          <input name="decPODCity" type="text" style={{ width: "100%", padding: 8 }} />
+          <input name="decPODCity" type="text" />
         </label>
         <label>Place of Death State
-          <input name="decPODState" type="text" style={{ width: "100%", padding: 8 }} />
+          <input name="decPODState" type="text" />
         </label>
         <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <input name="deathInUS" type="checkbox" defaultChecked />
@@ -150,10 +170,10 @@ export default function FundingRequestForm() {
           <input type="checkbox" name="otherFHTakingAssignment" /> Is another FH/CEM taking an assignment?
         </label>
         <label>If Yes, FH/CEM Name:
-          <input name="otherFHName" type="text" style={{ width: "100%", padding: 8 }} />
+          <input name="otherFHName" type="text" />
         </label>
         <label>Amount:
-          <input name="otherFHAmount" type="text" style={{ width: "100%", padding: 8 }} />
+          <input name="otherFHAmount" type="text" />
         </label>
       </fieldset>
 
@@ -161,30 +181,69 @@ export default function FundingRequestForm() {
       <fieldset className="card" style={{ padding: 12 }}>
         <legend className="panel-title">Employer</legend>
         <label>Employer Phone
-          <input name="employerPhone" type="tel" style={{ width: "100%", padding: 8 }} />
+          <input name="employerPhone" type="tel" />
         </label>
         <label>Employer Contact Name
-          <input name="employerContact" type="text" style={{ width: "100%", padding: 8 }} />
+          <input name="employerContact" type="text" />
         </label>
         <label>Active or Retired or On Leave?
-          <input name="employmentStatus" type="text" style={{ width: "100%", padding: 8 }} placeholder="Active / Retired / On Leave" />
+          <input name="employmentStatus" type="text" placeholder="Active / Retired / On Leave" />
         </label>
       </fieldset>
 
-      {/* -------- Insurance -------- */}
+      {/* -------- Insurance (NEW: Dropdown + Other) -------- */}
       <fieldset className="card" style={{ padding: 12 }}>
         <legend className="panel-title">Insurance</legend>
+
         <label>Insurance Company
-          <input name="insuranceCompany" type="text" style={{ width: "100%", padding: 8 }} />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+            <select
+              value={mode === "id" ? companyId : (mode === "other" ? "other" : "")}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === "other") { setMode("other"); setCompanyId(""); }
+                else if (v) { setMode("id"); setCompanyId(v); }
+                else { setMode(""); setCompanyId(""); }
+              }}
+            >
+              <option value="">— Select —</option>
+              {companies.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+              <option value="other">Other (enter details)</option>
+            </select>
+          </div>
         </label>
+
+        {mode === "other" && (
+          <div className="card" style={{ padding: 12, marginTop: 8 }}>
+            <div className="muted" style={{ marginBottom: 8 }}>
+              These details are saved on this request only (no new Insurance Company record is created).
+            </div>
+            <label>Other Insurance Company Name
+              <input name="otherIC_name" type="text" required />
+            </label>
+            <label>Other Insurance Company Phone
+              <input name="otherIC_phone" type="tel" />
+            </label>
+            <label>Other Insurance Company Fax
+              <input name="otherIC_fax" type="tel" />
+            </label>
+            <label>Other Insurance Company Notes
+              <textarea name="otherIC_notes" rows={2} />
+            </label>
+          </div>
+        )}
+
+        {/* Legacy optional fields you already had */}
         <label>Policy Number(s)
-          <input name="policyNumbers" type="text" style={{ width: "100%", padding: 8 }} />
+          <input name="policyNumbers" type="text" />
         </label>
         <label>Face Amount
-          <input name="faceAmount" type="text" style={{ width: "100%", padding: 8 }} />
+          <input name="faceAmount" type="text" />
         </label>
         <label>Beneficiaries
-          <input name="beneficiaries" type="text" style={{ width: "100%", padding: 8 }} />
+          <input name="beneficiaries" type="text" />
         </label>
       </fieldset>
 
@@ -192,29 +251,28 @@ export default function FundingRequestForm() {
       <fieldset className="card" style={{ padding: 12 }}>
         <legend className="panel-title">Financials</legend>
         <label>Total Service Amount
-          <input name="totalServiceAmount" type="text" style={{ width: "100%", padding: 8 }} />
+          <input name="totalServiceAmount" type="text" />
         </label>
         <label>Family Advancement Amount
-          <input name="familyAdvancementAmount" type="text" style={{ width: "100%", padding: 8 }} />
+          <input name="familyAdvancementAmount" type="text" />
         </label>
         <label>VIP Fee
-          <input name="vipFee" type="text" style={{ width: "100%", padding: 8 }} />
+          <input name="vipFee" type="text" />
         </label>
         <label>Assignment Amount
-          <input name="assignmentAmount" type="text" style={{ width: "100%", padding: 8 }} />
+          <input name="assignmentAmount" type="text" />
         </label>
       </fieldset>
 
       {/* -------- Notes -------- */}
       <fieldset className="card" style={{ padding: 12 }}>
         <legend className="panel-title">Additional Notes</legend>
-        <textarea name="notes" rows={4} style={{ width: "100%", padding: 8 }} />
+        <textarea name="notes" rows={4} />
       </fieldset>
 
       {/* -------- Upload -------- */}
       <fieldset className="card" style={{ padding: 12 }}>
         <legend className="panel-title">Upload Assignment</legend>
-        {/* MUST stay 'assignmentUpload' for API to see it */}
         <input
           name="assignmentUpload"
           type="file"
