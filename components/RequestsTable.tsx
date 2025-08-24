@@ -14,7 +14,7 @@ type Row = {
   assignmentAmount: string;
   status: "Submitted" | "Verifying" | "Approved" | "Funded" | "Closed" | string;
   userId?: string;
-  ownerEmail?: string; // admin-only
+  ownerEmail?: string; // admin
 };
 
 const STATUS_OPTS = ["Submitted", "Verifying", "Approved", "Funded", "Closed"] as const;
@@ -44,14 +44,13 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
   const [from, setFrom] = useState<string>("");
   const [to, setTo] = useState<string>("");
 
-  // Debounce the search box so we don't spam fetches or flicker the UI
+  // Debounce search
   const [debouncedQ, setDebouncedQ] = useState(q);
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQ(q), 350);
     return () => clearTimeout(t);
   }, [q]);
 
-  // Build query only from debounced q + other filters
   const query = useMemo(() => {
     const p = new URLSearchParams();
     if (debouncedQ) p.set("q", debouncedQ);
@@ -76,11 +75,7 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
     }
   }
 
-  // Load on mount and whenever role/filters change (with debounced q)
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAdmin, query]);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [isAdmin, query]);
 
   async function onDelete(id: string) {
     setMsg(null);
@@ -95,7 +90,6 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
   async function onChangeStatus(id: string, nextStatus: string) {
     setMsg(null);
     try {
-      // Optimistic UI
       setRows(prev => prev.map(r => (r.id === id ? { ...r, status: nextStatus } : r)));
       await fetchJSON(`/api/requests/${id}/status`, {
         method: "PATCH",
@@ -104,13 +98,13 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
       });
     } catch (e: any) {
       setMsg(e?.message || "Status update failed");
-      load(); // revert if server failed
+      load();
     }
   }
 
   return (
     <>
-      {/* Filters (always visible; input stays focused during fetch) */}
+      {/* Filters (always mounted so the cursor doesn't lose focus) */}
       <div className="card" style={{ padding: 12, marginBottom: 12 }}>
         <h3 className="panel-title" style={{ marginBottom: 8 }}>Filters</h3>
         <div style={{ display: "grid", gridTemplateColumns: "minmax(220px, 1fr) 180px 180px 180px auto", gap: 8 }}>
@@ -145,7 +139,6 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
           </label>
 
           <div style={{ display: "flex", alignItems: "end", gap: 8 }}>
-            {/* Manual apply if you want to re-fetch without waiting for debounce changes of q */}
             <button className="btn" onClick={load}>Apply</button>
             <button
               className="btn btn-ghost"
@@ -157,7 +150,6 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
         </div>
       </div>
 
-      {/* Table area – we keep it mounted; show a subtle loader instead of replacing the whole component */}
       <div className="panel-row" style={{ marginBottom: 8 }}>
         <div className="muted">{rows.length} result{rows.length === 1 ? "" : "s"}</div>
         {loadingRows && <div className="muted">Loading…</div>}
@@ -182,9 +174,7 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
           </thead>
           <tbody>
             {rows.map((r) => {
-              const showDelete =
-                isAdmin || (!isAdmin && r.status === "Submitted");
-
+              const showDelete = isAdmin || (!isAdmin && r.status === "Submitted");
               return (
                 <tr key={r.id}>
                   <td>{r.decName}</td>
@@ -210,6 +200,9 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
                   {isAdmin && <td>{r.ownerEmail || ""}</td>}
                   <td style={{ whiteSpace: "nowrap", display: "flex", gap: 8 }}>
                     <button className="btn btn-ghost" onClick={() => setSelectedId(r.id)}>View</button>
+                    {isAdmin && (
+                      <a className="btn" href={`/requests/${r.id}/verification`}>Verification</a>
+                    )}
                     {showDelete && (
                       <button className="btn" onClick={() => onDelete(r.id)}>Delete</button>
                     )}
