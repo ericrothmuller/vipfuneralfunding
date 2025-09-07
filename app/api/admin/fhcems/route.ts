@@ -1,24 +1,34 @@
 // app/api/admin/fhcems/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { connectDB } from "@/lib/db";
+import { getUserFromCookie } from "@/lib/auth";
 import FHCem from "@/models/FHCem";
-import User from "@/models/User";
-import { connect } from "@/lib/mongoose"; // <- use your existing connect helper
-import { requireAdmin } from "@/lib/auth"; // <- implement/plug your admin guard
 
-export async function GET(req: NextRequest) {
-  await connect();
-  await requireAdmin(req);
+async function requireAdminFromCookie() {
+  const me = await getUserFromCookie();
+  if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (me.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  return me;
+}
+
+export async function GET(req: Request) {
+  const guard = await requireAdminFromCookie();
+  if (guard instanceof NextResponse) return guard;
+
+  await connectDB();
   const { searchParams } = new URL(req.url);
-  const q = searchParams.get("q")?.trim() || "";
+  const q = (searchParams.get("q") || "").trim();
   const filter = q ? { name: { $regex: q, $options: "i" } } : {};
   const items = await FHCem.find(filter).sort({ name: 1 }).lean();
   return NextResponse.json({ items });
 }
 
-export async function POST(req: NextRequest) {
-  await connect();
-  await requireAdmin(req);
-  const body = await req.json();
+export async function POST(req: Request) {
+  const guard = await requireAdminFromCookie();
+  if (guard instanceof NextResponse) return guard;
+
+  await connectDB();
+  const body = await req.json().catch(() => ({}));
   const doc = await FHCem.create({
     name: (body.name || "").trim(),
     reps: body.reps || [],
