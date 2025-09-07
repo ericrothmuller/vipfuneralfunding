@@ -36,7 +36,6 @@ export default function ProfileForm() {
         const res = await fetch("/api/profile", { cache: "no-store" });
         if (!res.ok) throw new Error("Failed to load profile");
         const data = await res.json();
-
         if (mounted && data?.user) {
           setProfile({
             fhName: data.user.fhName || "",
@@ -55,11 +54,12 @@ export default function ProfileForm() {
         if (mounted) setLoading(false);
       }
     })();
-
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, []);
+
+  function set<K extends keyof Profile>(key: K, val: string) {
+    setProfile(p => ({ ...p, [key]: val }));
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -83,104 +83,117 @@ export default function ProfileForm() {
     }
   }
 
-  function set<K extends keyof Profile>(key: K, val: string) {
-    setProfile((p) => ({ ...p, [key]: val }));
-  }
-
   if (loading) return <p>Loading…</p>;
 
   return (
-    <form onSubmit={onSubmit} style={{ display: "grid", gap: 12, marginTop: 16 }}>
-      <label>
-        FH/CEM Name
-        <input
-          type="text"
-          value={profile.fhName}
-          onChange={(e) => set("fhName", e.target.value)}
-          style={{ width: "100%", padding: 8 }}
-        />
-      </label>
+    <form onSubmit={onSubmit} className="pf-form">
+      <style jsx>{`
+        .pf-form {
+          display: grid;
+          gap: 14px;
+          font-size: 18px;
+          line-height: 1.45;
+        }
+        .pf-card {
+          background: var(--card, #101418);
+          border: 1px solid var(--border, #2a2f37);
+          border-radius: 0;              /* squared */
+          padding: 14px;
+        }
+        .pf-title {
+          color: var(--title, #d6b16d);
+          font-weight: 800;
+          margin: 0 0 12px 0;
+          font-size: 20px;
+        }
+        .pf-grid-2 { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+        label { display: grid; gap: 6px; }
 
-      <label>
-        Business Phone
-        <input
-          type="tel"
-          value={profile.businessPhone}
-          onChange={(e) => set("businessPhone", e.target.value)}
-          placeholder="e.g. (555) 555-5555"
-          style={{ width: "100%", padding: 8 }}
-        />
-      </label>
+        input[type="text"],
+        input[type="email"],
+        input[type="tel"],
+        textarea {
+          width: 100%;
+          padding: 10px 12px;
+          border: 1px solid var(--border, #2a2f37);
+          border-radius: 0;               /* squared */
+          background: var(--field, #141a1e);
+        }
 
-      <label>
-        Business Fax
-        <input
-          type="tel"
-          value={profile.businessFax}
-          onChange={(e) => set("businessFax", e.target.value)}
-          style={{ width: "100%", padding: 8 }}
-        />
-      </label>
+        @media (prefers-color-scheme: light) {
+          .pf-form {
+            --title: #000;
+          }
+          input[type="text"],
+          input[type="email"],
+          input[type="tel"],
+          textarea {
+            background: #f2f4f6;          /* slightly darker than white */
+            border: 1px solid #d0d5dd;
+          }
+          .pf-card {
+            background: #ffffff;
+            border-color: #d0d5dd;
+          }
+        }
+        @media (max-width: 900px) {
+          .pf-grid-2 { grid-template-columns: 1fr; }
+          .pf-form { font-size: 17px; }
+        }
+        @media (max-width: 600px) {
+          .pf-form { font-size: 16px; }
+        }
+      `}</style>
 
-      <label>
-        Mailing Address
-        <textarea
-          value={profile.mailingAddress}
-          onChange={(e) => set("mailingAddress", e.target.value)}
-          rows={3}
-          style={{ width: "100%", padding: 8 }}
-        />
-      </label>
+      <div className="pf-card">
+        <h3 className="pf-title">Business</h3>
+        <label>FH/CEM Name
+          <input type="text" value={profile.fhName} onChange={(e) => set("fhName", e.target.value)} />
+        </label>
 
-      <hr style={{ margin: "12px 0", border: "none", borderTop: "1px solid #eee" }} />
+        <div className="pf-grid-2">
+          <label>Business Phone
+            <input type="tel" value={profile.businessPhone} onChange={(e) => set("businessPhone", e.target.value)} />
+          </label>
+          <label>Business Fax
+            <input type="tel" value={profile.businessFax} onChange={(e) => set("businessFax", e.target.value)} />
+          </label>
+        </div>
 
-      <label>
-        Contact Name
-        <input
-          type="text"
-          value={profile.contactName}
-          onChange={(e) => set("contactName", e.target.value)}
-          style={{ width: "100%", padding: 8 }}
-        />
-      </label>
+        <label>Mailing Address
+          <textarea rows={3} value={profile.mailingAddress} onChange={(e) => set("mailingAddress", e.target.value)} />
+        </label>
+      </div>
 
-      <label>
-        Contact Phone
-        <input
-          type="tel"
-          value={profile.contactPhone}
-          onChange={(e) => set("contactPhone", e.target.value)}
-          placeholder="e.g. (555) 555-5555"
-          style={{ width: "100%", padding: 8 }}
-        />
-      </label>
+      <div className="pf-card">
+        <h3 className="pf-title">Primary Contact</h3>
+        <label>Contact Name
+          <input type="text" value={profile.contactName} onChange={(e) => set("contactName", e.target.value)} />
+        </label>
+        <div className="pf-grid-2">
+          <label>Contact Phone
+            <input type="tel" value={profile.contactPhone} onChange={(e) => set("contactPhone", e.target.value)} />
+          </label>
+          <label>Contact Email
+            <input type="email" value={profile.contactEmail} onChange={(e) => set("contactEmail", e.target.value)} />
+          </label>
+        </div>
+      </div>
 
-      <label>
-        Contact Email
-        <input
-          type="email"
-          value={profile.contactEmail}
-          onChange={(e) => set("contactEmail", e.target.value)}
-          placeholder="name@example.com"
-          style={{ width: "100%", padding: 8 }}
-        />
-      </label>
+      <div className="pf-card">
+        <h3 className="pf-title">Notes</h3>
+        <textarea rows={4} value={profile.notes} onChange={(e) => set("notes", e.target.value)} />
+      </div>
 
-      <label>
-        Notes
-        <textarea
-          value={profile.notes}
-          onChange={(e) => set("notes", e.target.value)}
-          rows={4}
-          style={{ width: "100%", padding: 8 }}
-        />
-      </label>
-
-      <button disabled={saving} type="submit" style={{ padding: 10 }}>
-        {saving ? "Saving…" : "Save"}
+      <button disabled={saving} className="btn" type="submit">
+        {saving ? "Saving…" : "Save Profile"}
       </button>
 
-      {msg && <p style={{ color: msg === "Saved." ? "green" : "crimson" }}>{msg}</p>}
+      {msg && (
+        <p role="alert" style={{ color: msg === "Saved." ? "limegreen" : "crimson", marginTop: 8 }}>
+          {msg}
+        </p>
+      )}
     </form>
   );
 }
