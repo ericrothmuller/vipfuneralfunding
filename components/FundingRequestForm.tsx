@@ -43,11 +43,14 @@ function handleCurrencyInput(
   value: string,
   setter: React.Dispatch<React.SetStateAction<string>>
 ) {
-  // Allow only digits and decimal while typing
+  // Allow only digits and decimal while typing (but don't force $/commas yet)
   const clean = value.replace(/[^0-9.]/g, "");
-  // Limit to a single decimal point
+  // Ensure at most one decimal point
   const parts = clean.split(".");
-  const normalized = parts.length <= 2 ? clean : `${parts[0]}.${parts.slice(1).join("")}`.replace(/\./g, (m, i) => (i === 0 ? "." : ""));
+  const normalized =
+    parts.length <= 2
+      ? clean
+      : `${parts[0]}.${parts.slice(1).join("")}`.replace(/\./g, (m, i) => (i === 0 ? "." : ""));
   setter(normalized);
 }
 function handleCurrencyBlur(
@@ -255,9 +258,13 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
     <form onSubmit={onSubmit} className="fr-form">
       {/* LOCAL SCOPED STYLES (no global collision) */}
       <style jsx>{`
+        :root {
+          --gold: #d6b16d;
+          --gold-light: rgba(214, 177, 109, 0.18); /* very light gold fill */
+        }
         .fr-form {
           display: grid;
-          gap: 14px;
+          gap: 16px;
           font-size: 18px; /* larger, more readable */
           line-height: 1.45;
         }
@@ -267,10 +274,21 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           border-radius: 14px;
           padding: 14px;
         }
+        /* Keep legend for a11y but visually hide it so it doesn't float outside box */
         .fr-legend {
-          font-weight: 650;
-          margin: 0 0 10px 0;
-          padding: 0; /* keep legend inside the box */
+          position: absolute !important;
+          height: 1px; width: 1px; overflow: hidden;
+          clip: rect(1px,1px,1px,1px); white-space: nowrap;
+        }
+        .fr-titlebox {
+          display: inline-block;
+          padding: 8px 12px;
+          border: 1px solid var(--gold, #d6b16d);
+          background: var(--gold-light);
+          color: var(--gold, #d6b16d);
+          font-weight: 700;
+          border-radius: 10px;
+          margin-bottom: 12px;
         }
         .fr-readonly {
           background: rgba(160, 160, 160, 0.14);
@@ -314,8 +332,8 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           font-size: 0.95em;
         }
         .fr-gold {
-          background: #d6b16d;
-          border: 1px solid #d6b16d;
+          background: var(--gold, #d6b16d);
+          border: 1px solid var(--gold, #d6b16d);
           color: #0a0d11;
           padding: 10px 14px;
           border-radius: 10px;
@@ -347,11 +365,12 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         }
       `}</style>
 
-      <h2>Funding Request</h2>
+      <h2 className="fr-titlebox">Funding Request</h2>
 
       {/* FH / CEM */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Funeral Home / Cemetery</legend>
+        <div className="fr-titlebox">Funeral Home / Cemetery</div>
 
         <label>FH/CEM Name
           <input
@@ -403,6 +422,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       {/* Decedent */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Decedent</legend>
+        <div className="fr-titlebox">Decedent</div>
 
         <div className="fr-grid-2">
           <label>DEC First Name
@@ -433,6 +453,8 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       {/* Address */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Address</legend>
+        <div className="fr-titlebox">Address</div>
+
         <label>DEC Address
           <input name="decAddress" type="text" value={decAddress} onChange={(e) => setDecAddress(e.target.value)} />
         </label>
@@ -452,6 +474,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       {/* Place of Death & Cause */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Place of Death & Cause</legend>
+        <div className="fr-titlebox">Place of Death & Cause</div>
 
         <div className="fr-grid-2">
           <label>Place of Death City
@@ -480,6 +503,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       {/* Certificates & Assignment */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Certificates & Assignment</legend>
+        <div className="fr-titlebox">Certificates & Assignment</div>
 
         <div className="fr-grid-2">
           <label>Do you have a final Death Certificate? (required)
@@ -533,6 +557,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       {/* Employer */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Employer</legend>
+        <div className="fr-titlebox">Employer</div>
 
         <label>Is the insurance through the deceased’s employer? (required)
           <select
@@ -574,6 +599,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       {/* Insurance */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Insurance</legend>
+        <div className="fr-titlebox">Insurance</div>
 
         <label>Insurance Company
           <select
@@ -669,6 +695,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       {/* Financials */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Financials</legend>
+        <div className="fr-titlebox">Financials</div>
 
         <div className="fr-grid-3">
           <label>Total Service Amount
@@ -725,6 +752,8 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       {/* Notes (wider) */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Additional Notes</legend>
+        <div className="fr-titlebox">Additional Notes</div>
+
         <textarea
           name="notes"
           rows={6}
@@ -737,6 +766,8 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       {/* Upload */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Upload Assignment</legend>
+        <div className="fr-titlebox">Upload Assignment</div>
+
         <input
           name="assignmentUpload"
           type="file"
