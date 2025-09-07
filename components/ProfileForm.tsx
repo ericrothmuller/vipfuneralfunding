@@ -88,26 +88,60 @@ export default function ProfileForm() {
   return (
     <form onSubmit={onSubmit} className="pf-form">
       <style jsx>{`
+        :root { --gold: #d6b16d; }
+
         .pf-form {
+          --title: #d6b16d;
+          --card-bg: #0b0d0f;
+          --border: #1a1c1f;
+          --field: #121416;
+          --muted: #e0e0e0;
           display: grid;
           gap: 14px;
           font-size: 18px;
           line-height: 1.45;
         }
+
+        /* Light theme overrides */
+        @media (prefers-color-scheme: light) {
+          .pf-form {
+            --title: #000;
+            --card-bg: #fff;
+            --border: #d0d5dd;
+            --field: #f2f4f6;
+            --muted: #333;
+          }
+        }
+        :global(body[data-theme="dark"]) .pf-form {
+          --title: #d6b16d;
+          --card-bg: #0b0d0f;
+          --border: #1a1c1f;
+          --field: #121416;
+          --muted: #e0e0e0;
+        }
+        :global(body[data-theme="light"]) .pf-form {
+          --title: #000;
+          --card-bg: #fff;
+          --border: #d0d5dd;
+          --field: #f2f4f6;
+          --muted: #333;
+        }
+
         .pf-card {
-          background: var(--card, #101418);
-          border: 1px solid var(--border, #2a2f37);
+          background: var(--card-bg);
+          border: 1px solid var(--border);
           border-radius: 0;              /* squared */
           padding: 14px;
         }
         .pf-title {
-          color: var(--title, #d6b16d);
+          color: var(--title);
           font-weight: 800;
           margin: 0 0 12px 0;
           font-size: 20px;
         }
         .pf-grid-2 { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
-        label { display: grid; gap: 6px; }
+        label { display: grid; gap: 6px; color: #fff; }
+        @media (prefers-color-scheme: light) { label { color: #000; } }
 
         input[type="text"],
         input[type="email"],
@@ -115,27 +149,20 @@ export default function ProfileForm() {
         textarea {
           width: 100%;
           padding: 10px 12px;
-          border: 1px solid var(--border, #2a2f37);
+          border: 1px solid var(--border);
           border-radius: 0;               /* squared */
-          background: var(--field, #141a1e);
+          background: var(--field);
+          color: #fff;
         }
-
         @media (prefers-color-scheme: light) {
-          .pf-form {
-            --title: #000;
-          }
           input[type="text"],
           input[type="email"],
           input[type="tel"],
-          textarea {
-            background: #f2f4f6;          /* slightly darker than white */
-            border: 1px solid #d0d5dd;
-          }
-          .pf-card {
-            background: #ffffff;
-            border-color: #d0d5dd;
-          }
+          textarea { color: #000; }
         }
+
+        .pf-muted { color: var(--muted); }
+
         @media (max-width: 900px) {
           .pf-grid-2 { grid-template-columns: 1fr; }
           .pf-form { font-size: 17px; }
