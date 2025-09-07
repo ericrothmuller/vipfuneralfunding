@@ -44,14 +44,14 @@ export default function DashboardTabs({ isAdmin, role }: { isAdmin: boolean; rol
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tabs.length]);
 
-  // Respond to ?tab= changes (e.g., after form submit)
+  // Respond to ?tab= changes
   useEffect(() => {
     const q = (searchParams.get("tab") || "") as TabKey;
     if (q && tabs.some(t => t.key === q) && q !== active) setActive(q);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  // Persist & reflect in URL without scrolling
+  // Persist & reflect in URL
   useEffect(() => {
     if (!active) return;
     try { localStorage.setItem("vipff.activeTab", active); } catch {}
@@ -121,7 +121,7 @@ export default function DashboardTabs({ isAdmin, role }: { isAdmin: boolean; rol
                 Your account needs to be approved before you can submit or view funding requests.
               </p>
             ) : (
-              <FundingRequestForm />
+              <FundingRequestForm isAdmin={isAdmin} />
             )}
           </div>
         )}
