@@ -254,11 +254,11 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
   /** ------------------- Render ------------------- */
   return (
     <form onSubmit={onSubmit} className="fr-form">
-      {/* LOCAL SCOPED STYLES (no global collision) */}
+      {/* LOCAL SCOPED STYLES */}
       <style jsx>{`
         :root { --gold: #d6b16d; }
 
-        /* Base variables (will be overridden by theme blocks) */
+        /* Base (overridden by themes) */
         .fr-form {
           --title-color: #d6b16d;
           --card-bg: #101418;
@@ -271,48 +271,48 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           gap: 16px;
         }
 
-        /* Prefer-color-scheme: DARK */
+        /* Dark theme (align with profile page feel) */
         @media (prefers-color-scheme: dark) {
           .fr-form {
             --title-color: var(--gold);
-            --card-bg: #0f1318;
+            --card-bg: #0f1318;       /* card */
             --border: #2a2f37;
-            --field-bg: #161c24; /* slightly lighter than card */
+            --field-bg: #171d24;      /* inputs slightly lighter than card */
             --muted: #98a1b3;
           }
         }
-        /* Prefer-color-scheme: LIGHT */
+        /* Light theme */
         @media (prefers-color-scheme: light) {
           .fr-form {
-            --title-color: #000;
+            --title-color: #000;       /* black titles on light */
             --card-bg: #ffffff;
             --border: #d0d5dd;
-            --field-bg: #f3f4f6; /* slightly darker than white */
-            --muted: #656f7b;
+            --field-bg: #f2f4f6;       /* inputs slightly darker than white */
+            --muted: #333;
           }
         }
-        /* Optional explicit theme overrides via data-theme */
+        /* Optional explicit theme flags via body[data-theme] */
         :global(body[data-theme="dark"]) .fr-form {
           --title-color: var(--gold);
           --card-bg: #0f1318;
           --border: #2a2f37;
-          --field-bg: #161c24;
+          --field-bg: #171d24;
           --muted: #98a1b3;
         }
         :global(body[data-theme="light"]) .fr-form {
           --title-color: #000;
           --card-bg: #ffffff;
           --border: #d0d5dd;
-          --field-bg: #f3f4f6;
+          --field-bg: #f2f4f6;
           --muted: #333;
         }
 
         .fr-page-title {
           text-align: center;
           color: var(--title-color);
-          margin: 4px 0 8px 0;
+          margin: 20px 0 12px;   /* extra space above title */
           font-weight: 800;
-          font-size: 24px;
+          font-size: 26px;
         }
 
         .fr-card {
