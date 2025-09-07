@@ -15,14 +15,23 @@ type Role = "ADMIN" | "FH_CEM" | "NEW";
 type TabKey = "profile" | "requests" | "new" | "users" | "ics";
 
 const BASE_TABS: ReadonlyArray<{ key: TabKey; label: string }> = [
-  { key: "profile",  label: "Profile" },
+  { key: "profile", label: "Profile" },
   { key: "requests", label: "Funding Requests" },
-  { key: "new",      label: "New Funding Request" },
+  { key: "new", label: "New Funding Request" },
 ];
 
-export default function DashboardTabs({ isAdmin, role }: { isAdmin: boolean; role: Role }) {
+export default function DashboardTabs({
+  isAdmin,
+  role,
+}: {
+  isAdmin: boolean;
+  role: Role;
+}) {
   const tabs = useMemo<ReadonlyArray<{ key: TabKey; label: string }>>(
-    () => (isAdmin ? [...BASE_TABS, { key: "users", label: "Users" }, { key: "ics", label: "ICs" }] : BASE_TABS),
+    () =>
+      isAdmin
+        ? [...BASE_TABS, { key: "users", label: "Users" }, { key: "ics", label: "ICs" }]
+        : BASE_TABS,
     [isAdmin]
   );
 
@@ -35,10 +44,12 @@ export default function DashboardTabs({ isAdmin, role }: { isAdmin: boolean; rol
   // Initial tab (query param > localStorage > profile)
   useEffect(() => {
     const q = (searchParams.get("tab") || "") as TabKey;
-    const ls = (typeof window !== "undefined" ? localStorage.getItem("vipff.activeTab") : "") as TabKey;
+    const ls = (typeof window !== "undefined"
+      ? localStorage.getItem("vipff.activeTab")
+      : "") as TabKey;
     const first =
-      (q && tabs.some(t => t.key === q) && q) ||
-      (ls && tabs.some(t => t.key === ls) && ls) ||
+      (q && tabs.some((t) => t.key === q) && q) ||
+      (ls && tabs.some((t) => t.key === ls) && ls) ||
       "profile";
     setActive(first);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -47,14 +58,16 @@ export default function DashboardTabs({ isAdmin, role }: { isAdmin: boolean; rol
   // Respond to ?tab= changes
   useEffect(() => {
     const q = (searchParams.get("tab") || "") as TabKey;
-    if (q && tabs.some(t => t.key === q) && q !== active) setActive(q);
+    if (q && tabs.some((t) => t.key === q) && q !== active) setActive(q);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   // Persist & reflect in URL
   useEffect(() => {
     if (!active) return;
-    try { localStorage.setItem("vipff.activeTab", active); } catch {}
+    try {
+      localStorage.setItem("vipff.activeTab", active);
+    } catch {}
     router.replace(`?tab=${active}`, { scroll: false });
   }, [active, router]);
 
@@ -69,7 +82,12 @@ export default function DashboardTabs({ isAdmin, role }: { isAdmin: boolean; rol
   return (
     <>
       <div className="tabs">
-        <div className="tablist" role="tablist" aria-label="Dashboard Sections" id={labelId}>
+        <div
+          className="tablist"
+          role="tablist"
+          aria-label="Dashboard Sections"
+          id={labelId}
+        >
           {tabs.map((t) => (
             <button
               key={t.key}
@@ -86,21 +104,34 @@ export default function DashboardTabs({ isAdmin, role }: { isAdmin: boolean; rol
         </div>
 
         {active === "profile" && (
-          <div role="tabpanel" id="profile-panel" aria-labelledby="profile-tab" className="tabpanel">
+          <div
+            role="tabpanel"
+            id="profile-panel"
+            aria-labelledby="profile-tab"
+            className="tabpanel"
+          >
             <div className="panel-row">
               <h2 className="panel-title">Profile</h2>
               <ThemeToggle />
             </div>
-            <p className="muted">Update your business and contact information.</p>
+            {/* Updated helper text for read-only-by-default UX */}
+            <p className="muted">View or edit your business and contact information.</p>
             <ProfileForm />
           </div>
         )}
 
         {active === "requests" && (
-          <div role="tabpanel" id="requests-panel" aria-labelledby="requests-tab" className="tabpanel">
+          <div
+            role="tabpanel"
+            id="requests-panel"
+            aria-labelledby="requests-tab"
+            className="tabpanel"
+          >
             <div className="panel-row">
               <h2 className="panel-title">Funding Requests</h2>
-              <button className="btn" onClick={() => onSelectTab("new")}>+ New Request</button>
+              <button className="btn" onClick={() => onSelectTab("new")}>
+                + New Request
+              </button>
             </div>
             {role === "NEW" ? (
               <p className="muted" style={{ paddingTop: 8 }}>

@@ -29,7 +29,7 @@ export default function ProfileForm() {
   const [msg, setMsg] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false); // ← NEW: read-only by default
+  const [editing, setEditing] = useState(false); // read-only by default
 
   useEffect(() => {
     let mounted = true;
@@ -58,16 +58,18 @@ export default function ProfileForm() {
         if (mounted) setLoading(false);
       }
     })();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   function set<K extends keyof Profile>(key: K, val: string) {
-    setProfile(p => ({ ...p, [key]: val }));
+    setProfile((p) => ({ ...p, [key]: val }));
   }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!editing) return; // ignore submits in read-only mode
+    if (!editing) return; // ignore submits when read-only
     setMsg(null);
     setSaving(true);
     try {
@@ -98,12 +100,14 @@ export default function ProfileForm() {
 
   if (loading) return <p>Loading…</p>;
 
-  const ro = !editing; // convenience flag for disabling inputs
+  const ro = !editing;
 
   return (
     <form onSubmit={onSubmit} className="pf-form">
       <style jsx>{`
-        :root { --gold: #d6b16d; }
+        :root {
+          --gold: #d6b16d;
+        }
 
         .pf-form {
           --title: #d6b16d;
@@ -146,7 +150,10 @@ export default function ProfileForm() {
           justify-content: space-between;
           gap: 10px;
         }
-        .pf-actions { display: flex; gap: 8px; }
+        .pf-actions {
+          display: flex;
+          gap: 8px;
+        }
 
         .pf-card {
           background: var(--card-bg);
@@ -160,10 +167,22 @@ export default function ProfileForm() {
           margin: 0 0 12px 0;
           font-size: 20px;
         }
-        .pf-grid-2 { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+        .pf-grid-2 {
+          display: grid;
+          gap: 10px;
+          grid-template-columns: 1fr 1fr;
+        }
 
-        label { display: grid; gap: 6px; color: #fff; }
-        @media (prefers-color-scheme: light) { label { color: #000; } }
+        label {
+          display: grid;
+          gap: 6px;
+          color: #fff;
+        }
+        @media (prefers-color-scheme: light) {
+          label {
+            color: #000;
+          }
+        }
 
         input[type="text"],
         input[type="email"],
@@ -180,15 +199,20 @@ export default function ProfileForm() {
           input[type="text"],
           input[type="email"],
           input[type="tel"],
-          textarea { color: #000; }
+          textarea {
+            color: #000;
+          }
         }
 
-        input[disabled], textarea[disabled] {
+        input[disabled],
+        textarea[disabled] {
           opacity: 0.8;
           cursor: not-allowed;
         }
 
-        .pf-muted { color: var(--muted); }
+        .pf-muted {
+          color: var(--muted);
+        }
 
         .btn {
           border: 1px solid var(--border);
@@ -203,29 +227,46 @@ export default function ProfileForm() {
           border-color: var(--gold);
           color: #000;
         }
-        .btn[disabled] { opacity: .7; cursor: not-allowed; }
+        .btn[disabled] {
+          opacity: 0.7;
+          cursor: not-allowed;
+        }
 
         @media (max-width: 900px) {
-          .pf-grid-2 { grid-template-columns: 1fr; }
-          .pf-form { font-size: 17px; }
+          .pf-grid-2 {
+            grid-template-columns: 1fr;
+          }
+          .pf-form {
+            font-size: 17px;
+          }
         }
         @media (max-width: 600px) {
-          .pf-form { font-size: 16px; }
+          .pf-form {
+            font-size: 16px;
+          }
         }
       `}</style>
 
       {/* Header row with Edit/Save/Cancel */}
       <div className="pf-head">
-        {/* CHANGED: Business → Your Business */}
-        <h3 className="pf-title" style={{ margin: 0 }}>Your Business</h3>
+        {/* Title: Business → Your Business */}
+        <h3 className="pf-title" style={{ margin: 0 }}>
+          Your Business
+        </h3>
         <div className="pf-actions">
           {!editing ? (
-            <button type="button" className="btn btn-gold" onClick={() => setEditing(true)}>
+            <button
+              type="button"
+              className="btn btn-gold"
+              onClick={() => setEditing(true)}
+            >
               Edit Profile
             </button>
           ) : (
             <>
-              <button type="button" className="btn" onClick={onCancel}>Cancel</button>
+              <button type="button" className="btn" onClick={onCancel}>
+                Cancel
+              </button>
               <button type="submit" className="btn btn-gold" disabled={saving}>
                 {saving ? "Saving…" : "Save Changes"}
               </button>
@@ -235,10 +276,12 @@ export default function ProfileForm() {
       </div>
 
       <div className="pf-card">
-        {/* Keep section title for grouping, but main title above */}
-        <h3 className="pf-title" style={{ fontSize: 18, marginTop: 0 }}>Facility</h3>
+        <h3 className="pf-title" style={{ fontSize: 18, marginTop: 0 }}>
+          Facility
+        </h3>
 
-        <label>FH/CEM Name
+        <label>
+          FH/CEM Name
           <input
             type="text"
             value={profile.fhName}
@@ -249,7 +292,8 @@ export default function ProfileForm() {
         </label>
 
         <div className="pf-grid-2">
-          <label>Business Phone
+          <label>
+            Business Phone
             <input
               type="tel"
               value={profile.businessPhone}
@@ -258,7 +302,8 @@ export default function ProfileForm() {
               disabled={ro}
             />
           </label>
-          <label>Business Fax
+          <label>
+            Business Fax
             <input
               type="tel"
               value={profile.businessFax}
@@ -269,8 +314,9 @@ export default function ProfileForm() {
           </label>
         </div>
 
-        {/* CHANGED: Mailing Address → Business Mailing Address */}
-        <label>Business Mailing Address
+        {/* Label: Mailing Address → Business Mailing Address */}
+        <label>
+          Business Mailing Address
           <textarea
             rows={3}
             value={profile.mailingAddress}
@@ -282,8 +328,11 @@ export default function ProfileForm() {
       </div>
 
       <div className="pf-card">
-        <h3 className="pf-title" style={{ fontSize: 18, marginTop: 0 }}>Primary Contact</h3>
-        <label>Contact Name
+        <h3 className="pf-title" style={{ fontSize: 18, marginTop: 0 }}>
+          Primary Contact
+        </h3>
+        <label>
+          Contact Name
           <input
             type="text"
             value={profile.contactName}
@@ -293,7 +342,8 @@ export default function ProfileForm() {
           />
         </label>
         <div className="pf-grid-2">
-          <label>Contact Phone
+          <label>
+            Contact Phone
             <input
               type="tel"
               value={profile.contactPhone}
@@ -302,7 +352,8 @@ export default function ProfileForm() {
               disabled={ro}
             />
           </label>
-          <label>Contact Email
+          <label>
+            Contact Email
             <input
               type="email"
               value={profile.contactEmail}
@@ -315,7 +366,9 @@ export default function ProfileForm() {
       </div>
 
       <div className="pf-card">
-        <h3 className="pf-title" style={{ fontSize: 18, marginTop: 0 }}>Notes</h3>
+        <h3 className="pf-title" style={{ fontSize: 18, marginTop: 0 }}>
+          Notes
+        </h3>
         <textarea
           rows={4}
           value={profile.notes}
@@ -325,9 +378,15 @@ export default function ProfileForm() {
         />
       </div>
 
-      {/* Hide old submit button in read-only; replaced by header actions */}
       {msg && (
-        <p role="alert" className="pf-muted" style={{ marginTop: 8, color: msg === "Saved." ? "limegreen" : "crimson" }}>
+        <p
+          role="alert"
+          className="pf-muted"
+          style={{
+            marginTop: 8,
+            color: msg === "Saved." ? "limegreen" : "crimson",
+          }}
+        >
           {msg}
         </p>
       )}
