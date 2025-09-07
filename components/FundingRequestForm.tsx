@@ -43,9 +43,7 @@ function handleCurrencyInput(
   value: string,
   setter: React.Dispatch<React.SetStateAction<string>>
 ) {
-  // Allow only digits and decimal while typing (but don't force $/commas yet)
   const clean = value.replace(/[^0-9.]/g, "");
-  // Ensure at most one decimal point
   const parts = clean.split(".");
   const normalized =
     parts.length <= 2
@@ -258,87 +256,102 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
     <form onSubmit={onSubmit} className="fr-form">
       {/* LOCAL SCOPED STYLES (no global collision) */}
       <style jsx>{`
-        :root {
-          --gold: #d6b16d;
-          --gold-light: rgba(214, 177, 109, 0.18); /* very light gold fill */
-        }
+        :root { --gold: #d6b16d; }
+
+        /* Base variables (will be overridden by theme blocks) */
         .fr-form {
+          --title-color: #d6b16d;
+          --card-bg: #101418;
+          --border: #2a2f37;
+          --field-bg: #141a1e;
+          --muted: #98a1b3;
+          font-size: 18px;
+          line-height: 1.45;
           display: grid;
           gap: 16px;
-          font-size: 18px; /* larger, more readable */
-          line-height: 1.45;
         }
+
+        /* Prefer-color-scheme: DARK */
+        @media (prefers-color-scheme: dark) {
+          .fr-form {
+            --title-color: var(--gold);
+            --card-bg: #0f1318;
+            --border: #2a2f37;
+            --field-bg: #161c24; /* slightly lighter than card */
+            --muted: #98a1b3;
+          }
+        }
+        /* Prefer-color-scheme: LIGHT */
+        @media (prefers-color-scheme: light) {
+          .fr-form {
+            --title-color: #000;
+            --card-bg: #ffffff;
+            --border: #d0d5dd;
+            --field-bg: #f3f4f6; /* slightly darker than white */
+            --muted: #656f7b;
+          }
+        }
+        /* Optional explicit theme overrides via data-theme */
+        :global(body[data-theme="dark"]) .fr-form {
+          --title-color: var(--gold);
+          --card-bg: #0f1318;
+          --border: #2a2f37;
+          --field-bg: #161c24;
+          --muted: #98a1b3;
+        }
+        :global(body[data-theme="light"]) .fr-form {
+          --title-color: #000;
+          --card-bg: #ffffff;
+          --border: #d0d5dd;
+          --field-bg: #f3f4f6;
+          --muted: #333;
+        }
+
+        .fr-page-title {
+          text-align: center;
+          color: var(--title-color);
+          margin: 4px 0 8px 0;
+          font-weight: 800;
+          font-size: 24px;
+        }
+
         .fr-card {
-          background: var(--card, #101418);
-          border: 1px solid var(--border, #2a2f37);
-          border-radius: 14px;
+          background: var(--card-bg);
+          border: 1px solid var(--border);
+          border-radius: 0;            /* squared */
           padding: 14px;
         }
-        /* Keep legend for a11y but visually hide it so it doesn't float outside box */
+
+        /* Keep legend for a11y but visually hide it */
         .fr-legend {
           position: absolute !important;
           height: 1px; width: 1px; overflow: hidden;
           clip: rect(1px,1px,1px,1px); white-space: nowrap;
         }
-        .fr-titlebox {
-          display: inline-block;
-          padding: 8px 12px;
-          border: 1px solid var(--gold, #d6b16d);
-          background: var(--gold-light);
-          color: var(--gold, #d6b16d);
-          font-weight: 700;
-          border-radius: 10px;
-          margin-bottom: 12px;
+        .fr-section-title {
+          color: var(--title-color);
+          font-weight: 800;
+          margin: 0 0 12px 0;
+          font-size: 20px;
         }
+
         .fr-readonly {
           background: rgba(160, 160, 160, 0.14);
           color: inherit;
           opacity: 0.85;
           cursor: not-allowed;
         }
-        .fr-grid-2 {
-          display: grid;
-          gap: 10px;
-          grid-template-columns: 1fr 1fr;
-        }
-        .fr-grid-3 {
-          display: grid;
-          gap: 10px;
-          grid-template-columns: repeat(3, minmax(220px, 1fr));
-        }
-        .fr-grid-3-tight {
-          display: grid;
-          gap: 8px;
-          grid-template-columns: repeat(3, minmax(220px, 1fr));
-        }
-        .fr-inline-actions {
-          display: flex;
-          gap: 8px;
-          align-items: center;
-        }
-        .fr-del {
-          background: transparent;
-          border: 1px solid var(--border, #2a2f37);
-          border-radius: 8px;
-          padding: 6px 10px;
-          cursor: pointer;
-        }
-        .fr-del:hover {
-          background: rgba(220, 80, 80, 0.2);
-          border-color: rgba(220, 80, 80, 0.4);
-        }
-        .fr-muted {
-          color: var(--muted, #98a1b3);
-          font-size: 0.95em;
-        }
-        .fr-gold {
-          background: var(--gold, #d6b16d);
-          border: 1px solid var(--gold, #d6b16d);
-          color: #0a0d11;
-          padding: 10px 14px;
-          border-radius: 10px;
-          cursor: pointer;
-        }
+
+        .fr-grid-2 { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+        .fr-grid-3 { display: grid; gap: 10px; grid-template-columns: repeat(3, minmax(220px, 1fr)); }
+        .fr-grid-3-tight { display: grid; gap: 8px; grid-template-columns: repeat(3, minmax(220px, 1fr)); }
+
+        .fr-inline-actions { display: flex; gap: 8px; align-items: center; }
+        .fr-del { background: transparent; border: 1px solid var(--border); border-radius: 0; padding: 6px 10px; cursor: pointer; }
+        .fr-del:hover { background: rgba(220, 80, 80, 0.12); border-color: rgba(220, 80, 80, 0.35); }
+
+        .fr-muted { color: var(--muted); font-size: 0.95em; }
+        .fr-gold { background: var(--gold); border: 1px solid var(--gold); color: #0a0d11; padding: 10px 14px; border-radius: 0; cursor: pointer; }
         .fr-gold:disabled { opacity: 0.6; cursor: not-allowed; }
 
         input[type="text"],
@@ -350,9 +363,9 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         textarea {
           width: 100%;
           padding: 10px 12px;
-          border: 1px solid var(--border, #2a2f37);
-          border-radius: 10px;
-          background: var(--card, #0f1318);
+          border: 1px solid var(--border);
+          border-radius: 0;            /* squared */
+          background: var(--field-bg);
         }
 
         /* Mobile friendliness */
@@ -365,12 +378,12 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         }
       `}</style>
 
-      <h2 className="fr-titlebox">Funding Request</h2>
+      <h2 className="fr-page-title">Funding Request</h2>
 
       {/* FH / CEM */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Funeral Home / Cemetery</legend>
-        <div className="fr-titlebox">Funeral Home / Cemetery</div>
+        <h3 className="fr-section-title">Funeral Home / Cemetery</h3>
 
         <label>FH/CEM Name
           <input
@@ -422,7 +435,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       {/* Decedent */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Decedent</legend>
-        <div className="fr-titlebox">Decedent</div>
+        <h3 className="fr-section-title">Decedent</h3>
 
         <div className="fr-grid-2">
           <label>DEC First Name
@@ -453,7 +466,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       {/* Address */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Address</legend>
-        <div className="fr-titlebox">Address</div>
+        <h3 className="fr-section-title">Address</h3>
 
         <label>DEC Address
           <input name="decAddress" type="text" value={decAddress} onChange={(e) => setDecAddress(e.target.value)} />
@@ -474,7 +487,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       {/* Place of Death & Cause */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Place of Death & Cause</legend>
-        <div className="fr-titlebox">Place of Death & Cause</div>
+        <h3 className="fr-section-title">Place of Death & Cause</h3>
 
         <div className="fr-grid-2">
           <label>Place of Death City
@@ -503,7 +516,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       {/* Certificates & Assignment */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Certificates & Assignment</legend>
-        <div className="fr-titlebox">Certificates & Assignment</div>
+        <h3 className="fr-section-title">Certificates & Assignment</h3>
 
         <div className="fr-grid-2">
           <label>Do you have a final Death Certificate? (required)
@@ -533,7 +546,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           </label>
         </div>
 
-        {otherFHTakingAssignment === "Yes" && (
+        {showOtherFH && (
           <div className="fr-grid-2" style={{ marginTop: 8 }}>
             <label>If Yes, FH/CEM Name:
               <input name="otherFHName" type="text" value={otherFHName} onChange={(e) => setOtherFHName(e.target.value)} />
@@ -557,7 +570,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       {/* Employer */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Employer</legend>
-        <div className="fr-titlebox">Employer</div>
+        <h3 className="fr-section-title">Employer</h3>
 
         <label>Is the insurance through the deceased’s employer? (required)
           <select
@@ -572,7 +585,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           </select>
         </label>
 
-        {isEmployerInsurance === "Yes" && (
+        {showEmployer && (
           <div className="fr-grid-3-tight" style={{ marginTop: 8 }}>
             <label>Employer Company Name
               <input name="employerCompanyName" type="text" value={employerCompanyName} onChange={(e) => setEmployerCompanyName(e.target.value)} />
@@ -599,7 +612,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       {/* Insurance */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Insurance</legend>
-        <div className="fr-titlebox">Insurance</div>
+        <h3 className="fr-section-title">Insurance</h3>
 
         <label>Insurance Company
           <select
@@ -695,7 +708,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       {/* Financials */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Financials</legend>
-        <div className="fr-titlebox">Financials</div>
+        <h3 className="fr-section-title">Financials</h3>
 
         <div className="fr-grid-3">
           <label>Total Service Amount
@@ -752,7 +765,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       {/* Notes (wider) */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Additional Notes</legend>
-        <div className="fr-titlebox">Additional Notes</div>
+        <h3 className="fr-section-title">Additional Notes</h3>
 
         <textarea
           name="notes"
@@ -766,7 +779,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       {/* Upload */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Upload Assignment</legend>
-        <div className="fr-titlebox">Upload Assignment</div>
+        <h3 className="fr-section-title">Upload Assignment</h3>
 
         <input
           name="assignmentUpload"
