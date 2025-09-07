@@ -13,16 +13,18 @@ async function requireAdminFromCookie() {
   return me;
 }
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, context: any) {
   const guard = await requireAdminFromCookie();
   if (guard instanceof NextResponse) return guard;
 
-  await connectDB();
-  if (!mongoose.isValidObjectId(params.id)) {
+  const id: string | undefined = context?.params?.id;
+  if (!id || !mongoose.isValidObjectId(id)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
-  const users = await User.find({ fhCemId: params.id }).select("_id").lean();
+  await connectDB();
+
+  const users = await User.find({ fhCemId: id }).select("_id").lean();
   const ownerIds = users.map((u: any) => u._id);
   if (!ownerIds.length) return NextResponse.json({ items: [] });
 
