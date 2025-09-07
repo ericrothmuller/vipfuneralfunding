@@ -5,6 +5,7 @@ import { getUserFromCookie } from "@/lib/auth";
 import FHCem from "@/models/FHCem";
 import mongoose from "mongoose";
 
+// Simple admin guard that matches your cookie-based auth
 async function requireAdminFromCookie() {
   const me = await getUserFromCookie();
   if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -12,30 +13,35 @@ async function requireAdminFromCookie() {
   return me;
 }
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, context: any) {
   const guard = await requireAdminFromCookie();
   if (guard instanceof NextResponse) return guard;
 
-  await connectDB();
-  if (!mongoose.isValidObjectId(params.id)) {
+  const id: string | undefined = context?.params?.id;
+  if (!id || !mongoose.isValidObjectId(id)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
-  const item = await FHCem.findById(params.id).lean();
+
+  await connectDB();
+  const item = await FHCem.findById(id).lean();
   if (!item) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ item });
 }
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, context: any) {
   const guard = await requireAdminFromCookie();
   if (guard instanceof NextResponse) return guard;
 
-  await connectDB();
-  if (!mongoose.isValidObjectId(params.id)) {
+  const id: string | undefined = context?.params?.id;
+  if (!id || !mongoose.isValidObjectId(id)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
+
   const body = await req.json().catch(() => ({}));
+
+  await connectDB();
   const item = await FHCem.findByIdAndUpdate(
-    params.id,
+    id,
     {
       $set: {
         name: (body.name || "").trim(),
@@ -53,15 +59,17 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   return NextResponse.json({ item });
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, context: any) {
   const guard = await requireAdminFromCookie();
   if (guard instanceof NextResponse) return guard;
 
-  await connectDB();
-  if (!mongoose.isValidObjectId(params.id)) {
+  const id: string | undefined = context?.params?.id;
+  if (!id || !mongoose.isValidObjectId(id)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
-  const ok = await FHCem.findByIdAndDelete(params.id);
+
+  await connectDB();
+  const ok = await FHCem.findByIdAndDelete(id);
   if (!ok) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ ok: true });
 }
