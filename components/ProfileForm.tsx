@@ -4,32 +4,24 @@
 import { useEffect, useState } from "react";
 
 type Profile = {
-  fhName: string;
-  businessPhone: string;
-  businessFax: string;
-  mailingAddress: string;
+  fhCemName?: string | null; // derived on client from either user.fhName or populated FH
   contactName: string;
   contactPhone: string;
   contactEmail: string;
-  notes: string;
 };
 
 export default function ProfileForm() {
   const [profile, setProfile] = useState<Profile>({
-    fhName: "",
-    businessPhone: "",
-    businessFax: "",
-    mailingAddress: "",
+    fhCemName: "",
     contactName: "",
     contactPhone: "",
     contactEmail: "",
-    notes: "",
   });
-  const [original, setOriginal] = useState<Profile | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false); // read-only by default
+  const [editing, setEditing] = useState(false);
+  const [hasFHCem, setHasFHCem] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -39,18 +31,15 @@ export default function ProfileForm() {
         if (!res.ok) throw new Error("Failed to load profile");
         const data = await res.json();
         if (mounted && data?.user) {
+          const fhCemName = data.user.fhName || data.user.fhCem?.name || ""; // support either server shape
           const next: Profile = {
-            fhName: data.user.fhName || "",
-            businessPhone: data.user.businessPhone || "",
-            businessFax: data.user.businessFax || "",
-            mailingAddress: data.user.mailingAddress || "",
+            fhCemName,
             contactName: data.user.contactName || "",
             contactPhone: data.user.contactPhone || "",
             contactEmail: data.user.contactEmail || "",
-            notes: data.user.notes || "",
           };
           setProfile(next);
-          setOriginal(next);
+          setHasFHCem(!!(data.user.fhCemId || fhCemName));
         }
       } catch (e: any) {
         setMsg(e?.message || "Could not load profile");
@@ -58,32 +47,34 @@ export default function ProfileForm() {
         if (mounted) setLoading(false);
       }
     })();
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, []);
 
   function set<K extends keyof Profile>(key: K, val: string) {
-    setProfile((p) => ({ ...p, [key]: val }));
+    setProfile(p => ({ ...p, [key]: val }));
   }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!editing) return; // ignore submits when read-only
+    if (!editing) return;
     setMsg(null);
     setSaving(true);
     try {
       const res = await fetch("/api/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(profile),
+        body: JSON.stringify({
+          // only allow these fields to update
+          contactName: profile.contactName,
+          contactPhone: profile.contactPhone,
+          contactEmail: profile.contactEmail,
+        }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data?.error || "Save failed");
       }
       setMsg("Saved.");
-      setOriginal(profile);
       setEditing(false);
     } catch (e: any) {
       setMsg(e?.message || "Save failed");
@@ -92,10 +83,20 @@ export default function ProfileForm() {
     }
   }
 
-  function onCancel() {
-    if (original) setProfile(original);
-    setEditing(false);
-    setMsg(null);
+  async function onConnectFHCem() {
+    const name = prompt("Enter your FH/CEM Name");
+    if (!name) return;
+    const res = await fetch("/api/profile/connect-fhcem", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      alert(data?.error || "Request failed");
+      return;
+    }
+    alert("Request submitted. An Admin will review and link your account.");
   }
 
   if (loading) return <p>Loading…</p>;
@@ -105,288 +106,70 @@ export default function ProfileForm() {
   return (
     <form onSubmit={onSubmit} className="pf-form">
       <style jsx>{`
-        :root {
-          --gold: #d6b16d;
-        }
-
+        :root { --gold: #d6b16d; }
         .pf-form {
-          --title: #d6b16d;
-          --card-bg: #0b0d0f;
-          --border: #1a1c1f;
-          --field: #121416;
-          --muted: #e0e0e0;
-          display: grid;
-          gap: 14px;
-          font-size: 18px;
-          line-height: 1.45;
+          --title: #d6b16d; --card-bg: #0b0d0f; --border: #1a1c1f; --field: #121416; --muted: #e0e0e0;
+          display: grid; gap: 14px; font-size: 18px; line-height: 1.45;
         }
         @media (prefers-color-scheme: light) {
-          .pf-form {
-            --title: #000;
-            --card-bg: #fff;
-            --border: #d0d5dd;
-            --field: #f2f4f6;
-            --muted: #333;
-          }
+          .pf-form { --title: #000; --card-bg: #fff; --border: #d0d5dd; --field: #f2f4f6; --muted: #333; }
         }
-        :global(body[data-theme="dark"]) .pf-form {
-          --title: #d6b16d;
-          --card-bg: #0b0d0f;
-          --border: #1a1c1f;
-          --field: #121416;
-          --muted: #e0e0e0;
+        .pf-head { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+        .pf-actions { display:flex; gap:8px; }
+        .pf-card { background: var(--card-bg); border:1px solid var(--border); border-radius:0; padding:14px; }
+        .pf-title { color: var(--title); font-weight:800; margin:0 0 12px 0; font-size:20px; }
+        label { display:grid; gap:6px; color:#fff; }
+        @media (prefers-color-scheme: light) { label { color:#000; } }
+        input, textarea, .ro {
+          width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:0; background: var(--field); color:#fff;
         }
-        :global(body[data-theme="light"]) .pf-form {
-          --title: #000;
-          --card-bg: #fff;
-          --border: #d0d5dd;
-          --field: #f2f4f6;
-          --muted: #333;
-        }
-
-        .pf-head {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 10px;
-        }
-        .pf-actions {
-          display: flex;
-          gap: 8px;
-        }
-
-        .pf-card {
-          background: var(--card-bg);
-          border: 1px solid var(--border);
-          border-radius: 0;
-          padding: 14px;
-        }
-        .pf-title {
-          color: var(--title);
-          font-weight: 800;
-          margin: 0 0 12px 0;
-          font-size: 20px;
-        }
-        .pf-grid-2 {
-          display: grid;
-          gap: 10px;
-          grid-template-columns: 1fr 1fr;
-        }
-
-        label {
-          display: grid;
-          gap: 6px;
-          color: #fff;
-        }
-        @media (prefers-color-scheme: light) {
-          label {
-            color: #000;
-          }
-        }
-
-        input[type="text"],
-        input[type="email"],
-        input[type="tel"],
-        textarea {
-          width: 100%;
-          padding: 10px 12px;
-          border: 1px solid var(--border);
-          border-radius: 0;
-          background: var(--field);
-          color: #fff;
-        }
-        @media (prefers-color-scheme: light) {
-          input[type="text"],
-          input[type="email"],
-          input[type="tel"],
-          textarea {
-            color: #000;
-          }
-        }
-
-        input[disabled],
-        textarea[disabled] {
-          opacity: 0.8;
-          cursor: not-allowed;
-        }
-
-        .pf-muted {
-          color: var(--muted);
-        }
-
-        .btn {
-          border: 1px solid var(--border);
-          background: var(--field);
-          color: #fff;
-          padding: 10px 12px;
-          border-radius: 0;
-          cursor: pointer;
-        }
-        .btn-gold {
-          background: var(--gold);
-          border-color: var(--gold);
-          color: #000;
-        }
-        .btn[disabled] {
-          opacity: 0.7;
-          cursor: not-allowed;
-        }
-
-        @media (max-width: 900px) {
-          .pf-grid-2 {
-            grid-template-columns: 1fr;
-          }
-          .pf-form {
-            font-size: 17px;
-          }
-        }
-        @media (max-width: 600px) {
-          .pf-form {
-            font-size: 16px;
-          }
-        }
+        @media (prefers-color-scheme: light) { input, textarea, .ro { color:#000; background:#f6f6f6; border-color:#d0d0d0; } }
+        input[disabled], textarea[disabled] { opacity:.8; cursor:not-allowed; }
+        .btn { border:1px solid var(--border); background:var(--field); color:#fff; padding:10px 12px; border-radius:0; cursor:pointer; }
+        .btn-gold { background:var(--gold); border-color:var(--gold); color:#000; }
       `}</style>
 
-      {/* Header row with Edit/Save/Cancel */}
       <div className="pf-head">
-        {/* Title: Business → Your Business */}
-        <h3 className="pf-title" style={{ margin: 0 }}>
-          Your Business
-        </h3>
+        <h3 className="pf-title" style={{ margin: 0 }}>Your Business</h3>
         <div className="pf-actions">
           {!editing ? (
-            <button
-              type="button"
-              className="btn btn-gold"
-              onClick={() => setEditing(true)}
-            >
-              Edit Profile
-            </button>
+            <button type="button" className="btn btn-gold" onClick={() => setEditing(true)}>Edit Profile</button>
           ) : (
             <>
-              <button type="button" className="btn" onClick={onCancel}>
-                Cancel
-              </button>
-              <button type="submit" className="btn btn-gold" disabled={saving}>
-                {saving ? "Saving…" : "Save Changes"}
-              </button>
+              <button type="button" className="btn" onClick={() => { setEditing(false); setMsg(null); }}>Cancel</button>
+              <button type="submit" className="btn btn-gold" disabled={saving}>{saving ? "Saving…" : "Save Changes"}</button>
             </>
           )}
         </div>
       </div>
 
       <div className="pf-card">
-        <h3 className="pf-title" style={{ fontSize: 18, marginTop: 0 }}>
-          Facility
-        </h3>
-
-        <label>
-          FH/CEM Name
-          <input
-            type="text"
-            value={profile.fhName}
-            onChange={(e) => set("fhName", e.target.value)}
-            readOnly={!editing}
-            disabled={ro}
-          />
+        <h3 className="pf-title" style={{ fontSize: 18, marginTop: 0 }}>FH/CEM</h3>
+        <label>FH/CEM Name (read-only)
+          <div className="ro" aria-readonly>{profile.fhCemName || "Not connected"}</div>
         </label>
-
-        <div className="pf-grid-2">
-          <label>
-            Business Phone
-            <input
-              type="tel"
-              value={profile.businessPhone}
-              onChange={(e) => set("businessPhone", e.target.value)}
-              readOnly={!editing}
-              disabled={ro}
-            />
-          </label>
-          <label>
-            Business Fax
-            <input
-              type="tel"
-              value={profile.businessFax}
-              onChange={(e) => set("businessFax", e.target.value)}
-              readOnly={!editing}
-              disabled={ro}
-            />
-          </label>
-        </div>
-
-        {/* Label: Mailing Address → Business Mailing Address */}
-        <label>
-          Business Mailing Address
-          <textarea
-            rows={3}
-            value={profile.mailingAddress}
-            onChange={(e) => set("mailingAddress", e.target.value)}
-            readOnly={!editing}
-            disabled={ro}
-          />
-        </label>
+        {!hasFHCem && (
+          <button type="button" className="btn" onClick={onConnectFHCem} style={{ marginTop: 8 }}>
+            Connect my Account to FH/CEM
+          </button>
+        )}
       </div>
 
       <div className="pf-card">
-        <h3 className="pf-title" style={{ fontSize: 18, marginTop: 0 }}>
-          Primary Contact
-        </h3>
-        <label>
-          Contact Name
-          <input
-            type="text"
-            value={profile.contactName}
-            onChange={(e) => set("contactName", e.target.value)}
-            readOnly={!editing}
-            disabled={ro}
-          />
+        <h3 className="pf-title" style={{ fontSize: 18, marginTop: 0 }}>Primary Contact</h3>
+        <label>Contact Name
+          <input type="text" value={profile.contactName} onChange={(e) => set("contactName", e.target.value)} readOnly={!editing} disabled={ro} />
         </label>
-        <div className="pf-grid-2">
-          <label>
-            Contact Phone
-            <input
-              type="tel"
-              value={profile.contactPhone}
-              onChange={(e) => set("contactPhone", e.target.value)}
-              readOnly={!editing}
-              disabled={ro}
-            />
-          </label>
-          <label>
-            Contact Email
-            <input
-              type="email"
-              value={profile.contactEmail}
-              onChange={(e) => set("contactEmail", e.target.value)}
-              readOnly={!editing}
-              disabled={ro}
-            />
-          </label>
-        </div>
-      </div>
-
-      <div className="pf-card">
-        <h3 className="pf-title" style={{ fontSize: 18, marginTop: 0 }}>
-          Notes
-        </h3>
-        <textarea
-          rows={4}
-          value={profile.notes}
-          onChange={(e) => set("notes", e.target.value)}
-          readOnly={!editing}
-          disabled={ro}
-        />
+        <label>Contact Phone
+          <input type="tel" value={profile.contactPhone} onChange={(e) => set("contactPhone", e.target.value)} readOnly={!editing} disabled={ro} />
+        </label>
+        <label>Contact Email
+          <input type="email" value={profile.contactEmail} onChange={(e) => set("contactEmail", e.target.value)} readOnly={!editing} disabled={ro} />
+        </label>
       </div>
 
       {msg && (
-        <p
-          role="alert"
-          className="pf-muted"
-          style={{
-            marginTop: 8,
-            color: msg === "Saved." ? "limegreen" : "crimson",
-          }}
-        >
+        <p role="alert" style={{ color: msg === "Saved." ? "limegreen" : "crimson", marginTop: 8 }}>
           {msg}
         </p>
       )}
