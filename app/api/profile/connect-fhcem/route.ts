@@ -7,27 +7,54 @@ import User from "@/models/User";
 
 export async function POST(req: NextRequest) {
   await connect();
-  const user = await requireAuth(req); // must return the authed user doc or at least userId
 
-  const { name } = await req.json();
+  // Guard: require logged-in user
+  const guard = await requireAuth(req);
+  if (guard instanceof NextResponse) return guard; // 401/403 handled in guard
+  const authed = guard as any;
+
+  // Safely derive a userId from whichever field your token/user carries
+  const userId =
+    authed?._id?.toString?.() ??
+    authed?.id ??
+    authed?.userId ??
+    authed?.sub ??
+    null;
+
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Parse + validate input
+  const { name } = await req.json().catch(() => ({ name: "" }));
   const clean = (name || "").trim();
-  if (!clean) return NextResponse.json({ error: "FH/CEM Name required" }, { status: 400 });
+  if (!clean) {
+    return NextResponse.json({ error: "FH/CEM Name required" }, { status: 400 });
+  }
 
-  // Ensure user is not already linked
-  const u = await User.findById(user._id).lean();
-  if (u?.fhCemId) return NextResponse.json({ error: "Already linked to an FH/CEM" }, { status: 400 });
+  // Ensure user exists and is not already linked
+  const u = await User.findById(userId).lean();
+  if (!u) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+  if (u.fhCemId) {
+    return NextResponse.json({ error: "Already linked to an FH/CEM" }, { status: 400 });
+  }
 
   // Avoid duplicate pending requests
-  const existing = await FHLinkRequest.findOne({ userId: user._id, status: "Pending" });
-  if (existing) return NextResponse.json({ error: "You already have a pending link request" }, { status: 400 });
+  const existing = await FHLinkRequest.findOne({ userId, status: "Pending" });
+  if (existing) {
+    return NextResponse.json({ error: "You already have a pending link request" }, { status: 400 });
+  }
 
+  // Create link request
   const lr = await FHLinkRequest.create({
-    userId: user._id,
+    userId,
     requestedName: clean,
     status: "Pending",
   });
 
-  // (Optional) You can notify admins here via email/queue if you have notifications set up.
+  // Optional: notify admins here
 
   return NextResponse.json({ ok: true, requestId: lr._id }, { status: 201 });
 }

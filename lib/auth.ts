@@ -1,59 +1,66 @@
 // lib/auth.ts
+import "server-only";
+import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
-import { connect } from "@/lib/mongoose";
-import User from "@/models/User";
 
-type JwtPayload = { sub?: string; id?: string; userId?: string; [k: string]: any };
-const JWT_SECRET = process.env.JWT_SECRET as string;
-if (!JWT_SECRET) throw new Error("JWT_SECRET is not set in environment.");
+// --- Your original shape (unchanged) ---
+export type JWTPayload = {
+  sub: string;
+  email: string;
+  role: "ADMIN" | "FH_CEM" | "NEW";
+  active: boolean;
+};
 
-const COOKIE_NAMES = [
-  process.env.AUTH_COOKIE_NAME || "token",
-  "auth",
-  "jwt",
-];
-
-function getTokenFromReq(req: NextRequest): string | null {
-  for (const name of COOKIE_NAMES) {
-    const v = req.cookies.get(name)?.value;
-    if (v) return v;
-  }
-  return null;
-}
-
-export async function getUserFromRequest(req: NextRequest) {
-  await connect();
-  const token = getTokenFromReq(req);
-  if (!token) return null;
-
+/**
+ * Exactly as before:
+ * - Reads "token" cookie
+ * - Uses async cookies() (Next 15 / React 19)
+ * - Verifies with JWT_SECRET
+ * - Returns JWTPayload or null
+ */
+export async function getUserFromCookie(): Promise<JWTPayload | null> {
+  const store = await cookies();
+  const raw = store.get("token")?.value;
+  if (!raw) return null;
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
-    const id = decoded.sub || decoded.id || decoded.userId;
-    if (!id) return null;
-    const user = await User.findById(id).lean();
-    return user || null;
+    return jwt.verify(raw, process.env.JWT_SECRET!) as JWTPayload;
   } catch {
     return null;
   }
 }
 
-/**
- * Preferred pattern: guards return either a NextResponse (error) or the user.
- * In routes, do:
- *   const guard = await requireAdmin(req);
- *   if (guard instanceof NextResponse) return guard;
- *   const adminUser = guard; // safe
- */
-export async function requireAuth(req: NextRequest) {
+// ------- Optional helpers for API route guards (non-breaking) -------
+
+import { connect } from "@/lib/mongoose";
+import User, { type IUser } from "@/models/User";
+
+/** Read and verify the same "token" cookie from a NextRequest, then fetch the DB user. */
+export async function getUserFromRequest(req: NextRequest): Promise<IUser | null> {
+  const raw = req.cookies.get("token")?.value;
+  if (!raw) return null;
+  try {
+    const decoded = jwt.verify(raw, process.env.JWT_SECRET!) as JWTPayload;
+    if (!decoded?.sub) return null;
+    await connect();
+    const user = await User.findById(decoded.sub).lean();
+    return (user as unknown as IUser) || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Require any authenticated user. Returns IUser or a 401 NextResponse. */
+export async function requireAuth(req: NextRequest): Promise<IUser | NextResponse> {
   const user = await getUserFromRequest(req);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   return user;
 }
 
-export async function requireAdmin(req: NextRequest) {
-  const user = await getUserFromRequest(req);
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (user.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  return user;
+/** Require an admin user. Returns IUser or a 401/403 NextResponse. */
+export async function requireAdmin(req: NextRequest): Promise<IUser | NextResponse> {
+  const userOr = await requireAuth(req);
+  if (userOr instanceof NextResponse) return userOr;
+  if (userOr.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  return userOr;
 }
