@@ -38,7 +38,7 @@ function formatMoney(n: number): string {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
 }
 
-/** Free typing for currency fields; format on blur */
+/** Currency inputs: free typing; format on blur */
 function handleCurrencyInput(
   value: string,
   setter: React.Dispatch<React.SetStateAction<string>>
@@ -139,7 +139,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
     [totalServiceAmount, familyAdvancementAmount]
   );
   const vipFeeRaw = useMemo(() => +(baseSum * 0.03).toFixed(2), [baseSum]);
-  const vipFeeCalc = useMemo(() => Math.max(vipFeeRaw, 100), [vipFeeRaw]); // mandatory $100 minimum
+  const vipFeeCalc = useMemo(() => Math.max(vipFeeRaw, 100), [vipFeeRaw]); // $100 minimum
   const assignmentAmountCalc = useMemo(() => +(baseSum + vipFeeCalc).toFixed(2), [baseSum, vipFeeCalc]);
 
   /** Notes */
@@ -157,7 +157,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
     let mounted = true;
     (async () => {
       try {
-        // Profile
         const p = await fetch("/api/profile", { cache: "no-store" });
         if (p.ok) {
           const { user } = await p.json();
@@ -175,7 +174,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
             setContactEmail(prof.contactEmail || "");
           }
         }
-        // Insurance companies
         const c = await fetch("/api/insurance-companies", { cache: "no-store" });
         if (c.ok) {
           const data = await c.json();
@@ -192,7 +190,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
     };
   }, []);
 
-  /** Derived booleans for conditional sections */
   const showOtherFH = otherFHTakingAssignment === "Yes";
   const showEmployer = isEmployerInsurance === "Yes";
 
@@ -202,7 +199,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
     setMsg(null);
     setSaving(true);
     try {
-      // Enforce required dropdowns
       if (!cod) throw new Error("Cause of Death is required.");
       if (!hasFinalDC) throw new Error("Final Death Certificate selection is required.");
       if (!otherFHTakingAssignment) throw new Error("FH/CEM taking assignment selection is required.");
@@ -211,22 +207,12 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       const form = e.currentTarget;
       const fd = new FormData(form);
 
-      // Mode + multi-values
       fd.set("insuranceCompanyMode", insuranceCompanyMode);
-      if (insuranceCompanyMode === "id") fd.set("insuranceCompanyId", insuranceCompanyId);
-      else fd.set("insuranceCompanyId", "");
+      fd.set("insuranceCompanyId", insuranceCompanyMode === "id" ? insuranceCompanyId : "");
 
-      // Policy numbers & beneficiaries as comma-separated
-      fd.set(
-        "policyNumbers",
-        policyNumbers.map((s) => s.trim()).filter(Boolean).join(", ")
-      );
-      fd.set(
-        "beneficiaries",
-        beneficiaries.map((s) => s.trim()).filter(Boolean).join(", ")
-      );
+      fd.set("policyNumbers", policyNumbers.map((s) => s.trim()).filter(Boolean).join(", "));
+      fd.set("beneficiaries", beneficiaries.map((s) => s.trim()).filter(Boolean).join(", "));
 
-      // Calculated financials (VIP min $100 enforced already)
       fd.set("vipFee", formatMoney(vipFeeCalc));
       fd.set("assignmentAmount", formatMoney(assignmentAmountCalc));
 
@@ -234,7 +220,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json?.error || `Server error (code ${res.status})`);
 
-      // Clear + redirect to Profile
       form.reset();
       try { window.localStorage.setItem("vipff.activeTab", "profile"); } catch {}
       router.replace("/dashboard?tab=profile", { scroll: false });
@@ -254,50 +239,49 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
   /** ------------------- Render ------------------- */
   return (
     <form onSubmit={onSubmit} className="fr-form">
-      {/* LOCAL SCOPED STYLES */}
       <style jsx>{`
         :root { --gold: #d6b16d; }
 
         /* Base (overridden by themes) */
         .fr-form {
           --title-color: #d6b16d;
-          --card-bg: #101418;
-          --border: #2a2f37;
-          --field-bg: #141a1e;
-          --muted: #98a1b3;
+          --card-bg: #0b0d0f;     /* DARK default */
+          --border: #1a1c1f;
+          --field-bg: #121416;
+          --muted: #e0e0e0;
           font-size: 18px;
           line-height: 1.45;
           display: grid;
           gap: 16px;
         }
 
-        /* Dark theme (align with profile page feel) */
+        /* Dark theme (only black/gold/white shades) */
         @media (prefers-color-scheme: dark) {
           .fr-form {
             --title-color: var(--gold);
-            --card-bg: #0f1318;       /* card */
-            --border: #2a2f37;
-            --field-bg: #171d24;      /* inputs slightly lighter than card */
-            --muted: #98a1b3;
+            --card-bg: #0b0d0f;
+            --border: #1a1c1f;
+            --field-bg: #121416;
+            --muted: #e0e0e0;
           }
         }
         /* Light theme */
         @media (prefers-color-scheme: light) {
           .fr-form {
-            --title-color: #000;       /* black titles on light */
+            --title-color: #000;
             --card-bg: #ffffff;
             --border: #d0d5dd;
-            --field-bg: #f2f4f6;       /* inputs slightly darker than white */
+            --field-bg: #f2f4f6;
             --muted: #333;
           }
         }
         /* Optional explicit theme flags via body[data-theme] */
         :global(body[data-theme="dark"]) .fr-form {
           --title-color: var(--gold);
-          --card-bg: #0f1318;
-          --border: #2a2f37;
-          --field-bg: #171d24;
-          --muted: #98a1b3;
+          --card-bg: #0b0d0f;
+          --border: #1a1c1f;
+          --field-bg: #121416;
+          --muted: #e0e0e0;
         }
         :global(body[data-theme="light"]) .fr-form {
           --title-color: #000;
@@ -310,7 +294,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         .fr-page-title {
           text-align: center;
           color: var(--title-color);
-          margin: 20px 0 12px;   /* extra space above title */
+          margin: 20px 0 12px;   /* space above the title */
           font-weight: 800;
           font-size: 26px;
         }
@@ -322,7 +306,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           padding: 14px;
         }
 
-        /* Keep legend for a11y but visually hide it */
         .fr-legend {
           position: absolute !important;
           height: 1px; width: 1px; overflow: hidden;
@@ -336,9 +319,9 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         }
 
         .fr-readonly {
-          background: rgba(160, 160, 160, 0.14);
+          background: rgba(255, 255, 255, 0.08);
           color: inherit;
-          opacity: 0.85;
+          opacity: 0.9;
           cursor: not-allowed;
         }
 
@@ -347,8 +330,8 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         .fr-grid-3-tight { display: grid; gap: 8px; grid-template-columns: repeat(3, minmax(220px, 1fr)); }
 
         .fr-inline-actions { display: flex; gap: 8px; align-items: center; }
-        .fr-del { background: transparent; border: 1px solid var(--border); border-radius: 0; padding: 6px 10px; cursor: pointer; }
-        .fr-del:hover { background: rgba(220, 80, 80, 0.12); border-color: rgba(220, 80, 80, 0.35); }
+        .fr-del { background: transparent; border: 1px solid var(--border); border-radius: 0; padding: 6px 10px; cursor: pointer; color: var(--muted); }
+        .fr-del:hover { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.25); }
 
         .fr-muted { color: var(--muted); font-size: 0.95em; }
         .fr-gold { background: var(--gold); border: 1px solid var(--gold); color: #0a0d11; padding: 10px 14px; border-radius: 0; cursor: pointer; }
@@ -366,6 +349,18 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           border: 1px solid var(--border);
           border-radius: 0;            /* squared */
           background: var(--field-bg);
+          color: #fff;                 /* ensure readability on dark */
+        }
+        @media (prefers-color-scheme: light) {
+          input[type="text"],
+          input[type="email"],
+          input[type="tel"],
+          input[type="date"],
+          input[type="file"],
+          select,
+          textarea {
+            color: #000;
+          }
         }
 
         /* Mobile friendliness */
@@ -762,7 +757,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         </p>
       </fieldset>
 
-      {/* Notes (wider) */}
+      {/* Notes */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Additional Notes</legend>
         <h3 className="fr-section-title">Additional Notes</h3>
