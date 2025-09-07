@@ -4,12 +4,19 @@ import mongoose, { Schema, Types } from "mongoose";
 export type Role = "ADMIN" | "FH_CEM" | "NEW";
 
 export interface IUser {
-  _id?: Types.ObjectId;                // added for typing convenience
+  _id?: Types.ObjectId;                  // helpful for typing
   email: string;
   passwordHash: string;
   role: Role;
-  fhName?: string;                     // legacy string (optional)
-  fhCemId?: Types.ObjectId | null;     // reference to FHCem (kept)
+
+  // Activation flag (used by admin/users route)
+  active?: boolean;                      // ← NEW
+
+  // Legacy free-text FH name + relation
+  fhName?: string;
+  fhCemId?: Types.ObjectId | null;
+
+  // Profile fields
   businessPhone?: string;
   businessFax?: string;
   mailingAddress?: string;
@@ -17,6 +24,7 @@ export interface IUser {
   contactPhone?: string;
   contactEmail?: string;
   notes?: string;
+
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -27,8 +35,10 @@ const UserSchema = new Schema<IUser>(
     passwordHash: { type: String, required: true },
     role: { type: String, enum: ["ADMIN", "FH_CEM", "NEW"], default: "NEW", index: true },
 
-    fhName: { type: String, trim: true },
+    // NEW: active flag (default true so existing users remain active)
+    active: { type: Boolean, default: true, index: true },
 
+    fhName: { type: String, trim: true },
     fhCemId: { type: Schema.Types.ObjectId, ref: "FHCem", default: null, index: true },
 
     businessPhone: { type: String, trim: true },
@@ -42,7 +52,7 @@ const UserSchema = new Schema<IUser>(
   { timestamps: true }
 );
 
-// Export BOTH named and default so either import style is valid
+// Export BOTH named and default
 export const User =
   (mongoose.models.User as mongoose.Model<IUser>) ||
   mongoose.model<IUser>("User", UserSchema);
