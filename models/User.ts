@@ -1,37 +1,42 @@
 // models/User.ts
-import { Schema, model, models, InferSchemaType, Model } from "mongoose";
+import mongoose, { Schema, Types } from "mongoose";
 
-const UserSchema = new Schema(
+export type Role = "ADMIN" | "FH_CEM" | "NEW";
+
+export interface IUser {
+  email: string;
+  passwordHash: string;
+  role: Role;
+  fhName?: string; // (legacy string, optional)
+  fhCemId?: Types.ObjectId | null; // NEW: reference to FHCem
+  businessPhone?: string;
+  businessFax?: string;
+  mailingAddress?: string;
+  contactName?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  notes?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+const UserSchema = new Schema<IUser>(
   {
-    // Auth
-    email: { type: String, unique: true, required: true, index: true },
+    email: { type: String, required: true, unique: true, index: true },
     passwordHash: { type: String, required: true },
-
-    // Role & status
-    role: {
-      type: String,
-      enum: ["ADMIN", "FH_CEM", "NEW"],
-      default: "NEW",
-      index: true,
-    },
-    active: { type: Boolean, default: true, index: true },
-
-    // Profile fields
-    fhName: { type: String, default: "" },           // FH/CEM Name
-    businessPhone: { type: String, default: "" },
-    businessFax: { type: String, default: "" },
-    mailingAddress: { type: String, default: "" },
-
-    // Extended profile
-    contactName: { type: String, default: "" },
-    contactPhone: { type: String, default: "" },
-    contactEmail: { type: String, default: "" },
-    notes: { type: String, default: "" },
+    role: { type: String, enum: ["ADMIN", "FH_CEM", "NEW"], default: "NEW", index: true },
+    fhName: { type: String, trim: true },
+    fhCemId: { type: Schema.Types.ObjectId, ref: "FHCem", default: null, index: true },
+    businessPhone: { type: String, trim: true },
+    businessFax: { type: String, trim: true },
+    mailingAddress: { type: String, trim: true },
+    contactName: { type: String, trim: true },
+    contactPhone: { type: String, trim: true },
+    contactEmail: { type: String, trim: true },
+    notes: { type: String, trim: true },
   },
   { timestamps: true }
 );
 
-export type UserDoc = InferSchemaType<typeof UserSchema>;
-
-export const User: Model<UserDoc> =
-  (models.User as Model<UserDoc>) || model<UserDoc>("User", UserSchema);
+export default (mongoose.models.User as mongoose.Model<IUser>) ||
+  mongoose.model<IUser>("User", UserSchema);
