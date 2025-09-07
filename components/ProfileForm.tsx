@@ -25,9 +25,11 @@ export default function ProfileForm() {
     contactEmail: "",
     notes: "",
   });
+  const [original, setOriginal] = useState<Profile | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false); // ← NEW: read-only by default
 
   useEffect(() => {
     let mounted = true;
@@ -37,7 +39,7 @@ export default function ProfileForm() {
         if (!res.ok) throw new Error("Failed to load profile");
         const data = await res.json();
         if (mounted && data?.user) {
-          setProfile({
+          const next: Profile = {
             fhName: data.user.fhName || "",
             businessPhone: data.user.businessPhone || "",
             businessFax: data.user.businessFax || "",
@@ -46,7 +48,9 @@ export default function ProfileForm() {
             contactPhone: data.user.contactPhone || "",
             contactEmail: data.user.contactEmail || "",
             notes: data.user.notes || "",
-          });
+          };
+          setProfile(next);
+          setOriginal(next);
         }
       } catch (e: any) {
         setMsg(e?.message || "Could not load profile");
@@ -63,6 +67,7 @@ export default function ProfileForm() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!editing) return; // ignore submits in read-only mode
     setMsg(null);
     setSaving(true);
     try {
@@ -76,6 +81,8 @@ export default function ProfileForm() {
         throw new Error(data?.error || "Save failed");
       }
       setMsg("Saved.");
+      setOriginal(profile);
+      setEditing(false);
     } catch (e: any) {
       setMsg(e?.message || "Save failed");
     } finally {
@@ -83,7 +90,15 @@ export default function ProfileForm() {
     }
   }
 
+  function onCancel() {
+    if (original) setProfile(original);
+    setEditing(false);
+    setMsg(null);
+  }
+
   if (loading) return <p>Loading…</p>;
+
+  const ro = !editing; // convenience flag for disabling inputs
 
   return (
     <form onSubmit={onSubmit} className="pf-form">
@@ -101,8 +116,6 @@ export default function ProfileForm() {
           font-size: 18px;
           line-height: 1.45;
         }
-
-        /* Light theme overrides */
         @media (prefers-color-scheme: light) {
           .pf-form {
             --title: #000;
@@ -127,10 +140,18 @@ export default function ProfileForm() {
           --muted: #333;
         }
 
+        .pf-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+        }
+        .pf-actions { display: flex; gap: 8px; }
+
         .pf-card {
           background: var(--card-bg);
           border: 1px solid var(--border);
-          border-radius: 0;              /* squared */
+          border-radius: 0;
           padding: 14px;
         }
         .pf-title {
@@ -140,6 +161,7 @@ export default function ProfileForm() {
           font-size: 20px;
         }
         .pf-grid-2 { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+
         label { display: grid; gap: 6px; color: #fff; }
         @media (prefers-color-scheme: light) { label { color: #000; } }
 
@@ -150,7 +172,7 @@ export default function ProfileForm() {
           width: 100%;
           padding: 10px 12px;
           border: 1px solid var(--border);
-          border-radius: 0;               /* squared */
+          border-radius: 0;
           background: var(--field);
           color: #fff;
         }
@@ -161,7 +183,27 @@ export default function ProfileForm() {
           textarea { color: #000; }
         }
 
+        input[disabled], textarea[disabled] {
+          opacity: 0.8;
+          cursor: not-allowed;
+        }
+
         .pf-muted { color: var(--muted); }
+
+        .btn {
+          border: 1px solid var(--border);
+          background: var(--field);
+          color: #fff;
+          padding: 10px 12px;
+          border-radius: 0;
+          cursor: pointer;
+        }
+        .btn-gold {
+          background: var(--gold);
+          border-color: var(--gold);
+          color: #000;
+        }
+        .btn[disabled] { opacity: .7; cursor: not-allowed; }
 
         @media (max-width: 900px) {
           .pf-grid-2 { grid-template-columns: 1fr; }
@@ -172,52 +214,120 @@ export default function ProfileForm() {
         }
       `}</style>
 
+      {/* Header row with Edit/Save/Cancel */}
+      <div className="pf-head">
+        {/* CHANGED: Business → Your Business */}
+        <h3 className="pf-title" style={{ margin: 0 }}>Your Business</h3>
+        <div className="pf-actions">
+          {!editing ? (
+            <button type="button" className="btn btn-gold" onClick={() => setEditing(true)}>
+              Edit Profile
+            </button>
+          ) : (
+            <>
+              <button type="button" className="btn" onClick={onCancel}>Cancel</button>
+              <button type="submit" className="btn btn-gold" disabled={saving}>
+                {saving ? "Saving…" : "Save Changes"}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
       <div className="pf-card">
-        <h3 className="pf-title">Business</h3>
+        {/* Keep section title for grouping, but main title above */}
+        <h3 className="pf-title" style={{ fontSize: 18, marginTop: 0 }}>Facility</h3>
+
         <label>FH/CEM Name
-          <input type="text" value={profile.fhName} onChange={(e) => set("fhName", e.target.value)} />
+          <input
+            type="text"
+            value={profile.fhName}
+            onChange={(e) => set("fhName", e.target.value)}
+            readOnly={!editing}
+            disabled={ro}
+          />
         </label>
 
         <div className="pf-grid-2">
           <label>Business Phone
-            <input type="tel" value={profile.businessPhone} onChange={(e) => set("businessPhone", e.target.value)} />
+            <input
+              type="tel"
+              value={profile.businessPhone}
+              onChange={(e) => set("businessPhone", e.target.value)}
+              readOnly={!editing}
+              disabled={ro}
+            />
           </label>
           <label>Business Fax
-            <input type="tel" value={profile.businessFax} onChange={(e) => set("businessFax", e.target.value)} />
+            <input
+              type="tel"
+              value={profile.businessFax}
+              onChange={(e) => set("businessFax", e.target.value)}
+              readOnly={!editing}
+              disabled={ro}
+            />
           </label>
         </div>
 
-        <label>Mailing Address
-          <textarea rows={3} value={profile.mailingAddress} onChange={(e) => set("mailingAddress", e.target.value)} />
+        {/* CHANGED: Mailing Address → Business Mailing Address */}
+        <label>Business Mailing Address
+          <textarea
+            rows={3}
+            value={profile.mailingAddress}
+            onChange={(e) => set("mailingAddress", e.target.value)}
+            readOnly={!editing}
+            disabled={ro}
+          />
         </label>
       </div>
 
       <div className="pf-card">
-        <h3 className="pf-title">Primary Contact</h3>
+        <h3 className="pf-title" style={{ fontSize: 18, marginTop: 0 }}>Primary Contact</h3>
         <label>Contact Name
-          <input type="text" value={profile.contactName} onChange={(e) => set("contactName", e.target.value)} />
+          <input
+            type="text"
+            value={profile.contactName}
+            onChange={(e) => set("contactName", e.target.value)}
+            readOnly={!editing}
+            disabled={ro}
+          />
         </label>
         <div className="pf-grid-2">
           <label>Contact Phone
-            <input type="tel" value={profile.contactPhone} onChange={(e) => set("contactPhone", e.target.value)} />
+            <input
+              type="tel"
+              value={profile.contactPhone}
+              onChange={(e) => set("contactPhone", e.target.value)}
+              readOnly={!editing}
+              disabled={ro}
+            />
           </label>
           <label>Contact Email
-            <input type="email" value={profile.contactEmail} onChange={(e) => set("contactEmail", e.target.value)} />
+            <input
+              type="email"
+              value={profile.contactEmail}
+              onChange={(e) => set("contactEmail", e.target.value)}
+              readOnly={!editing}
+              disabled={ro}
+            />
           </label>
         </div>
       </div>
 
       <div className="pf-card">
-        <h3 className="pf-title">Notes</h3>
-        <textarea rows={4} value={profile.notes} onChange={(e) => set("notes", e.target.value)} />
+        <h3 className="pf-title" style={{ fontSize: 18, marginTop: 0 }}>Notes</h3>
+        <textarea
+          rows={4}
+          value={profile.notes}
+          onChange={(e) => set("notes", e.target.value)}
+          readOnly={!editing}
+          disabled={ro}
+        />
       </div>
 
-      <button disabled={saving} className="btn" type="submit">
-        {saving ? "Saving…" : "Save Profile"}
-      </button>
-
+      {/* Hide old submit button in read-only; replaced by header actions */}
       {msg && (
-        <p role="alert" style={{ color: msg === "Saved." ? "limegreen" : "crimson", marginTop: 8 }}>
+        <p role="alert" className="pf-muted" style={{ marginTop: 8, color: msg === "Saved." ? "limegreen" : "crimson" }}>
           {msg}
         </p>
       )}
