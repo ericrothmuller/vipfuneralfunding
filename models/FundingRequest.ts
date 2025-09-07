@@ -1,106 +1,88 @@
 // models/FundingRequest.ts
-import { Schema, model, models, InferSchemaType, Model } from "mongoose";
+import mongoose, { Schema, Types } from "mongoose";
 
-const FundingRequestSchema = new Schema(
+export type FundingStatus = "Submitted" | "Verifying" | "Approved" | "Funded" | "Closed";
+
+export interface IFundingRequest {
+  _id?: Types.ObjectId;
+
+  // ownership / relations
+  ownerId: Types.ObjectId;                   // User who created it
+  insuranceCompanyId?: Types.ObjectId | null;
+  fhCemId?: Types.ObjectId | null;           // optional, if you later link requests directly to an FH/CEM
+
+  // decedent & case basics (minimal set used by lists)
+  decedentFirstName?: string;
+  decedentLastName?: string;
+
+  // insurance details
+  otherInsuranceCompany?: {
+    name?: string;
+    phone?: string;
+    fax?: string;
+    notes?: string;
+  } | null;
+  policyNumbers?: string[];                  // dynamic list
+  beneficiaries?: string[];                  // dynamic list
+
+  // financials
+  totalServiceAmount?: number;
+  familyAdvancementAmount?: number;
+  vipFee?: number;
+  assignmentAmount?: number;
+
+  // uploads
+  assignmentUploadPath?: string;
+
+  // workflow
+  status: FundingStatus;
+
+  // timestamps
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+const FundingRequestSchema = new Schema<IFundingRequest>(
   {
-    // ownership
-    userId: { type: Schema.Types.ObjectId, ref: "User", index: true, required: true },
+    ownerId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    insuranceCompanyId: { type: Schema.Types.ObjectId, ref: "InsuranceCompany", default: null, index: true },
+    fhCemId: { type: Schema.Types.ObjectId, ref: "FHCem", default: null, index: true },
 
-    // Funeral Home / Cemetery
-    fhName: { type: String, default: "" },
-    fhRep: { type: String, default: "" },
-    contactPhone: { type: String, default: "" },
-    contactEmail: { type: String, default: "" },
+    decedentFirstName: { type: String, trim: true },
+    decedentLastName: { type: String, trim: true },
 
-    // Decedent
-    decFirstName: { type: String, default: "" },
-    decLastName: { type: String, default: "" },
-    decSSN: { type: String, default: "" },
-    decDOB: { type: Date, default: null },
-    decDOD: { type: Date, default: null },
-    decMaritalStatus: { type: String, default: "" },
-
-    // Address
-    decAddress: { type: String, default: "" },
-    decCity: { type: String, default: "" },
-    decState: { type: String, default: "" },
-    decZip: { type: String, default: "" },
-
-    // Place of death
-    decPODCity: { type: String, default: "" },
-    decPODState: { type: String, default: "" },
-    deathInUS: { type: Boolean, default: true },
-
-    // Cause of death
-    codNatural: { type: Boolean, default: false },
-    codAccident: { type: Boolean, default: false },
-    codHomicide: { type: Boolean, default: false },
-    codPending: { type: Boolean, default: false },
-    codSuicide: { type: Boolean, default: false },
-
-    // Certificates / assignments
-    hasFinalDC: { type: Boolean, default: false },
-    otherFHTakingAssignment: { type: Boolean, default: false },
-    otherFHName: { type: String, default: "" },
-    otherFHAmount: { type: String, default: "" },
-
-    // Employer
-    employerPhone: { type: String, default: "" },
-    employerContact: { type: String, default: "" },
-    employmentStatus: { type: String, default: "" },
-
-    // Insurance linkage
-    // If set: reference a managed InsuranceCompany
-    insuranceCompanyId: { type: Schema.Types.ObjectId, ref: "InsuranceCompany", default: null },
-    // Else: one-off "Other" info stored within the request
     otherInsuranceCompany: {
-      name: { type: String, default: "" },
-      phone: { type: String, default: "" },
-      fax: { type: String, default: "" },
-      notes: { type: String, default: "" },
+      name: { type: String, trim: true },
+      phone: { type: String, trim: true },
+      fax: { type: String, trim: true },
+      notes: { type: String, trim: true },
     },
 
-    // Legacy/display fields still used by your UI (we compute a display string in API):
-    insuranceCompany: { type: String, default: "" }, // not required; used for display compatibility
-    policyNumbers: { type: String, default: "" },
-    faceAmount: { type: String, default: "" },
-    beneficiaries: { type: String, default: "" },
+    policyNumbers: { type: [String], default: [] },
+    beneficiaries: { type: [String], default: [] },
 
-    // Financials
-    totalServiceAmount: { type: String, default: "" },
-    familyAdvancementAmount: { type: String, default: "" },
-    vipFee: { type: String, default: "" },
-    assignmentAmount: { type: String, default: "" },
+    totalServiceAmount: { type: Number, default: 0 },
+    familyAdvancementAmount: { type: Number, default: 0 },
+    vipFee: { type: Number, default: 0 },
+    assignmentAmount: { type: Number, default: 0 },
 
-    // Misc
-    notes: { type: String, default: "" },
-    assignmentUploadPath: { type: String, default: "" },
+    assignmentUploadPath: { type: String, trim: true },
 
-    // Workflow status
     status: {
       type: String,
       enum: ["Submitted", "Verifying", "Approved", "Funded", "Closed"],
       default: "Submitted",
       index: true,
     },
-    statusHistory: [
-      {
-        status: {
-          type: String,
-          enum: ["Submitted", "Verifying", "Approved", "Funded", "Closed"],
-          required: true,
-        },
-        at: { type: Date, default: Date.now },
-        by: { type: Schema.Types.ObjectId, ref: "User" },
-        note: { type: String, default: "" },
-      },
-    ],
   },
   { timestamps: true }
 );
 
-export type FundingRequestDoc = InferSchemaType<typeof FundingRequestSchema>;
+// helpful compound index for admin lists
+FundingRequestSchema.index({ ownerId: 1, createdAt: -1 });
 
-export const FundingRequest: Model<FundingRequestDoc> =
-  (models.FundingRequest as Model<FundingRequestDoc>) ||
-  model<FundingRequestDoc>("FundingRequest", FundingRequestSchema);
+export const FundingRequest =
+  (mongoose.models.FundingRequest as mongoose.Model<IFundingRequest>) ||
+  mongoose.model<IFundingRequest>("FundingRequest", FundingRequestSchema);
+
+export default FundingRequest;

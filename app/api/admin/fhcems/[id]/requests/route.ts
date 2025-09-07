@@ -1,35 +1,34 @@
-// app/api/admin/fhcems/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import { connect } from "@/lib/mongoose";
-import { requireAdmin } from "@/lib/auth";
-import FHCem from "@/models/FHCem";
+// app/api/admin/fhcems/[id]/requests/route.ts
+import { NextResponse } from "next/server";
+import { connectDB } from "@/lib/db";
+import { getUserFromCookie } from "@/lib/auth";
+import User from "@/models/User";
+import FundingRequest from "@/models/FundingRequest";
+import mongoose from "mongoose";
 
-export async function GET(req: NextRequest) {
-  await connect();
-  const guard = await requireAdmin(req);
-  if (guard instanceof NextResponse) return guard; // 401/403 handled
-
-  const { searchParams } = new URL(req.url);
-  const q = searchParams.get("q")?.trim() || "";
-  const filter = q ? { name: { $regex: q, $options: "i" } } : {};
-  const items = await FHCem.find(filter).sort({ name: 1 }).lean();
-  return NextResponse.json({ items });
+async function requireAdminFromCookie() {
+  const me = await getUserFromCookie();
+  if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (me.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  return me;
 }
 
-export async function POST(req: NextRequest) {
-  await connect();
-  const guard = await requireAdmin(req);
+export async function GET(_req: Request, { params }: { params: { id: string } }) {
+  const guard = await requireAdminFromCookie();
   if (guard instanceof NextResponse) return guard;
 
-  const body = await req.json();
-  const doc = await FHCem.create({
-    name: (body.name || "").trim(),
-    reps: body.reps || [],
-    phone: body.phone || "",
-    email: body.email || "",
-    fax: body.fax || "",
-    mailingAddress: body.mailingAddress || "",
-    notes: body.notes || "",
-  });
-  return NextResponse.json({ item: doc }, { status: 201 });
+  await connectDB();
+  if (!mongoose.isValidObjectId(params.id)) {
+    return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+  }
+
+  const users = await User.find({ fhCemId: params.id }).select("_id").lean();
+  const ownerIds = users.map((u: any) => u._id);
+  if (!ownerIds.length) return NextResponse.json({ items: [] });
+
+  const items = await FundingRequest.find({ ownerId: { $in: ownerIds } })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  return NextResponse.json({ items });
 }
