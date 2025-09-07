@@ -37,15 +37,25 @@ function parseMoneyNumber(s: string): number {
 function formatMoney(n: number): string {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
 }
-function enforceCurrencyInput(val: string): string {
-  // Allow only digits and a single decimal point; format visually with $ + grouping
-  const clean = val.replace(/[^0-9.]/g, "");
+
+/** Free typing for currency fields; format on blur */
+function handleCurrencyInput(
+  value: string,
+  setter: React.Dispatch<React.SetStateAction<string>>
+) {
+  // Allow only digits and decimal while typing
+  const clean = value.replace(/[^0-9.]/g, "");
+  // Limit to a single decimal point
   const parts = clean.split(".");
-  const left = parts[0];
-  const right = parts[1] ? parts[1].slice(0, 2) : "";
-  const numeric = right ? `${left}.${right}` : left;
-  const n = parseMoneyNumber(numeric);
-  return formatMoney(n);
+  const normalized = parts.length <= 2 ? clean : `${parts[0]}.${parts.slice(1).join("")}`.replace(/\./g, (m, i) => (i === 0 ? "." : ""));
+  setter(normalized);
+}
+function handleCurrencyBlur(
+  value: string,
+  setter: React.Dispatch<React.SetStateAction<string>>
+) {
+  const n = parseMoneyNumber(value);
+  setter(formatMoney(n));
 }
 
 /** ------------------- Component ------------------- */
@@ -185,16 +195,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
   const showOtherFH = otherFHTakingAssignment === "Yes";
   const showEmployer = isEmployerInsurance === "Yes";
 
-  /** Formatting handlers for currency inputs (auto-$, commas, 2dp)
-   *  FIX: accept React.Dispatch<React.SetStateAction<string>> to match setState signature
-   */
-  function handleCurrencyChange(setter: React.Dispatch<React.SetStateAction<string>>) {
-    return (e: React.ChangeEvent<HTMLInputElement>) => {
-      setter(enforceCurrencyInput(e.target.value));
-    };
-  }
-
-  /** Submit */
+  /** ------------------- Submit ------------------- */
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setMsg(null);
@@ -214,7 +215,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       if (insuranceCompanyMode === "id") fd.set("insuranceCompanyId", insuranceCompanyId);
       else fd.set("insuranceCompanyId", "");
 
-      // Policy numbers & beneficiaries as comma-separated (server keeps your existing behavior)
+      // Policy numbers & beneficiaries as comma-separated
       fd.set(
         "policyNumbers",
         policyNumbers.map((s) => s.trim()).filter(Boolean).join(", ")
@@ -224,7 +225,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         beneficiaries.map((s) => s.trim()).filter(Boolean).join(", ")
       );
 
-      // Calculated financials
+      // Calculated financials (VIP min $100 enforced already)
       fd.set("vipFee", formatMoney(vipFeeCalc));
       fd.set("assignmentAmount", formatMoney(assignmentAmountCalc));
 
@@ -321,6 +322,20 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           cursor: pointer;
         }
         .fr-gold:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="tel"],
+        input[type="date"],
+        input[type="file"],
+        select,
+        textarea {
+          width: 100%;
+          padding: 10px 12px;
+          border: 1px solid var(--border, #2a2f37);
+          border-radius: 10px;
+          background: var(--card, #0f1318);
+        }
 
         /* Mobile friendliness */
         @media (max-width: 900px) {
@@ -494,7 +509,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           </label>
         </div>
 
-        {showOtherFH && (
+        {otherFHTakingAssignment === "Yes" && (
           <div className="fr-grid-2" style={{ marginTop: 8 }}>
             <label>If Yes, FH/CEM Name:
               <input name="otherFHName" type="text" value={otherFHName} onChange={(e) => setOtherFHName(e.target.value)} />
@@ -505,7 +520,8 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                 type="text"
                 inputMode="decimal"
                 value={otherFHAmount}
-                onChange={handleCurrencyChange(setOtherFHAmount)}
+                onChange={(e) => handleCurrencyInput(e.target.value, setOtherFHAmount)}
+                onBlur={(e) => handleCurrencyBlur(e.target.value, setOtherFHAmount)}
                 placeholder="$0.00"
                 title="Enter a dollar amount"
               />
@@ -531,7 +547,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           </select>
         </label>
 
-        {showEmployer && (
+        {isEmployerInsurance === "Yes" && (
           <div className="fr-grid-3-tight" style={{ marginTop: 8 }}>
             <label>Employer Company Name
               <input name="employerCompanyName" type="text" value={employerCompanyName} onChange={(e) => setEmployerCompanyName(e.target.value)} />
@@ -613,7 +629,8 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
             type="text"
             inputMode="decimal"
             value={faceAmount}
-            onChange={handleCurrencyChange(setFaceAmount)}
+            onChange={(e) => handleCurrencyInput(e.target.value, setFaceAmount)}
+            onBlur={(e) => handleCurrencyBlur(e.target.value, setFaceAmount)}
             placeholder="$0.00"
           />
         </label>
@@ -661,7 +678,8 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
               inputMode="decimal"
               required
               value={totalServiceAmount}
-              onChange={handleCurrencyChange(setTotalServiceAmount)}
+              onChange={(e) => handleCurrencyInput(e.target.value, setTotalServiceAmount)}
+              onBlur={(e) => handleCurrencyBlur(e.target.value, setTotalServiceAmount)}
               placeholder="$0.00"
             />
           </label>
@@ -672,7 +690,8 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
               type="text"
               inputMode="decimal"
               value={familyAdvancementAmount}
-              onChange={handleCurrencyChange(setFamilyAdvancementAmount)}
+              onChange={(e) => handleCurrencyInput(e.target.value, setFamilyAdvancementAmount)}
+              onBlur={(e) => handleCurrencyBlur(e.target.value, setFamilyAdvancementAmount)}
               placeholder="$0.00"
             />
           </label>
