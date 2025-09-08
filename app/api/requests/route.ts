@@ -11,10 +11,18 @@ import { createWriteStream } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { Readable, Transform } from "node:stream";
+import mongoose from "mongoose";
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR || "/home/deploy/uploads/vipfuneralfunding";
 const MAX_UPLOAD_BYTES = 500 * 1024 * 1024; // 500 MB
 
+/* -------------------- helpers -------------------- */
+function moneyToNumber(v: any): number {
+  if (v == null) return 0;
+  const s = String(v).replace(/[^0-9.-]/g, "");
+  const n = Number(s);
+  return Number.isFinite(n) ? n : 0;
+}
 function safeExt(filename?: string | null): string {
   if (!filename) return ".bin";
   const ext = path.extname(String(filename)).toLowerCase();
@@ -34,6 +42,13 @@ function parseDate(v: string | null): Date | undefined {
   if (!v) return undefined;
   const d = new Date(v);
   return isNaN(d.getTime()) ? undefined : d;
+}
+function splitList(val: unknown): string[] {
+  if (Array.isArray(val)) return val.map(String).map(s => s.trim()).filter(Boolean);
+  if (typeof val === "string") {
+    return val.split(/[,\n]/).map(s => s.trim()).filter(Boolean);
+  }
+  return [];
 }
 
 async function streamToFile(file: File): Promise<{ relative: string; absolute: string }> {
@@ -78,7 +93,7 @@ async function streamToFile(file: File): Promise<{ relative: string; absolute: s
   return { relative, absolute };
 }
 
-/* GET /api/requests — list current user's requests (supports ?q= search) */
+/* -------------------- GET: list current user's requests -------------------- */
 export async function GET(req: Request) {
   try {
     const me = await getUserFromCookie();
@@ -89,22 +104,31 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const q = (url.searchParams.get("q") || "").trim();
 
-    const find: any = { userId: me.sub };
+    // support BOTH legacy userId and new ownerId
+    const meId = new mongoose.Types.ObjectId(me.sub);
+    const and: any[] = [{ $or: [{ userId: meId }, { ownerId: meId }] }];
+
     if (q) {
       const rx = { $regex: q, $options: "i" };
-      find.$or = [
-        { decFirstName: rx },
-        { decLastName: rx },
-        { policyNumbers: rx },
-        { insuranceCompany: rx },               // legacy display string
-        { "otherInsuranceCompany.name": rx },   // “Other” company name
-      ];
+      and.push({
+        $or: [
+          { decFirstName: rx },        // legacy
+          { decLastName: rx },         // legacy
+          { decedentFirstName: rx },   // new
+          { decedentLastName: rx },    // new
+          { policyNumbers: rx },
+          { insuranceCompany: rx },
+          { "otherInsuranceCompany.name": rx },
+        ],
+      });
     }
+
+    const find: any = and.length > 1 ? { $and: and } : and[0];
 
     const rows = await FundingRequest.find(find)
       .sort({ createdAt: -1 })
       .select(
-        "decFirstName decLastName insuranceCompanyId otherInsuranceCompany insuranceCompany policyNumbers createdAt fhRep assignmentAmount status"
+        "decFirstName decLastName decedentFirstName decedentLastName insuranceCompanyId otherInsuranceCompany insuranceCompany policyNumbers createdAt fhRep assignmentAmount status"
       )
       .populate({ path: "insuranceCompanyId", select: "name" })
       .lean();
@@ -114,11 +138,19 @@ export async function GET(req: Request) {
         (r.insuranceCompanyId && r.insuranceCompanyId.name) ||
         (r.otherInsuranceCompany?.name) ||
         r.insuranceCompany || "";
+
+      const first = r.decFirstName || r.decedentFirstName || "";
+      const last  = r.decLastName || r.decedentLastName || "";
+
+      const policies = Array.isArray(r.policyNumbers)
+        ? r.policyNumbers.join(", ")
+        : (r.policyNumbers || "");
+
       return {
         id: String(r._id),
-        decName: [r.decFirstName, r.decLastName].filter(Boolean).join(" "),
+        decName: [first, last].filter(Boolean).join(" "),
         insuranceCompany: companyDisplay,
-        policyNumbers: r.policyNumbers || "",
+        policyNumbers: policies,
         createdAt: r.createdAt,
         fhRep: r.fhRep || "",
         assignmentAmount: r.assignmentAmount || "",
@@ -133,7 +165,7 @@ export async function GET(req: Request) {
   }
 }
 
-/* POST /api/requests — unchanged from your latest version (streams upload, supports company id/other) */
+/* -------------------- POST: create a request (multipart/json) -------------------- */
 export async function POST(req: Request) {
   try {
     const me = await getUserFromCookie();
@@ -179,8 +211,13 @@ export async function POST(req: Request) {
         contactPhone: text("contactPhone"),
         contactEmail: text("contactEmail"),
 
+        // legacy
         decFirstName: text("decFirstName"),
         decLastName: text("decLastName"),
+        // new mirror
+        decedentFirstName: text("decFirstName"),
+        decedentLastName: text("decLastName"),
+
         decSSN: text("decSSN"),
         decMaritalStatus: text("decMaritalStatus"),
         decAddress: text("decAddress"),
@@ -237,31 +274,95 @@ export async function POST(req: Request) {
     } else {
       const json = await req.json().catch(() => ({}));
       body = json || {};
+      // Also mirror decedent names if only legacy provided
+      if (body.decFirstName && !body.decedentFirstName) body.decedentFirstName = body.decFirstName;
+      if (body.decLastName && !body.decedentLastName) body.decedentLastName = body.decLastName;
     }
 
+    // ---- Normalize arrays (server-side) ----
+    const policyNumbersArr = splitList(body.policyNumbers);
+    const beneficiariesArr = splitList(body.beneficiaries);
+
+    // ---- Normalize numeric currency fields ----
+    const nTotal = moneyToNumber(body.totalServiceAmount);
+    const nFamily = moneyToNumber(body.familyAdvancementAmount);
+    let nVip = moneyToNumber(body.vipFee);
+    if (!nVip) {
+      const base = nTotal + nFamily;
+      const pct = Math.round(base * 0.03 * 100) / 100;
+      nVip = Math.max(100, pct);
+    }
+    let nAssign = moneyToNumber(body.assignmentAmount);
+    if (!nAssign) nAssign = nTotal + nFamily + nVip;
+
+    // ---- Legacy "insuranceCompany" display string (optional) ----
     let insuranceCompanyDisplay = "";
     if (body.insuranceCompanyId) insuranceCompanyDisplay = "";
     else if (body.otherInsuranceCompany?.name) insuranceCompanyDisplay = body.otherInsuranceCompany.name;
-    if (insuranceCompanyDisplay) body.insuranceCompany = insuranceCompanyDisplay;
 
+    // ---- Create document; write BOTH userId and ownerId ----
+    const meId = new mongoose.Types.ObjectId(me.sub);
     const doc = await FundingRequest.create({
-      userId: me.sub,
-      ...body,
+      userId: meId,                 // legacy
+      ownerId: meId,                // new (required in your schema)
+
+      // names (both legacy & new for cross-compat)
+      decFirstName: body.decFirstName || body.decedentFirstName || "",
+      decLastName: body.decLastName || body.decedentLastName || "",
+      decedentFirstName: body.decedentFirstName || body.decFirstName || "",
+      decedentLastName: body.decedentLastName || body.decLastName || "",
+
+      insuranceCompanyId: body.insuranceCompanyId || null,
+      otherInsuranceCompany: body.otherInsuranceCompany || { name: "", phone: "", fax: "", notes: "" },
+      insuranceCompany: insuranceCompanyDisplay || undefined,
+
+      policyNumbers: policyNumbersArr,
+      beneficiaries: beneficiariesArr,
+
+      totalServiceAmount: nTotal,
+      familyAdvancementAmount: nFamily,
+      vipFee: nVip,
+      assignmentAmount: nAssign,
+
+      fhName: body.fhName,
+      fhRep: body.fhRep,
+      contactPhone: body.contactPhone,
+      contactEmail: body.contactEmail,
+
+      decSSN: body.decSSN,
+      decMaritalStatus: body.decMaritalStatus,
+      decAddress: body.decAddress,
+      decCity: body.decCity,
+      decState: body.decState,
+      decZip: body.decZip,
+
+      decPODCity: body.decPODCity,
+      decPODState: body.decPODState,
+
+      employerPhone: body.employerPhone,
+      employerContact: body.employerContact,
+      employmentStatus: body.employmentStatus,
+
+      notes: body.notes,
+
       ...(assignmentRelative ? { assignmentUploadPath: assignmentRelative } : {}),
+
+      status: "Submitted",
     });
 
     console.log("[upload] created request", {
       id: String(doc._id),
-      insuranceCompanyId: doc.insuranceCompanyId,
-      otherIC: doc.otherInsuranceCompany,
+      insuranceCompanyId: (doc as any).insuranceCompanyId,
+      otherIC: (doc as any).otherInsuranceCompany,
       assignmentUploadPath: assignmentRelative,
+      totals: { nTotal, nFamily, nVip, nAssign },
     });
 
     return NextResponse.json({ ok: true, id: String(doc._id) }, { status: 201 });
   } catch (err: any) {
     console.error("[upload] error", err);
     const msg = typeof err?.message === "string" ? err.message : "Server error";
-    const code = msg.includes("File too large") ? 413 : 500;
-    return NextResponse.json({ error: msg }, { status: code });
+    const code = msg.includes("File too large") ? 413 : 400 <= (err?.status || 500) && (err?.status || 500);
+    return NextResponse.json({ error: msg }, { status: Number.isFinite(code) ? (code as number) : 500 });
   }
 }
