@@ -33,34 +33,53 @@ export async function GET(req: Request) {
 
     const url = new URL(req.url);
     const status = url.searchParams.get("status");
-    const fh     = url.searchParams.get("fh");
+    const fh     = url.searchParams.get("fh");    // legacy param for filtering by owner
     const from   = url.searchParams.get("from");
     const to     = url.searchParams.get("to");
     const q      = (url.searchParams.get("q") || "").trim();
 
-    const find: any = {};
-    if (status && ALLOWED_STATUSES.includes(status as any)) find.status = status;
-    if (fh && mongoose.isValidObjectId(fh)) find.userId = new mongoose.Types.ObjectId(fh);
+    // Build a filter that supports BOTH old and new field names
+    const and: any[] = [];
+
+    if (status && ALLOWED_STATUSES.includes(status as any)) {
+      and.push({ status });
+    }
+
     const createdRange = parseDateRange(from, to);
-    if (createdRange) find.createdAt = createdRange;
+    if (createdRange) {
+      and.push({ createdAt: createdRange });
+    }
+
+    if (fh && mongoose.isValidObjectId(fh)) {
+      const owner = new mongoose.Types.ObjectId(fh);
+      and.push({ $or: [ { userId: owner }, { ownerId: owner } ] });
+    }
+
     if (q) {
       const rx = { $regex: q, $options: "i" };
-      find.$or = [
-        { decFirstName: rx },
-        { decLastName: rx },
-        { policyNumbers: rx },
-        { insuranceCompany: rx },
-        { "otherInsuranceCompany.name": rx },
-      ];
+      and.push({
+        $or: [
+          { decFirstName: rx },        // legacy
+          { decLastName: rx },         // legacy
+          { decedentFirstName: rx },   // new
+          { decedentLastName: rx },    // new
+          { policyNumbers: rx },
+          { insuranceCompany: rx },               // legacy display string
+          { "otherInsuranceCompany.name": rx },   // new "Other" IC name
+        ],
+      });
     }
+
+    const find: any = and.length ? { $and: and } : {};
 
     const rows = await FundingRequest.find(find)
       .sort({ createdAt: -1 })
       .select(
-        "userId decFirstName decLastName insuranceCompanyId otherInsuranceCompany insuranceCompany policyNumbers createdAt fhRep assignmentAmount status"
+        "userId ownerId decFirstName decLastName decedentFirstName decedentLastName insuranceCompanyId otherInsuranceCompany insuranceCompany policyNumbers createdAt fhRep assignmentAmount status"
       )
       .populate({ path: "insuranceCompanyId", select: "name" })
-      .populate({ path: "userId", select: "email role" })
+      .populate({ path: "userId", select: "email role" })   // legacy
+      .populate({ path: "ownerId", select: "email role" })  // new
       .lean();
 
     const requests = rows.map((r: any) => {
@@ -68,17 +87,23 @@ export async function GET(req: Request) {
         (r.insuranceCompanyId && r.insuranceCompanyId.name) ||
         (r.otherInsuranceCompany?.name) ||
         r.insuranceCompany || "";
+
+      const first = r.decFirstName || r.decedentFirstName || "";
+      const last  = r.decLastName || r.decedentLastName || "";
+
+      const ownerDoc = r.userId || r.ownerId || null;
+
       return {
         id: String(r._id),
-        decName: [r.decFirstName, r.decLastName].filter(Boolean).join(" "),
+        decName: [first, last].filter(Boolean).join(" "),
         insuranceCompany: companyDisplay,
-        policyNumbers: r.policyNumbers || "",
+        policyNumbers: Array.isArray(r.policyNumbers) ? r.policyNumbers.join(", ") : (r.policyNumbers || ""),
         createdAt: r.createdAt,
         fhRep: r.fhRep || "",
         assignmentAmount: r.assignmentAmount || "",
         status: r.status || "Submitted",
-        userId: String(r.userId?._id || ""),
-        ownerEmail: r.userId?.email || "",
+        userId: ownerDoc?._id ? String(ownerDoc._id) : "",
+        ownerEmail: ownerDoc?.email || "",
       };
     });
 
