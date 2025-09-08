@@ -16,6 +16,9 @@ type IC = { id: string; name: string };
 
 const COD_OPTIONS = ["Natural", "Accident", "Homicide", "Pending", "Suicide"] as const;
 
+/** v-flag-safe US phone pattern: optional "(###) " or "###-" or "###", then 7 digits (optional hyphen) */
+const PHONE_PATTERN_VSAFE = String.raw`[(]?\d{3}[)]?[\s-]?\d{3}-?\d{4}`;
+
 /** ------------------- Helpers ------------------- */
 function onlyDigits(s: string) {
   return s.replace(/\D+/g, "");
@@ -185,9 +188,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         if (mounted) setLoadingProfile(false);
       }
     })();
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, []);
 
   const showOtherFH = otherFHTakingAssignment === "Yes";
@@ -255,7 +256,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           gap: 16px;
         }
 
-        /* Dark theme (only black/gold/white shades) */
+        /* Dark theme */
         @media (prefers-color-scheme: dark) {
           .fr-form {
             --title-color: var(--gold);
@@ -275,7 +276,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
             --muted: #333;
           }
         }
-        /* Optional explicit theme flags via body[data-theme] */
         :global(body[data-theme="dark"]) .fr-form {
           --title-color: var(--gold);
           --card-bg: #0b0d0f;
@@ -294,7 +294,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         .fr-page-title {
           text-align: center;
           color: var(--title-color);
-          margin: 20px 0 12px;   /* space above the title */
+          margin: 20px 0 12px;
           font-weight: 800;
           font-size: 26px;
         }
@@ -306,24 +306,10 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           padding: 14px;
         }
 
-        .fr-legend {
-          position: absolute !important;
-          height: 1px; width: 1px; overflow: hidden;
-          clip: rect(1px,1px,1px,1px); white-space: nowrap;
-        }
-        .fr-section-title {
-          color: var(--title-color);
-          font-weight: 800;
-          margin: 0 0 12px 0;
-          font-size: 20px;
-        }
+        .fr-legend { position: absolute !important; height: 1px; width: 1px; overflow: hidden; clip: rect(1px,1px,1px,1px); white-space: nowrap; }
+        .fr-section-title { color: var(--title-color); font-weight: 800; margin: 0 0 12px 0; font-size: 20px; }
 
-        .fr-readonly {
-          background: rgba(255, 255, 255, 0.08);
-          color: inherit;
-          opacity: 0.9;
-          cursor: not-allowed;
-        }
+        .fr-readonly { background: rgba(255,255,255,.08); color: inherit; opacity: .9; cursor: not-allowed; }
 
         .fr-grid-2 { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
         .fr-grid-3 { display: grid; gap: 10px; grid-template-columns: repeat(3, minmax(220px, 1fr)); }
@@ -331,11 +317,11 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
 
         .fr-inline-actions { display: flex; gap: 8px; align-items: center; }
         .fr-del { background: transparent; border: 1px solid var(--border); border-radius: 0; padding: 6px 10px; cursor: pointer; color: var(--muted); }
-        .fr-del:hover { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.25); }
+        .fr-del:hover { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.25); }
 
-        .fr-muted { color: var(--muted); font-size: 0.95em; }
+        .fr-muted { color: var(--muted); font-size: .95em; }
         .fr-gold { background: var(--gold); border: 1px solid var(--gold); color: #0a0d11; padding: 10px 14px; border-radius: 0; cursor: pointer; }
-        .fr-gold:disabled { opacity: 0.6; cursor: not-allowed; }
+        .fr-gold:disabled { opacity: .6; cursor: not-allowed; }
 
         input[type="text"],
         input[type="email"],
@@ -347,9 +333,9 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           width: 100%;
           padding: 10px 12px;
           border: 1px solid var(--border);
-          border-radius: 0;            /* squared */
+          border-radius: 0;
           background: var(--field-bg);
-          color: #fff;                 /* ensure readability on dark */
+          color: #fff;
         }
         @media (prefers-color-scheme: light) {
           input[type="text"],
@@ -358,12 +344,9 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           input[type="date"],
           input[type="file"],
           select,
-          textarea {
-            color: #000;
-          }
+          textarea { color: #000; }
         }
 
-        /* Mobile friendliness */
         @media (max-width: 900px) {
           .fr-grid-2, .fr-grid-3, .fr-grid-3-tight { grid-template-columns: 1fr; }
           .fr-form { font-size: 17px; }
@@ -381,23 +364,12 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         <h3 className="fr-section-title">Funeral Home / Cemetery</h3>
 
         <label>FH/CEM Name
-          <input
-            name="fhName"
-            type="text"
-            className="fr-readonly"
-            value={fhName}
-            readOnly
-          />
+          <input name="fhName" type="text" className="fr-readonly" value={fhName} readOnly />
         </label>
 
         <div className="fr-grid-2">
           <label>FH/CEM REP
-            <input
-              name="fhRep"
-              type="text"
-              value={fhRep}
-              onChange={(e) => setFhRep(e.target.value)}
-            />
+            <input name="fhRep" type="text" value={fhRep} onChange={(e) => setFhRep(e.target.value)} />
           </label>
 
           <label>Contact Phone
@@ -406,7 +378,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
               type="tel"
               required
               inputMode="numeric"
-              pattern="\\(?\\d{3}\\)?[\\s-]?\\d{3}-?\\d{4}"
+              pattern={PHONE_PATTERN_VSAFE}
               value={contactPhone}
               onChange={(e) => setContactPhone(formatPhone(e.target.value))}
               placeholder="(555) 555-5555"
@@ -494,16 +466,9 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         </div>
 
         <label>Cause of Death (required)
-          <select
-            name="codSingle"
-            required
-            value={cod}
-            onChange={(e) => setCod(e.target.value)}
-          >
+          <select name="codSingle" required value={cod} onChange={(e) => setCod(e.target.value)}>
             <option value="">— Select —</option>
-            {COD_OPTIONS.map((opt) => (
-              <option key={opt} value={opt}>{opt}</option>
-            ))}
+            {COD_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
           </select>
         </label>
       </fieldset>
@@ -515,12 +480,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
 
         <div className="fr-grid-2">
           <label>Do you have a final Death Certificate? (required)
-            <select
-              name="hasFinalDCSelect"
-              required
-              value={hasFinalDC}
-              onChange={(e) => setHasFinalDC(e.target.value)}
-            >
+            <select name="hasFinalDCSelect" required value={hasFinalDC} onChange={(e) => setHasFinalDC(e.target.value)}>
               <option value="">— Select —</option>
               <option value="No">No</option>
               <option value="Yes">Yes</option>
@@ -528,12 +488,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           </label>
 
           <label>Is another FH/CEM taking an assignment? (required)
-            <select
-              name="otherFHTakingAssignmentSelect"
-              required
-              value={otherFHTakingAssignment}
-              onChange={(e) => setOtherFHTakingAssignment(e.target.value)}
-            >
+            <select name="otherFHTakingAssignmentSelect" required value={otherFHTakingAssignment} onChange={(e) => setOtherFHTakingAssignment(e.target.value)}>
               <option value="">— Select —</option>
               <option value="No">No</option>
               <option value="Yes">Yes</option>
@@ -568,12 +523,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         <h3 className="fr-section-title">Employer</h3>
 
         <label>Is the insurance through the deceased’s employer? (required)
-          <select
-            name="employerInsuranceSelect"
-            required
-            value={isEmployerInsurance}
-            onChange={(e) => setIsEmployerInsurance(e.target.value)}
-          >
+          <select name="employerInsuranceSelect" required value={isEmployerInsurance} onChange={(e) => setIsEmployerInsurance(e.target.value)}>
             <option value="">— Select —</option>
             <option value="No">No</option>
             <option value="Yes">Yes</option>
@@ -589,11 +539,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
               <input name="employerContact" type="text" value={employerContact} onChange={(e) => setEmployerContact(e.target.value)} />
             </label>
             <label>Active or Retired or On Leave?
-              <select
-                name="employmentStatus"
-                value={employmentStatus}
-                onChange={(e) => setEmploymentStatus(e.target.value)}
-              >
+              <select name="employmentStatus" value={employmentStatus} onChange={(e) => setEmploymentStatus(e.target.value)}>
                 <option value="">— Select —</option>
                 <option value="Active">Active</option>
                 <option value="Retired">Retired</option>
@@ -630,21 +576,13 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         {/* Policy Numbers dynamic */}
         <div style={{ marginTop: 8 }}>
           <label>Policy Number
-            <input
-              type="text"
-              value={policyNumbers[0]}
-              onChange={(e) => updatePolicy(0, e.target.value)}
-            />
+            <input type="text" value={policyNumbers[0]} onChange={(e) => updatePolicy(0, e.target.value)} />
           </label>
 
           {policyNumbers.slice(1).map((v, idx) => (
             <div key={idx} style={{ display: "grid", gap: 6, marginTop: 8 }}>
               <label>Policy Number
-                <input
-                  type="text"
-                  value={v}
-                  onChange={(e) => updatePolicy(idx + 1, e.target.value)}
-                />
+                <input type="text" value={v} onChange={(e) => updatePolicy(idx + 1, e.target.value)} />
               </label>
               <div className="fr-inline-actions">
                 <button type="button" className="fr-del" onClick={() => removePolicy(idx + 1)}>Remove Policy Number</button>
@@ -672,21 +610,13 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         {/* Beneficiaries dynamic */}
         <div style={{ marginTop: 8 }}>
           <label>Beneficiary
-            <input
-              type="text"
-              value={beneficiaries[0]}
-              onChange={(e) => updateBeneficiary(0, e.target.value)}
-            />
+            <input type="text" value={beneficiaries[0]} onChange={(e) => updateBeneficiary(0, e.target.value)} />
           </label>
 
           {beneficiaries.slice(1).map((v, idx) => (
             <div key={idx} style={{ display: "grid", gap: 6, marginTop: 8 }}>
               <label>Beneficiary
-                <input
-                  type="text"
-                  value={v}
-                  onChange={(e) => updateBeneficiary(idx + 1, e.target.value)}
-                />
+                <input type="text" value={v} onChange={(e) => updateBeneficiary(idx + 1, e.target.value)} />
               </label>
               <div className="fr-inline-actions">
                 <button type="button" className="fr-del" onClick={() => removeBeneficiary(idx + 1)}>Remove Beneficiary</button>
