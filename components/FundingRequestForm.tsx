@@ -15,14 +15,14 @@ type Profile = {
 // include verificationTime for selected display
 type IC = { id: string; name: string; verificationTime?: string };
 
-// A linked bundle of Policy → Beneficiaries[] → Face Amount
+// A linked bundle of Beneficiaries[] → Policy Number → Face Amount
 type PolicyBundle = {
-  policyNumber: string;
   beneficiaries: string[];
+  policyNumber: string;
   faceAmount: string; // currency string (formatted on blur)
 };
 
-const COD_PLACE_OPTS = ["Natural", "Accident", "Homicide", "Pending"] as const;
+const COD_OPTS = ["Natural", "Accident", "Homicide", "Pending"] as const;
 
 /** v-flag-safe US phone pattern */
 const PHONE_PATTERN_VSAFE = String.raw`[(]?\d{3}[)]?[\s-]?\d{3}-?\d{4}`;
@@ -86,6 +86,8 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
   const [decSSN, setDecSSN] = useState("");
   const [decDOB, setDecDOB] = useState("");
   const [decDOD, setDecDOD] = useState("");
+
+  /** Marital Status (dropdown) */
   const [decMaritalStatus, setDecMaritalStatus] = useState("");
 
   /** Address */
@@ -94,12 +96,13 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
   const [decState, setDecState] = useState("");
   const [decZip, setDecZip] = useState("");
 
-  /** Place of Death */
+  /** Death (formerly Place of Death) */
   const [decPODCity, setDecPODCity] = useState("");
   const [decPODState, setDecPODState] = useState("");
   const [deathInUS, setDeathInUS] = useState(""); // "Yes" | "No" | ""
+  const [decPODCountry, setDecPODCountry] = useState("");
   const [cod, setCod] = useState<string>("");     // Natural|Accident|Homicide|Pending
-  const [hasFinalDC, setHasFinalDC] = useState<string>(""); // Yes|No|""  (moved here)
+  const [hasFinalDC, setHasFinalDC] = useState<string>(""); // Yes|No|"" (wording changed)
 
   /** Employer (within Insurance section) */
   const [isEmployerInsurance, setIsEmployerInsurance] = useState<string>("");
@@ -107,6 +110,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
   const [employerPhone, setEmployerPhone] = useState("");
   const [employerContact, setEmployerContact] = useState("");
   const [employmentStatus, setEmploymentStatus] = useState<string>("");
+  const [employerRelation, setEmployerRelation] = useState<string>(""); // Employee|Dependent
 
   /** Insurance company typeahead state */
   const [icInput, setIcInput] = useState("");
@@ -114,13 +118,19 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
   const [selectedIC, setSelectedIC] = useState<IC | null>(null);
   const icBoxRef = useRef<HTMLDivElement | null>(null);
 
-  /** Linked policy bundles */
+  /** Linked policy bundles (Beneficiaries → Policy Number → Face Amount) */
   const [bundles, setBundles] = useState<PolicyBundle[]>([
-    { policyNumber: "", beneficiaries: [""], faceAmount: "" },
+    { beneficiaries: [""], policyNumber: "", faceAmount: "" },
   ]);
 
   const addPolicyBundle = () =>
-    setBundles((arr) => [...arr, { policyNumber: "", beneficiaries: [""], faceAmount: "" }]);
+    setBundles((arr) => [...arr, { beneficiaries: [""], policyNumber: "", faceAmount: "" }]);
+
+  const removePolicyBundle = (idx: number) =>
+    setBundles((arr) => {
+      if (arr.length === 1) return [{ beneficiaries: [""], policyNumber: "", faceAmount: "" }];
+      return arr.filter((_, i) => i !== idx);
+    });
 
   const updatePolicyNumber = (i: number, v: string) =>
     setBundles((arr) => arr.map((b, idx) => (idx === i ? { ...b, policyNumber: v } : b)));
@@ -233,14 +243,14 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       const form = e.currentTarget;
       const fd = new FormData(form);
 
-      // ---- Place of Death wiring ----
+      // ---- Death wiring ----
       if (deathInUS) fd.set("deathInUS", deathInUS);
+      if (deathInUS === "No" && decPODCountry.trim()) fd.set("decPODCountry", decPODCountry.trim());
       // map COD to server booleans
       fd.set("codNatural",  cod === "Natural"  ? "Yes" : "No");
       fd.set("codAccident", cod === "Accident" ? "Yes" : "No");
       fd.set("codHomicide", cod === "Homicide" ? "Yes" : "No");
       fd.set("codPending",  cod === "Pending"  ? "Yes" : "No");
-      // (We intentionally omit codSuicide)
 
       // ---- Insurance mapping: ID if selected, otherwise free text as otherIC_name
       if (selectedIC) {
@@ -252,6 +262,11 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         fd.set("insuranceCompanyMode", typed ? "other" : "");
         fd.set("insuranceCompanyId", "");
         if (typed) fd.set("otherIC_name", typed);
+      }
+
+      // ---- Employer extras
+      if (isEmployerInsurance === "Yes") {
+        if (employerRelation) fd.set("employerRelation", employerRelation); // Employee|Dependent
       }
 
       // ---- Linked bundles → compat fields + JSON
@@ -341,6 +356,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
 
         /* Policy bundle card (visual grouping, optional) */
         .pb { border:1px dashed var(--border); padding:10px; margin-top:8px; }
+        .pb-head { display:flex; justify-content:space-between; align-items:center; gap:8px; }
       `}</style>
 
       <h2 className="fr-page-title">Funding Request</h2>
@@ -412,7 +428,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           </label>
         </div>
 
-        {/* CHANGED: dropdown for marital status */}
         <label>DEC Marital Status
           <select
             name="decMaritalStatus"
@@ -450,22 +465,22 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         </div>
       </fieldset>
 
-      {/* NEW: Place of Death */}
+      {/* Death (formerly Place of Death) */}
       <fieldset className="fr-card">
-        <legend className="fr-legend">Place of Death</legend>
-        <h3 className="fr-section-title">Place of Death</h3>
+        <legend className="fr-legend">Death</legend>
+        <h3 className="fr-section-title">Death</h3>
 
         <div className="fr-grid-2">
-          <label>City
+          <label>City (Place of Death)
             <input name="decPODCity" type="text" value={decPODCity} onChange={(e) => setDecPODCity(e.target.value)} />
           </label>
-          <label>State
+          <label>State (Place of Death)
             <input name="decPODState" type="text" value={decPODState} onChange={(e) => setDecPODState(e.target.value)} />
           </label>
         </div>
 
         <div className="fr-grid-2">
-          <label>In the U.S.?
+          <label>Was the Death in the U.S.?
             <select
               name="deathInUS"
               value={deathInUS}
@@ -485,12 +500,23 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
               onChange={(e) => setCod(e.target.value)}
             >
               <option value="">— Select —</option>
-              {COD_PLACE_OPTS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+              {COD_OPTS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
             </select>
           </label>
         </div>
 
-        <label>Final Death Certificate?
+        {deathInUS === "No" && (
+          <label>Country (Place of Death)
+            <input
+              name="decPODCountry"
+              type="text"
+              value={decPODCountry}
+              onChange={(e) => setDecPODCountry(e.target.value)}
+            />
+          </label>
+        )}
+
+        <label>Do you have the Final Death Certificate?
           <select
             name="hasFinalDC"
             required
@@ -525,6 +551,18 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
 
         {isEmployerInsurance === "Yes" && (
           <div className="fr-grid-2" style={{ marginTop: 8 }}>
+            <label>Deceased was the
+              <select
+                name="employerRelation"
+                value={employerRelation}
+                onChange={(e) => setEmployerRelation(e.target.value)}
+              >
+                <option value="">— Select —</option>
+                <option value="Employee">Employee</option>
+                <option value="Dependent">Dependent</option>
+              </select>
+            </label>
+
             <label>Name of Employer
               <input
                 name="employerCompanyName"
@@ -533,6 +571,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                 onChange={(e) => setEmployerCompanyName(e.target.value)}
               />
             </label>
+
             <label>Employer Phone
               <input
                 name="employerPhone"
@@ -545,6 +584,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                 title="Please enter a valid 10-digit phone number"
               />
             </label>
+
             <label>Employer Contact Name
               <input
                 name="employerContact"
@@ -553,7 +593,8 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                 onChange={(e) => setEmployerContact(e.target.value)}
               />
             </label>
-            <label>Status
+
+            <label>Employment Status
               <select
                 name="employmentStatus"
                 value={employmentStatus}
@@ -618,15 +659,16 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         <div style={{ marginTop: 8 }}>
           {bundles.map((b, i) => (
             <div className="pb" key={i}>
-              <label>Policy Number
-                <input
-                  type="text"
-                  value={b.policyNumber}
-                  onChange={(e) => updatePolicyNumber(i, e.target.value)}
-                />
-              </label>
+              <div className="pb-head">
+                <strong>Policy {i + 1}</strong>
+                {bundles.length > 1 && (
+                  <button type="button" className="fr-del" onClick={() => removePolicyBundle(i)}>
+                    Remove Policy
+                  </button>
+                )}
+              </div>
 
-              {/* Beneficiaries for this policy */}
+              {/* Beneficiaries FIRST */}
               <div style={{ marginTop: 8 }}>
                 <label>Beneficiary
                   <input
@@ -662,7 +704,16 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                 </button>
               </div>
 
-              {/* Face Amount for this policy */}
+              {/* Then Policy Number */}
+              <label style={{ marginTop: 8 }}>Policy Number
+                <input
+                  type="text"
+                  value={b.policyNumber}
+                  onChange={(e) => updatePolicyNumber(i, e.target.value)}
+                />
+              </label>
+
+              {/* Then Face Amount */}
               <label style={{ marginTop: 8 }}>Face Amount
                 <input
                   type="text"
@@ -731,7 +782,8 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         </div>
 
         <p className="fr-muted" style={{ marginTop: 6 }}>
-          VIP fee is calculated as 3% of (Service + Advancement), with a minimum of $100. Total Assignment = Service + Advancement + VIP.
+          VIP fee is calculated as 3% of (Service + Advancement), with a minimum of $100.<br />
+          Total Assignment = Service + Advancement + VIP.
         </p>
       </fieldset>
 
