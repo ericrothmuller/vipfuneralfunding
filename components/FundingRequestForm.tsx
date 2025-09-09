@@ -26,6 +26,9 @@ const COD_OPTS = ["Natural", "Accident", "Homicide", "Pending"] as const;
 
 /** v-flag-safe US phone pattern */
 const PHONE_PATTERN_VSAFE = String.raw`[(]?\d{3}[)]?[\s-]?\d{3}-?\d{4}`;
+const FILE_ACCEPT =
+  ".pdf,.doc,.docx,.png,.jpg,.jpeg,.tif,.tiff,.webp,.gif,.txt";
+const MAX_OTHER_UPLOADS = 50;
 
 /** ------------------- Helpers ------------------- */
 function onlyDigits(s: string) { return s.replace(/\D+/g, ""); }
@@ -174,6 +177,15 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
   /** Notes */
   const [notes, setNotes] = useState("");
 
+  /** NEW: Upload state (drag & drop + picker) */
+  const [assignmentFile, setAssignmentFile] = useState<File | null>(null);
+  const [assignmentOver, setAssignmentOver] = useState(false);
+  const assignmentInputRef = useRef<HTMLInputElement | null>(null);
+
+  const [otherFiles, setOtherFiles] = useState<File[]>([]);
+  const [otherOver, setOtherOver] = useState(false);
+  const otherInputRef = useRef<HTMLInputElement | null>(null);
+
   /** UI state */
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -231,6 +243,51 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
+  /** File helpers */
+  function handleAssignmentPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.currentTarget.files?.[0] || null;
+    setAssignmentFile(f);
+  }
+  function takeSome(files: File[], max: number) {
+    return files.slice(0, max);
+  }
+  function handleOtherPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const incoming = Array.from(e.currentTarget.files || []);
+    if (!incoming.length) return;
+    const space = MAX_OTHER_UPLOADS - otherFiles.length;
+    if (space <= 0) return;
+    setOtherFiles(prev => [...prev, ...takeSome(incoming, space)]);
+    // reset input so same files can be re-picked if cleared later
+    e.currentTarget.value = "";
+  }
+
+  function onDropPrevent(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  function onDropAssignment(e: React.DragEvent) {
+    onDropPrevent(e);
+    setAssignmentOver(false);
+    const dtFiles = Array.from(e.dataTransfer.files || []);
+    if (dtFiles.length > 0) {
+      setAssignmentFile(dtFiles[0]); // single
+    }
+  }
+  function onDropOther(e: React.DragEvent) {
+    onDropPrevent(e);
+    setOtherOver(false);
+    const dtFiles = Array.from(e.dataTransfer.files || []);
+    if (!dtFiles.length) return;
+    const space = MAX_OTHER_UPLOADS - otherFiles.length;
+    if (space <= 0) return;
+    setOtherFiles(prev => [...prev, ...takeSome(dtFiles, space)]);
+  }
+
+  function removeOtherAt(index: number) {
+    setOtherFiles(prev => prev.filter((_, i) => i !== index));
+  }
+
   /** ------------------- Submit ------------------- */
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -243,7 +300,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       const form = e.currentTarget;
       const fd = new FormData(form);
 
-      // ---- Death wiring ----
+      // Build death data
       if (deathInUS) fd.set("deathInUS", deathInUS);
       if (deathInUS === "No" && decPODCountry.trim()) fd.set("decPODCountry", decPODCountry.trim());
       fd.set("codNatural",  cod === "Natural"  ? "Yes" : "No");
@@ -251,7 +308,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       fd.set("codHomicide", cod === "Homicide" ? "Yes" : "No");
       fd.set("codPending",  cod === "Pending"  ? "Yes" : "No");
 
-      // ---- Insurance mapping: ID if selected, otherwise free text as otherIC_name
+      // Insurance mapping
       if (selectedIC) {
         fd.set("insuranceCompanyMode", "id");
         fd.set("insuranceCompanyId", selectedIC.id);
@@ -262,29 +319,42 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         fd.set("insuranceCompanyId", "");
         if (typed) fd.set("otherIC_name", typed);
       }
-
-      // ---- Employer extras
-      if (isEmployerInsurance === "Yes") {
-        if (employerRelation) fd.set("employerRelation", employerRelation);
+      if (isEmployerInsurance === "Yes" && employerRelation) {
+        fd.set("employerRelation", employerRelation);
       }
 
-      // ---- Linked bundles → compat fields + JSON
+      // Linked bundles → compat + JSON
       const policyNumbers = bundles.map(b => b.policyNumber.trim()).filter(Boolean);
       const beneficiaries = bundles.flatMap(b => b.beneficiaries.map(x => x.trim()).filter(Boolean));
       const faceSum = bundles.reduce((sum, b) => sum + parseMoneyNumber(b.faceAmount), 0);
-
       fd.set("policyNumbers", policyNumbers.join(", "));
       fd.set("beneficiaries", beneficiaries.join(", "));
-      fd.set("faceAmount", formatMoney(faceSum));     // compat
+      fd.set("faceAmount", formatMoney(faceSum));
       fd.set("policyBundles", JSON.stringify(bundles));
 
-      // ---- computed currency
+      // computed currency
       fd.set("vipFee", formatMoney(vipFeeCalc));
       fd.set("assignmentAmount", formatMoney(assignmentAmountCalc));
+
+      // Remove any auto-included file fields (we’ll control them)
+      fd.delete("assignmentUpload");
+      fd.delete("otherUploads");
+
+      // Append our controlled files
+      if (assignmentFile) {
+        fd.set("assignmentUpload", assignmentFile);
+      }
+      if (otherFiles.length) {
+        otherFiles.forEach((f) => fd.append("otherUploads", f));
+      }
 
       const res = await fetch("/api/requests", { method: "POST", body: fd });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json?.error || `Server error (code ${res.status})`);
+
+      // Clear local file state after successful submit
+      setAssignmentFile(null);
+      setOtherFiles([]);
 
       form.reset();
       try { window.localStorage.setItem("vipff.activeTab", "profile"); } catch {}
@@ -347,6 +417,23 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         /* Policy bundle card (visual grouping) */
         .pb { border:1px dashed var(--border); padding:10px; margin-top:8px; }
         .pb-head { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+
+        /* Dropzones */
+        .dz {
+          border:1px dashed var(--border);
+          background:var(--field-bg);
+          padding:14px;
+          display:grid;
+          place-items:center;
+          text-align:center;
+          cursor:pointer;
+        }
+        .dz.over { outline: 2px dashed var(--gold); outline-offset: 2px; }
+        .dz small { color:var(--muted); }
+        .file-list { display:grid; gap:6px; margin-top:8px; }
+        .file-row { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+        .file-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .btn-link { background:transparent; border:1px solid var(--border); padding:4px 8px; cursor:pointer; }
       `}</style>
 
       <h2 className="fr-page-title">Funding Request</h2>
@@ -785,31 +872,106 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         <textarea name="notes" rows={6} style={{ width: "100%" }} value={notes} onChange={(e) => setNotes(e.target.value)} />
       </fieldset>
 
-      {/* Upload Assignment */}
+      {/* Upload Assignment (with drag & drop) */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Upload Assignment</legend>
         <h3 className="fr-section-title">Upload Assignment</h3>
 
-        <input name="assignmentUpload" type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.tif,.tiff,.webp,.gif,.txt" />
-        <p className="fr-muted" style={{ marginTop: 6 }}>
-          Max 500MB. Accepted: PDF, DOC/DOCX, PNG/JPG, TIFF, WEBP, TXT.
-        </p>
+        {/* hidden input to keep native picker */}
+        <input
+          ref={assignmentInputRef}
+          name="assignmentUpload"
+          type="file"
+          accept={FILE_ACCEPT}
+          onChange={handleAssignmentPick}
+          style={{ display: "none" }}
+        />
+
+        <div
+          className={`dz ${assignmentOver ? "over" : ""}`}
+          onDragOver={(e) => { e.preventDefault(); setAssignmentOver(true); }}
+          onDragEnter={(e) => { e.preventDefault(); setAssignmentOver(true); }}
+          onDragLeave={(e) => { e.preventDefault(); setAssignmentOver(false); }}
+          onDrop={onDropAssignment}
+          onClick={() => assignmentInputRef.current?.click()}
+          role="button"
+          aria-label="Drop assignment file here or click to browse"
+          tabIndex={0}
+        >
+          <div>
+            <strong>Drag & drop the assignment here</strong>
+            <div style={{ marginTop: 6 }}><button type="button" className="btn-link">Browse file</button></div>
+            <small>Accepted: PDF, DOC/DOCX, PNG/JPG, TIFF, WEBP, GIF, TXT. Max 500MB.</small>
+          </div>
+        </div>
+
+        {assignmentFile && (
+          <div className="file-list">
+            <div className="file-row">
+              <span className="file-name">{assignmentFile.name}</span>
+              <button
+                type="button"
+                className="btn-link"
+                onClick={() => setAssignmentFile(null)}
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        )}
       </fieldset>
 
-      {/* NEW: Upload Other Documents */}
+      {/* NEW: Upload Other Documents (drag & drop + multiple) */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Upload Other Documents</legend>
         <h3 className="fr-section-title">Upload Other Documents</h3>
 
+        {/* hidden input to keep native picker */}
         <input
+          ref={otherInputRef}
           name="otherUploads"
           type="file"
           multiple
-          accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.tif,.tiff,.webp,.gif,.txt"
+          accept={FILE_ACCEPT}
+          onChange={handleOtherPick}
+          style={{ display: "none" }}
         />
-        <p className="fr-muted" style={{ marginTop: 6 }}>
-          You can upload up to 50 files. Max 500MB each. Accepted: PDF, DOC/DOCX, PNG/JPG, TIFF, WEBP, GIF, TXT.
-        </p>
+
+        <div
+          className={`dz ${otherOver ? "over" : ""}`}
+          onDragOver={(e) => { e.preventDefault(); setOtherOver(true); }}
+          onDragEnter={(e) => { e.preventDefault(); setOtherOver(true); }}
+          onDragLeave={(e) => { e.preventDefault(); setOtherOver(false); }}
+          onDrop={onDropOther}
+          onClick={() => otherInputRef.current?.click()}
+          role="button"
+          aria-label="Drop other documents here or click to browse"
+          tabIndex={0}
+        >
+          <div>
+            <strong>Drag & drop documents here</strong>
+            <div style={{ marginTop: 6 }}><button type="button" className="btn-link">Browse files</button></div>
+            <small>Up to 50 files. Max 500MB each. Accepted: PDF, DOC/DOCX, PNG/JPG, TIFF, WEBP, GIF, TXT.</small>
+          </div>
+        </div>
+
+        {otherFiles.length > 0 && (
+          <div className="file-list" aria-live="polite">
+            {otherFiles.map((f, idx) => (
+              <div key={idx} className="file-row">
+                <span className="file-name">{idx + 1}. {f.name}</span>
+                <button
+                  type="button"
+                  className="btn-link"
+                  onClick={() => removeOtherAt(idx)}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            <small>{otherFiles.length} / {MAX_OTHER_UPLOADS} selected</small>
+          </div>
+        )}
       </fieldset>
 
       <button disabled={saving} className="fr-gold fr-submit" type="submit">
