@@ -5,13 +5,21 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { InsuranceCompany } from "@/models/InsuranceCompany";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     await connectDB();
 
-    const rows = await InsuranceCompany.find({})
+    const url = new URL(req.url);
+    const q = (url.searchParams.get("q") || "").trim();
+
+    const filter: any = {};
+    if (q) {
+      filter.name = { $regex: q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
+    }
+
+    const rows = await InsuranceCompany.find(filter)
       .sort({ name: 1 })
-      .select("name email phone fax notes sendAssignmentBy")
+      .select("name email phone fax notes sendAssignmentBy verificationTime")
       .lean();
 
     const items = rows.map((r: any) => ({
@@ -21,6 +29,7 @@ export async function GET() {
       phone: r.phone || "",
       fax: r.fax || "",
       sendAssignmentBy: r.sendAssignmentBy || "Fax",
+      verificationTime: r.verificationTime || "",
       notes: r.notes || "",
     }));
 

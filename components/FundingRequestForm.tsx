@@ -1,7 +1,7 @@
 // components/FundingRequestForm.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 /** ------------------- Types ------------------- */
@@ -12,54 +12,43 @@ type Profile = {
   contactEmail: string;
 };
 
-type IC = { id: string; name: string };
+// include verificationTime for suggestions
+type IC = { id: string; name: string; verificationTime?: string };
 
 const COD_OPTIONS = ["Natural", "Accident", "Homicide", "Pending", "Suicide"] as const;
 
-/** v-flag-safe US phone pattern: optional "(###) " or "###-" or "###", then 7 digits (optional hyphen) */
+/** v-flag-safe US phone pattern */
 const PHONE_PATTERN_VSAFE = String.raw`[(]?\d{3}[)]?[\s-]?\d{3}-?\d{4}`;
 
 /** ------------------- Helpers ------------------- */
-function onlyDigits(s: string) {
-  return s.replace(/\D+/g, "");
-}
+function onlyDigits(s: string) { return s.replace(/\D+/g, ""); }
 function formatPhone(s: string) {
   const d = onlyDigits(s).slice(0, 10);
-  const p1 = d.slice(0, 3);
-  const p2 = d.slice(3, 6);
-  const p3 = d.slice(6, 10);
+  const p1 = d.slice(0, 3), p2 = d.slice(3, 6), p3 = d.slice(6, 10);
   if (d.length <= 3) return p1;
   if (d.length <= 6) return `(${p1}) ${p2}`;
   return `(${p1}) ${p2}-${p3}`;
 }
 function parseMoneyNumber(s: string): number {
-  const clean = String(s).replace(/[^0-9.]+/g, "");
-  const n = Number(clean);
+  const n = Number(String(s).replace(/[^0-9.]+/g, ""));
   return Number.isFinite(n) ? n : 0;
 }
 function formatMoney(n: number): string {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
 }
 
+// Simpler setter type to avoid TS friction
+type Setter = (next: string) => void;
+
 /** Currency inputs: free typing; format on blur */
-function handleCurrencyInput(
-  value: string,
-  setter: React.Dispatch<React.SetStateAction<string>>
-) {
+function handleCurrencyInput(value: string, setter: Setter) {
   const clean = value.replace(/[^0-9.]/g, "");
   const parts = clean.split(".");
-  const normalized =
-    parts.length <= 2
-      ? clean
-      : `${parts[0]}.${parts.slice(1).join("")}`.replace(/\./g, (m, i) => (i === 0 ? "." : ""));
+  const normalized = parts.length <= 2 ? clean : `${parts[0]}.${parts.slice(1).join("")}`.replace(/\./g, (m, i) => (i === 0 ? "." : ""));
   setter(normalized);
 }
-function handleCurrencyBlur(
-  value: string,
-  setter: React.Dispatch<React.SetStateAction<string>>
-) {
-  const n = parseMoneyNumber(value);
-  setter(formatMoney(n));
+function handleCurrencyBlur(value: string, setter: Setter) {
+  setter(formatMoney(parseMoneyNumber(value)));
 }
 
 /** ------------------- Component ------------------- */
@@ -75,10 +64,10 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
     contactEmail: "",
   });
 
-  /** Insurance company list */
+  /** Insurance companies (for suggestions) */
   const [companies, setCompanies] = useState<IC[]>([]);
 
-  /** Funeral Home / Cemetery (autofilled) */
+  /** FH/CEM (autofilled) */
   const [fhName, setFhName] = useState("");
   const [fhRep, setFhRep] = useState("");
   const [contactPhone, setContactPhone] = useState("");
@@ -98,64 +87,61 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
   const [decState, setDecState] = useState("");
   const [decZip, setDecZip] = useState("");
 
-  /** Place of death & Cause of death (required dropdown) */
+  /** POD & COD */
   const [decPODCity, setDecPODCity] = useState("");
   const [decPODState, setDecPODState] = useState("");
   const [cod, setCod] = useState<string>("");
 
-  /** Certificates & Assignment (required dropdowns, conditional fields) */
+  /** Certificates & Assignment */
   const [hasFinalDC, setHasFinalDC] = useState<string>("");
   const [otherFHTakingAssignment, setOtherFHTakingAssignment] = useState<string>("");
   const [otherFHName, setOtherFHName] = useState("");
   const [otherFHAmount, setOtherFHAmount] = useState("");
 
-  /** Employer section (required dropdown + conditional fields) */
+  /** Employer */
   const [isEmployerInsurance, setIsEmployerInsurance] = useState<string>("");
   const [employerCompanyName, setEmployerCompanyName] = useState("");
   const [employerContact, setEmployerContact] = useState("");
   const [employmentStatus, setEmploymentStatus] = useState<string>("");
 
-  /** Insurance company selection (managed or Other) */
-  const [insuranceCompanyMode, setInsuranceCompanyMode] = useState<"" | "id" | "other">("");
-  const [insuranceCompanyId, setInsuranceCompanyId] = useState("");
+  /** Insurance company typeahead state */
+  const [icInput, setIcInput] = useState("");
+  const [icOpen, setIcOpen] = useState(false);
+  const [selectedIC, setSelectedIC] = useState<IC | null>(null);
+  const icBoxRef = useRef<HTMLDivElement | null>(null);
 
   /** Policy Numbers (dynamic) */
   const [policyNumbers, setPolicyNumbers] = useState<string[]>([""]);
   const addPolicy = () => setPolicyNumbers((arr) => [...arr, ""]);
   const removePolicy = (idx: number) => setPolicyNumbers((arr) => arr.filter((_, i) => i !== idx));
-  const updatePolicy = (idx: number, val: string) =>
-    setPolicyNumbers((arr) => arr.map((v, i) => (i === idx ? val : v)));
+  const updatePolicy = (idx: number, val: string) => setPolicyNumbers((arr) => arr.map((v, i) => (i === idx ? val : v)));
 
   /** Beneficiaries (dynamic) */
   const [beneficiaries, setBeneficiaries] = useState<string[]>([""]);
   const addBeneficiary = () => setBeneficiaries((arr) => [...arr, ""]);
   const removeBeneficiary = (idx: number) => setBeneficiaries((arr) => arr.filter((_, i) => i !== idx));
-  const updateBeneficiary = (idx: number, val: string) =>
-    setBeneficiaries((arr) => arr.map((v, i) => (i === idx ? val : v)));
+  const updateBeneficiary = (idx: number, val: string) => setBeneficiaries((arr) => arr.map((v, i) => (i === idx ? val : v)));
 
-  /** Financials with auto-calc & VIP minimum $100 */
+  /** Financials */
   const [totalServiceAmount, setTotalServiceAmount] = useState("");
   const [familyAdvancementAmount, setFamilyAdvancementAmount] = useState("");
-
   const baseSum = useMemo(
     () => parseMoneyNumber(totalServiceAmount) + parseMoneyNumber(familyAdvancementAmount),
     [totalServiceAmount, familyAdvancementAmount]
   );
   const vipFeeRaw = useMemo(() => +(baseSum * 0.03).toFixed(2), [baseSum]);
-  const vipFeeCalc = useMemo(() => Math.max(vipFeeRaw, 100), [vipFeeRaw]); // $100 minimum
+  const vipFeeCalc = useMemo(() => Math.max(vipFeeRaw, 100), [vipFeeRaw]);
   const assignmentAmountCalc = useMemo(() => +(baseSum + vipFeeCalc).toFixed(2), [baseSum, vipFeeCalc]);
 
-  /** Notes */
+  /** Notes + Face Amount */
   const [notes, setNotes] = useState("");
-
-  /** Face Amount (Insurance section) */
   const [faceAmount, setFaceAmount] = useState("");
 
   /** UI state */
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
-  /** Load profile + IC list */
+  /** Load profile + ICs */
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -177,10 +163,11 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
             setContactEmail(prof.contactEmail || "");
           }
         }
+        // Pull full list (client-side filter). You can switch to ?q= for server filtering if you prefer.
         const c = await fetch("/api/insurance-companies", { cache: "no-store" });
         if (c.ok) {
           const data = await c.json();
-          if (mounted) setCompanies(data?.items || []);
+          if (mounted) setCompanies((data?.items || []) as IC[]);
         }
       } catch {
         // ignore
@@ -189,6 +176,23 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       }
     })();
     return () => { mounted = false; };
+  }, []);
+
+  /** Suggestions */
+  const icMatches = useMemo(() => {
+    const q = icInput.trim().toLowerCase();
+    if (!q) return [];
+    return companies.filter(c => c.name.toLowerCase().includes(q)).slice(0, 8);
+  }, [icInput, companies]);
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (!icBoxRef.current) return;
+      if (!icBoxRef.current.contains(e.target as Node)) setIcOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
   const showOtherFH = otherFHTakingAssignment === "Yes";
@@ -208,12 +212,23 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       const form = e.currentTarget;
       const fd = new FormData(form);
 
-      fd.set("insuranceCompanyMode", insuranceCompanyMode);
-      fd.set("insuranceCompanyId", insuranceCompanyMode === "id" ? insuranceCompanyId : "");
+      // Insurance mapping: ID if selected, otherwise free text as otherIC_name
+      if (selectedIC) {
+        fd.set("insuranceCompanyMode", "id");
+        fd.set("insuranceCompanyId", selectedIC.id);
+        fd.set("otherIC_name", "");
+      } else {
+        const typed = icInput.trim();
+        fd.set("insuranceCompanyMode", typed ? "other" : "");
+        fd.set("insuranceCompanyId", "");
+        if (typed) fd.set("otherIC_name", typed);
+      }
 
+      // dynamic lists
       fd.set("policyNumbers", policyNumbers.map((s) => s.trim()).filter(Boolean).join(", "));
       fd.set("beneficiaries", beneficiaries.map((s) => s.trim()).filter(Boolean).join(", "));
 
+      // computed currency
       fd.set("vipFee", formatMoney(vipFeeCalc));
       fd.set("assignmentAmount", formatMoney(assignmentAmountCalc));
 
@@ -243,117 +258,51 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       <style jsx>{`
         :root { --gold: #d6b16d; }
 
-        /* Base (overridden by themes) */
         .fr-form {
-          --title-color: #d6b16d;
-          --card-bg: #0b0d0f;     /* DARK default */
-          --border: #1a1c1f;
-          --field-bg: #121416;
-          --muted: #e0e0e0;
-          font-size: 18px;
-          line-height: 1.45;
-          display: grid;
-          gap: 16px;
-        }
-
-        /* Dark theme */
-        @media (prefers-color-scheme: dark) {
-          .fr-form {
-            --title-color: var(--gold);
-            --card-bg: #0b0d0f;
-            --border: #1a1c1f;
-            --field-bg: #121416;
-            --muted: #e0e0e0;
-          }
-        }
-        /* Light theme */
-        @media (prefers-color-scheme: light) {
-          .fr-form {
-            --title-color: #000;
-            --card-bg: #ffffff;
-            --border: #d0d5dd;
-            --field-bg: #f2f4f6;
-            --muted: #333;
-          }
-        }
-        :global(body[data-theme="dark"]) .fr-form {
-          --title-color: var(--gold);
-          --card-bg: #0b0d0f;
-          --border: #1a1c1f;
-          --field-bg: #121416;
-          --muted: #e0e0e0;
-        }
-        :global(body[data-theme="light"]) .fr-form {
-          --title-color: #000;
-          --card-bg: #ffffff;
-          --border: #d0d5dd;
-          --field-bg: #f2f4f6;
-          --muted: #333;
-        }
-
-        .fr-page-title {
-          text-align: center;
-          color: var(--title-color);
-          margin: 20px 0 12px;
-          font-weight: 800;
-          font-size: 26px;
-        }
-
-        .fr-card {
-          background: var(--card-bg);
-          border: 1px solid var(--border);
-          border-radius: 0;            /* squared */
-          padding: 14px;
-        }
-
-        .fr-legend { position: absolute !important; height: 1px; width: 1px; overflow: hidden; clip: rect(1px,1px,1px,1px); white-space: nowrap; }
-        .fr-section-title { color: var(--title-color); font-weight: 800; margin: 0 0 12px 0; font-size: 20px; }
-
-        .fr-readonly { background: rgba(255,255,255,.08); color: inherit; opacity: .9; cursor: not-allowed; }
-
-        .fr-grid-2 { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
-        .fr-grid-3 { display: grid; gap: 10px; grid-template-columns: repeat(3, minmax(220px, 1fr)); }
-        .fr-grid-3-tight { display: grid; gap: 8px; grid-template-columns: repeat(3, minmax(220px, 1fr)); }
-
-        .fr-inline-actions { display: flex; gap: 8px; align-items: center; }
-        .fr-del { background: transparent; border: 1px solid var(--border); border-radius: 0; padding: 6px 10px; cursor: pointer; color: var(--muted); }
-        .fr-del:hover { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.25); }
-
-        .fr-muted { color: var(--muted); font-size: .95em; }
-        .fr-gold { background: var(--gold); border: 1px solid var(--gold); color: #0a0d11; padding: 10px 14px; border-radius: 0; cursor: pointer; }
-        .fr-gold:disabled { opacity: .6; cursor: not-allowed; }
-
-        input[type="text"],
-        input[type="email"],
-        input[type="tel"],
-        input[type="date"],
-        input[type="file"],
-        select,
-        textarea {
-          width: 100%;
-          padding: 10px 12px;
-          border: 1px solid var(--border);
-          border-radius: 0;
-          background: var(--field-bg);
-          color: #fff;
+          --title-color: #d6b16d; --card-bg: #0b0d0f; --border: #1a1c1f; --field-bg: #121416; --muted: #e0e0e0;
+          font-size: 18px; line-height: 1.45; display: grid; gap: 16px;
         }
         @media (prefers-color-scheme: light) {
-          input[type="text"],
-          input[type="email"],
-          input[type="tel"],
-          input[type="date"],
-          input[type="file"],
-          select,
-          textarea { color: #000; }
+          .fr-form { --title-color:#000; --card-bg:#fff; --border:#d0d5dd; --field-bg:#f2f4f6; --muted:#333; }
         }
 
-        @media (max-width: 900px) {
-          .fr-grid-2, .fr-grid-3, .fr-grid-3-tight { grid-template-columns: 1fr; }
-          .fr-form { font-size: 17px; }
+        .fr-page-title { text-align:center; color:var(--title-color); margin:20px 0 12px; font-weight:800; font-size:26px; }
+        .fr-card { background:var(--card-bg); border:1px solid var(--border); border-radius:0; padding:14px; }
+        .fr-legend { position:absolute !important; height:1px; width:1px; overflow:hidden; clip:rect(1px,1px,1px,1px); white-space:nowrap; }
+        .fr-section-title { color:var(--title-color); font-weight:800; margin:0 0 12px 0; font-size:20px; }
+        .fr-readonly { background:rgba(255,255,255,.08); color:inherit; opacity:.9; cursor:not-allowed; }
+
+        .fr-grid-2 { display:grid; gap:10px; grid-template-columns:1fr 1fr; }
+        .fr-grid-3 { display:grid; gap:10px; grid-template-columns:repeat(3, minmax(220px, 1fr)); }
+        .fr-grid-3-tight { display:grid; gap:8px; grid-template-columns:repeat(3, minmax(220px, 1fr)); }
+
+        .fr-inline-actions { display:flex; gap:8px; align-items:center; }
+        .fr-del { background:transparent; border:1px solid var(--border); border-radius:0; padding:6px 10px; cursor:pointer; color:var(--muted); }
+        .fr-del:hover { background:rgba(255,255,255,.06); border-color:rgba(255,255,255,.25); }
+
+        .fr-muted { color:var(--muted); font-size:.95em; }
+        .fr-gold { background:var(--gold); border:1px solid var(--gold); color:#0a0d11; padding:10px 14px; border-radius:0; cursor:pointer; }
+        .fr-gold:disabled { opacity:.6; cursor:not-allowed; }
+
+        input[type="text"], input[type="email"], input[type="tel"], input[type="date"], input[type="file"], select, textarea {
+          width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:0; background:var(--field-bg); color:#fff;
         }
-        @media (max-width: 600px) {
-          .fr-form { font-size: 16px; }
+        @media (prefers-color-scheme: light) {
+          input[type="text"], input[type="email"], input[type="tel"], input[type="date"], input[type="file"], select, textarea { color:#000; }
         }
+
+        @media (max-width:900px) { .fr-grid-2, .fr-grid-3, .fr-grid-3-tight { grid-template-columns:1fr; } .fr-form { font-size:17px; } }
+        @media (max-width:600px) { .fr-form { font-size:16px; } }
+
+        /* Typeahead styles */
+        .ic-box { position: relative; }
+        .ic-list {
+          position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; right: 0;
+          background: var(--card-bg); border: 1px solid var(--border); border-radius: 0; max-height: 240px; overflow: auto;
+        }
+        .ic-item { padding: 8px 10px; cursor: pointer; }
+        .ic-item:hover { background: rgba(255,255,255,.06); }
+        .ic-note { font-size: 12px; opacity: .85; }
       `}</style>
 
       <h2 className="fr-page-title">Funding Request</h2>
@@ -473,105 +422,59 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         </label>
       </fieldset>
 
-      {/* Certificates & Assignment */}
-      <fieldset className="fr-card">
-        <legend className="fr-legend">Certificates & Assignment</legend>
-        <h3 className="fr-section-title">Certificates & Assignment</h3>
-
-        <div className="fr-grid-2">
-          <label>Do you have a final Death Certificate? (required)
-            <select name="hasFinalDCSelect" required value={hasFinalDC} onChange={(e) => setHasFinalDC(e.target.value)}>
-              <option value="">— Select —</option>
-              <option value="No">No</option>
-              <option value="Yes">Yes</option>
-            </select>
-          </label>
-
-          <label>Is another FH/CEM taking an assignment? (required)
-            <select name="otherFHTakingAssignmentSelect" required value={otherFHTakingAssignment} onChange={(e) => setOtherFHTakingAssignment(e.target.value)}>
-              <option value="">— Select —</option>
-              <option value="No">No</option>
-              <option value="Yes">Yes</option>
-            </select>
-          </label>
-        </div>
-
-        {showOtherFH && (
-          <div className="fr-grid-2" style={{ marginTop: 8 }}>
-            <label>If Yes, FH/CEM Name:
-              <input name="otherFHName" type="text" value={otherFHName} onChange={(e) => setOtherFHName(e.target.value)} />
-            </label>
-            <label>FH/CEM Amount
-              <input
-                name="otherFHAmount"
-                type="text"
-                inputMode="decimal"
-                value={otherFHAmount}
-                onChange={(e) => handleCurrencyInput(e.target.value, setOtherFHAmount)}
-                onBlur={(e) => handleCurrencyBlur(e.target.value, setOtherFHAmount)}
-                placeholder="$0.00"
-                title="Enter a dollar amount"
-              />
-            </label>
-          </div>
-        )}
-      </fieldset>
-
-      {/* Employer */}
-      <fieldset className="fr-card">
-        <legend className="fr-legend">Employer</legend>
-        <h3 className="fr-section-title">Employer</h3>
-
-        <label>Is the insurance through the deceased’s employer? (required)
-          <select name="employerInsuranceSelect" required value={isEmployerInsurance} onChange={(e) => setIsEmployerInsurance(e.target.value)}>
-            <option value="">— Select —</option>
-            <option value="No">No</option>
-            <option value="Yes">Yes</option>
-          </select>
-        </label>
-
-        {showEmployer && (
-          <div className="fr-grid-3-tight" style={{ marginTop: 8 }}>
-            <label>Employer Company Name
-              <input name="employerCompanyName" type="text" value={employerCompanyName} onChange={(e) => setEmployerCompanyName(e.target.value)} />
-            </label>
-            <label>Employer Contact Name
-              <input name="employerContact" type="text" value={employerContact} onChange={(e) => setEmployerContact(e.target.value)} />
-            </label>
-            <label>Active or Retired or On Leave?
-              <select name="employmentStatus" value={employmentStatus} onChange={(e) => setEmploymentStatus(e.target.value)}>
-                <option value="">— Select —</option>
-                <option value="Active">Active</option>
-                <option value="Retired">Retired</option>
-                <option value="On Leave">On Leave</option>
-              </select>
-            </label>
-          </div>
-        )}
-      </fieldset>
-
       {/* Insurance */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Insurance</legend>
         <h3 className="fr-section-title">Insurance</h3>
 
-        <label>Insurance Company
-          <select
-            value={insuranceCompanyMode === "id" ? insuranceCompanyId : (insuranceCompanyMode === "other" ? "other" : "")}
-            onChange={(e) => {
-              const v = e.target.value;
-              if (v === "other") { setInsuranceCompanyMode("other"); setInsuranceCompanyId(""); }
-              else if (v) { setInsuranceCompanyMode("id"); setInsuranceCompanyId(v); }
-              else { setInsuranceCompanyMode(""); setInsuranceCompanyId(""); }
-            }}
-          >
-            <option value="">— Select —</option>
-            {companies.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-            <option value="other">Other (enter details on request as needed)</option>
-          </select>
-        </label>
+        {/* Typeahead input */}
+        <div className="ic-box" ref={icBoxRef}>
+          <label>Insurance Company (type to search)
+            <input
+              type="text"
+              value={icInput}
+              onChange={(e) => {
+                setIcInput(e.target.value);
+                setSelectedIC(null);
+                setIcOpen(true);
+              }}
+              onFocus={() => setIcOpen(true)}
+              placeholder="Start typing an insurance company name…"
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </label>
+
+          {icOpen && icMatches.length > 0 && (
+            <div className="ic-list" role="listbox" aria-label="Insurance company suggestions">
+              {icMatches.map(ic => (
+                <div
+                  key={ic.id}
+                  className="ic-item"
+                  role="option"
+                  onMouseDown={(e) => {
+                    e.preventDefault(); // pick before blur
+                    setSelectedIC(ic);
+                    setIcInput(ic.name);
+                    setIcOpen(false);
+                  }}
+                >
+                  <div>{ic.name}</div>
+                  {ic.verificationTime ? (
+                    <div className="ic-note">Estimated Verification: {ic.verificationTime}</div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Estimated Verification Time for chosen IC */}
+        {!!selectedIC?.verificationTime && (
+          <p className="fr-muted" style={{ marginTop: 6 }}>
+            <strong>Estimated Verification Time:</strong> {selectedIC.verificationTime}
+          </p>
+        )}
 
         {/* Policy Numbers dynamic */}
         <div style={{ marginTop: 8 }}>
@@ -638,10 +541,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         <div className="fr-grid-3">
           <label>Total Service Amount
             <input
-              name="totalServiceAmount"
-              type="text"
-              inputMode="decimal"
-              required
+              name="totalServiceAmount" type="text" inputMode="decimal" required
               value={totalServiceAmount}
               onChange={(e) => handleCurrencyInput(e.target.value, setTotalServiceAmount)}
               onBlur={(e) => handleCurrencyBlur(e.target.value, setTotalServiceAmount)}
@@ -651,9 +551,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
 
           <label>Family Advancement Amount
             <input
-              name="familyAdvancementAmount"
-              type="text"
-              inputMode="decimal"
+              name="familyAdvancementAmount" type="text" inputMode="decimal"
               value={familyAdvancementAmount}
               onChange={(e) => handleCurrencyInput(e.target.value, setFamilyAdvancementAmount)}
               onBlur={(e) => handleCurrencyBlur(e.target.value, setFamilyAdvancementAmount)}
@@ -663,8 +561,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
 
           <label>VIP Fee (3% or $100 min)
             <input
-              name="vipFee"
-              type="text"
+              name="vipFee" type="text"
               value={formatMoney(vipFeeCalc)}
               readOnly={!isAdmin}
               className={!isAdmin ? "fr-readonly" : undefined}
@@ -673,8 +570,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
 
           <label>Total Assignment Amount
             <input
-              name="assignmentAmount"
-              type="text"
+              name="assignmentAmount" type="text"
               value={formatMoney(assignmentAmountCalc)}
               readOnly={!isAdmin}
               className={!isAdmin ? "fr-readonly" : undefined}
@@ -692,13 +588,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         <legend className="fr-legend">Additional Notes</legend>
         <h3 className="fr-section-title">Additional Notes</h3>
 
-        <textarea
-          name="notes"
-          rows={6}
-          style={{ width: "100%" }}
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-        />
+        <textarea name="notes" rows={6} style={{ width: "100%" }} value={notes} onChange={(e) => setNotes(e.target.value)} />
       </fieldset>
 
       {/* Upload */}
@@ -706,11 +596,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         <legend className="fr-legend">Upload Assignment</legend>
         <h3 className="fr-section-title">Upload Assignment</h3>
 
-        <input
-          name="assignmentUpload"
-          type="file"
-          accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.tif,.tiff,.webp,.gif,.txt"
-        />
+        <input name="assignmentUpload" type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.tif,.tiff,.webp,.gif,.txt" />
         <p className="fr-muted" style={{ marginTop: 6 }}>
           Max 500MB. Accepted: PDF, DOC/DOCX, PNG/JPG, TIFF, WEBP, TXT.
         </p>
@@ -720,11 +606,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         {saving ? "Submitting…" : "Submit Funding Request"}
       </button>
 
-      {msg && (
-        <p role="alert" style={{ color: "crimson", marginTop: 8 }}>
-          {msg}
-        </p>
-      )}
+      {msg && <p role="alert" style={{ color: "crimson", marginTop: 8 }}>{msg}</p>}
     </form>
   );
 }
