@@ -12,7 +12,7 @@ type Profile = {
   contactEmail: string;
 };
 
-// include verificationTime for suggestions
+// include verificationTime for selected display
 type IC = { id: string; name: string; verificationTime?: string };
 
 const COD_OPTIONS = ["Natural", "Accident", "Homicide", "Pending", "Suicide"] as const;
@@ -37,10 +37,7 @@ function formatMoney(n: number): string {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
 }
 
-// Simpler setter type to avoid TS friction
 type Setter = (next: string) => void;
-
-/** Currency inputs: free typing; format on blur */
 function handleCurrencyInput(value: string, setter: Setter) {
   const clean = value.replace(/[^0-9.]/g, "");
   const parts = clean.split(".");
@@ -163,7 +160,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
             setContactEmail(prof.contactEmail || "");
           }
         }
-        // Pull full list (client-side filter). You can switch to ?q= for server filtering if you prefer.
         const c = await fetch("/api/insurance-companies", { cache: "no-store" });
         if (c.ok) {
           const data = await c.json();
@@ -302,7 +298,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         }
         .ic-item { padding: 8px 10px; cursor: pointer; }
         .ic-item:hover { background: rgba(255,255,255,.06); }
-        .ic-note { font-size: 12px; opacity: .85; }
       `}</style>
 
       <h2 className="fr-page-title">Funding Request</h2>
@@ -379,27 +374,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         </label>
       </fieldset>
 
-      {/* Address */}
-      <fieldset className="fr-card">
-        <legend className="fr-legend">Address</legend>
-        <h3 className="fr-section-title">Address</h3>
-
-        <label>DEC Address
-          <input name="decAddress" type="text" value={decAddress} onChange={(e) => setDecAddress(e.target.value)} />
-        </label>
-        <div className="fr-grid-3-tight">
-          <label>City
-            <input name="decCity" type="text" value={decCity} onChange={(e) => setDecCity(e.target.value)} />
-          </label>
-          <label>State
-            <input name="decState" type="text" value={decState} onChange={(e) => setDecState(e.target.value)} />
-          </label>
-          <label>Zip Code
-            <input name="decZip" type="text" value={decZip} onChange={(e) => setDecZip(e.target.value)} />
-          </label>
-        </div>
-      </fieldset>
-
       {/* Place of Death & Cause */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Place of Death & Cause</legend>
@@ -439,7 +413,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                 setIcOpen(true);
               }}
               onFocus={() => setIcOpen(true)}
-              placeholder="Start typing an insurance company name…"
+              placeholder="Select the IC if you see it, otherwise just type the IC name"
               autoComplete="off"
               spellCheck={false}
             />
@@ -453,23 +427,21 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                   className="ic-item"
                   role="option"
                   onMouseDown={(e) => {
-                    e.preventDefault(); // pick before blur
+                    e.preventDefault();
                     setSelectedIC(ic);
                     setIcInput(ic.name);
                     setIcOpen(false);
                   }}
                 >
                   <div>{ic.name}</div>
-                  {ic.verificationTime ? (
-                    <div className="ic-note">Estimated Verification: {ic.verificationTime}</div>
-                  ) : null}
+                  {/* Verification time intentionally NOT shown in suggestions */}
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        {/* Estimated Verification Time for chosen IC */}
+        {/* Estimated Verification Time AFTER selection */}
         {!!selectedIC?.verificationTime && (
           <p className="fr-muted" style={{ marginTop: 6 }}>
             <strong>Estimated Verification Time:</strong> {selectedIC.verificationTime}
