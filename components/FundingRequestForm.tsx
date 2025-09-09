@@ -37,7 +37,10 @@ function formatMoney(n: number): string {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
 }
 
+// Simpler setter type to avoid TS friction
 type Setter = (next: string) => void;
+
+/** Currency inputs: free typing; format on blur */
 function handleCurrencyInput(value: string, setter: Setter) {
   const clean = value.replace(/[^0-9.]/g, "");
   const parts = clean.split(".");
@@ -95,9 +98,10 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
   const [otherFHName, setOtherFHName] = useState("");
   const [otherFHAmount, setOtherFHAmount] = useState("");
 
-  /** Employer */
+  /** Employer (within Insurance section) */
   const [isEmployerInsurance, setIsEmployerInsurance] = useState<string>("");
   const [employerCompanyName, setEmployerCompanyName] = useState("");
+  const [employerPhone, setEmployerPhone] = useState("");
   const [employerContact, setEmployerContact] = useState("");
   const [employmentStatus, setEmploymentStatus] = useState<string>("");
 
@@ -374,35 +378,72 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         </label>
       </fieldset>
 
-      {/* Place of Death & Cause */}
-      <fieldset className="fr-card">
-        <legend className="fr-legend">Place of Death & Cause</legend>
-        <h3 className="fr-section-title">Place of Death & Cause</h3>
-
-        <div className="fr-grid-2">
-          <label>Place of Death City
-            <input name="decPODCity" type="text" value={decPODCity} onChange={(e) => setDecPODCity(e.target.value)} />
-          </label>
-          <label>Place of Death State
-            <input name="decPODState" type="text" value={decPODState} onChange={(e) => setDecPODState(e.target.value)} />
-          </label>
-        </div>
-
-        <label>Cause of Death (required)
-          <select name="codSingle" required value={cod} onChange={(e) => setCod(e.target.value)}>
-            <option value="">— Select —</option>
-            {COD_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
-          </select>
-        </label>
-      </fieldset>
-
       {/* Insurance */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Insurance</legend>
         <h3 className="fr-section-title">Insurance</h3>
 
+        {/* Employer question + conditional fields */}
+        <label>Is the insurance through the deceased&apos;s employer?
+          <select
+            name="employerInsuranceSelect"
+            required
+            value={isEmployerInsurance}
+            onChange={(e) => setIsEmployerInsurance(e.target.value)}
+          >
+            <option value="">— Select —</option>
+            <option value="No">No</option>
+            <option value="Yes">Yes</option>
+          </select>
+        </label>
+
+        {isEmployerInsurance === "Yes" && (
+          <div className="fr-grid-2" style={{ marginTop: 8 }}>
+            <label>Name of Employer
+              <input
+                name="employerCompanyName"
+                type="text"
+                value={employerCompanyName}
+                onChange={(e) => setEmployerCompanyName(e.target.value)}
+              />
+            </label>
+            <label>Employer Phone
+              <input
+                name="employerPhone"
+                type="tel"
+                inputMode="numeric"
+                pattern={PHONE_PATTERN_VSAFE}
+                value={employerPhone}
+                onChange={(e) => setEmployerPhone(formatPhone(e.target.value))}
+                placeholder="(555) 555-5555"
+                title="Please enter a valid 10-digit phone number"
+              />
+            </label>
+            <label>Employer Contact Name
+              <input
+                name="employerContact"
+                type="text"
+                value={employerContact}
+                onChange={(e) => setEmployerContact(e.target.value)}
+              />
+            </label>
+            <label>Status
+              <select
+                name="employmentStatus"
+                value={employmentStatus}
+                onChange={(e) => setEmploymentStatus(e.target.value)}
+              >
+                <option value="">— Select —</option>
+                <option value="Active">Active</option>
+                <option value="Retired">Retired</option>
+                <option value="On Leave">On Leave</option>
+              </select>
+            </label>
+          </div>
+        )}
+
         {/* Typeahead input */}
-        <div className="ic-box" ref={icBoxRef}>
+        <div className="ic-box" ref={icBoxRef} style={{ marginTop: 8 }}>
           <label>Insurance Company (type to search)
             <input
               type="text"
@@ -434,7 +475,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                   }}
                 >
                   <div>{ic.name}</div>
-                  {/* Verification time intentionally NOT shown in suggestions */}
                 </div>
               ))}
             </div>
@@ -481,28 +521,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
             placeholder="$0.00"
           />
         </label>
-
-        {/* Beneficiaries dynamic */}
-        <div style={{ marginTop: 8 }}>
-          <label>Beneficiary
-            <input type="text" value={beneficiaries[0]} onChange={(e) => updateBeneficiary(0, e.target.value)} />
-          </label>
-
-          {beneficiaries.slice(1).map((v, idx) => (
-            <div key={idx} style={{ display: "grid", gap: 6, marginTop: 8 }}>
-              <label>Beneficiary
-                <input type="text" value={v} onChange={(e) => updateBeneficiary(idx + 1, e.target.value)} />
-              </label>
-              <div className="fr-inline-actions">
-                <button type="button" className="fr-del" onClick={() => removeBeneficiary(idx + 1)}>Remove Beneficiary</button>
-              </div>
-            </div>
-          ))}
-
-          <button type="button" className="btn btn-ghost" onClick={addBeneficiary} style={{ marginTop: 8 }}>
-            + Add Beneficiary
-          </button>
-        </div>
       </fieldset>
 
       {/* Financials */}
