@@ -33,6 +33,7 @@ export interface IFundingRequest {
 
   // uploads
   assignmentUploadPath?: string;
+  otherUploadPaths?: string[];               // NEW: multiple other documents
 
   // workflow
   status: FundingStatus;
@@ -67,6 +68,7 @@ const FundingRequestSchema = new Schema<IFundingRequest>(
     assignmentAmount: { type: Number, default: 0 },
 
     assignmentUploadPath: { type: String, trim: true },
+    otherUploadPaths: { type: [String], default: [] }, // NEW
 
     status: {
       type: String,

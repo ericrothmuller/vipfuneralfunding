@@ -99,10 +99,10 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
   /** Death (formerly Place of Death) */
   const [decPODCity, setDecPODCity] = useState("");
   const [decPODState, setDecPODState] = useState("");
-  const [deathInUS, setDeathInUS] = useState(""); // "Yes" | "No" | ""
+  const [deathInUS, setDeathInUS] = useState("");
   const [decPODCountry, setDecPODCountry] = useState("");
-  const [cod, setCod] = useState<string>("");     // Natural|Accident|Homicide|Pending
-  const [hasFinalDC, setHasFinalDC] = useState<string>(""); // Yes|No|"" (wording changed)
+  const [cod, setCod] = useState<string>("");
+  const [hasFinalDC, setHasFinalDC] = useState<string>("");
 
   /** Employer (within Insurance section) */
   const [isEmployerInsurance, setIsEmployerInsurance] = useState<string>("");
@@ -110,7 +110,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
   const [employerPhone, setEmployerPhone] = useState("");
   const [employerContact, setEmployerContact] = useState("");
   const [employmentStatus, setEmploymentStatus] = useState<string>("");
-  const [employerRelation, setEmployerRelation] = useState<string>(""); // Employee|Dependent
+  const [employerRelation, setEmployerRelation] = useState<string>("");
 
   /** Insurance company typeahead state */
   const [icInput, setIcInput] = useState("");
@@ -246,7 +246,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       // ---- Death wiring ----
       if (deathInUS) fd.set("deathInUS", deathInUS);
       if (deathInUS === "No" && decPODCountry.trim()) fd.set("decPODCountry", decPODCountry.trim());
-      // map COD to server booleans
       fd.set("codNatural",  cod === "Natural"  ? "Yes" : "No");
       fd.set("codAccident", cod === "Accident" ? "Yes" : "No");
       fd.set("codHomicide", cod === "Homicide" ? "Yes" : "No");
@@ -266,7 +265,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
 
       // ---- Employer extras
       if (isEmployerInsurance === "Yes") {
-        if (employerRelation) fd.set("employerRelation", employerRelation); // Employee|Dependent
+        if (employerRelation) fd.set("employerRelation", employerRelation);
       }
 
       // ---- Linked bundles → compat fields + JSON
@@ -276,8 +275,8 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
 
       fd.set("policyNumbers", policyNumbers.join(", "));
       fd.set("beneficiaries", beneficiaries.join(", "));
-      fd.set("faceAmount", formatMoney(faceSum));                    // compat
-      fd.set("policyBundles", JSON.stringify(bundles));              // future-proof
+      fd.set("faceAmount", formatMoney(faceSum));     // compat
+      fd.set("policyBundles", JSON.stringify(bundles));
 
       // ---- computed currency
       fd.set("vipFee", formatMoney(vipFeeCalc));
@@ -308,14 +307,8 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
     <form onSubmit={onSubmit} className="fr-form">
       <style jsx>{`
         :root { --gold: #d6b16d; }
-
-        .fr-form {
-          --title-color: #d6b16d; --card-bg: #0b0d0f; --border: #1a1c1f; --field-bg: #121416; --muted: #e0e0e0;
-          font-size: 18px; line-height: 1.45; display: grid; gap: 16px;
-        }
-        @media (prefers-color-scheme: light) {
-          .fr-form { --title-color:#000; --card-bg:#fff; --border:#d0d5dd; --field-bg:#f2f4f6; --muted:#333; }
-        }
+        .fr-form { --title-color:#d6b16d; --card-bg:#0b0d0f; --border:#1a1c1f; --field-bg:#121416; --muted:#e0e0e0; font-size:18px; line-height:1.45; display:grid; gap:16px; }
+        @media (prefers-color-scheme: light) { .fr-form { --title-color:#000; --card-bg:#fff; --border:#d0d5dd; --field-bg:#f2f4f6; --muted:#333; } }
 
         .fr-page-title { text-align:center; color:var(--title-color); margin:20px 0 12px; font-weight:800; font-size:26px; }
         .fr-card { background:var(--card-bg); border:1px solid var(--border); border-radius:0; padding:14px; }
@@ -333,7 +326,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
 
         .fr-muted { color:var(--muted); font-size:.95em; }
         .fr-gold { background:var(--gold); border:1px solid var(--gold); color:#0a0d11; padding:10px 14px; border-radius:0; cursor:pointer; }
-        .fr-submit { border: 1px solid var(--border); } /* small border around submit */
+        .fr-submit { border:1px solid var(--border); }
 
         input[type="text"], input[type="email"], input[type="tel"], input[type="date"], input[type="file"], select, textarea {
           width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:0; background:var(--field-bg); color:#fff;
@@ -347,14 +340,11 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
 
         /* Typeahead styles */
         .ic-box { position: relative; }
-        .ic-list {
-          position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; right: 0;
-          background: var(--card-bg); border: 1px solid var(--border); border-radius: 0; max-height: 240px; overflow: auto;
-        }
-        .ic-item { padding: 8px 10px; cursor: pointer; }
-        .ic-item:hover { background: rgba(255,255,255,.06); }
+        .ic-list { position:absolute; z-index:30; top:calc(100% + 4px); left:0; right:0; background:var(--card-bg); border:1px solid var(--border); border-radius:0; max-height:240px; overflow:auto; }
+        .ic-item { padding:8px 10px; cursor:pointer; }
+        .ic-item:hover { background:rgba(255,255,255,.06); }
 
-        /* Policy bundle card (visual grouping, optional) */
+        /* Policy bundle card (visual grouping) */
         .pb { border:1px dashed var(--border); padding:10px; margin-top:8px; }
         .pb-head { display:flex; justify-content:space-between; align-items:center; gap:8px; }
       `}</style>
@@ -465,7 +455,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         </div>
       </fieldset>
 
-      {/* Death (formerly Place of Death) */}
+      {/* Death */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Death</legend>
         <h3 className="fr-section-title">Death</h3>
@@ -795,7 +785,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         <textarea name="notes" rows={6} style={{ width: "100%" }} value={notes} onChange={(e) => setNotes(e.target.value)} />
       </fieldset>
 
-      {/* Upload */}
+      {/* Upload Assignment */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Upload Assignment</legend>
         <h3 className="fr-section-title">Upload Assignment</h3>
@@ -803,6 +793,22 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         <input name="assignmentUpload" type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.tif,.tiff,.webp,.gif,.txt" />
         <p className="fr-muted" style={{ marginTop: 6 }}>
           Max 500MB. Accepted: PDF, DOC/DOCX, PNG/JPG, TIFF, WEBP, TXT.
+        </p>
+      </fieldset>
+
+      {/* NEW: Upload Other Documents */}
+      <fieldset className="fr-card">
+        <legend className="fr-legend">Upload Other Documents</legend>
+        <h3 className="fr-section-title">Upload Other Documents</h3>
+
+        <input
+          name="otherUploads"
+          type="file"
+          multiple
+          accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.tif,.tiff,.webp,.gif,.txt"
+        />
+        <p className="fr-muted" style={{ marginTop: 6 }}>
+          You can upload up to 50 files. Max 500MB each. Accepted: PDF, DOC/DOCX, PNG/JPG, TIFF, WEBP, GIF, TXT.
         </p>
       </fieldset>
 
