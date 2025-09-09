@@ -37,6 +37,7 @@ type RequestDetail = {
   // Place of death
   decPODCity?: string;
   decPODState?: string;
+  decPODCountry?: string;
   deathInUS?: boolean;
 
   // COD flags
@@ -56,11 +57,12 @@ type RequestDetail = {
   employerPhone?: string;
   employerContact?: string;
   employmentStatus?: string;
+  employerRelation?: "Employee" | "Dependent";
 
   // Insurance linkage
-  insuranceCompanyId?: string | { _id?: string; name?: string }; // may be populated or just an id string
-  otherInsuranceCompany?: OtherIC; // if "Other" was chosen
-  insuranceCompany?: string; // legacy/display
+  insuranceCompanyId?: string | { _id?: string; name?: string };
+  otherInsuranceCompany?: OtherIC;
+  insuranceCompany?: string; // legacy
   policyNumbers?: string;
   faceAmount?: string;
   beneficiaries?: string;
@@ -74,6 +76,7 @@ type RequestDetail = {
   // Misc
   notes?: string;
   assignmentUploadPath?: string;
+  otherUploadPaths?: string[];   // NEW
 
   status?: "Submitted" | "Verifying" | "Approved" | "Funded" | "Closed" | string;
   createdAt?: string | Date | null;
@@ -89,18 +92,12 @@ function fmtDate(d?: string | Date | null) {
 
 /** Compute a display name for the insurance company from the various sources */
 function companyDisplay(data: RequestDetail): string {
-  // Populated object case
   const populatedName =
     typeof data.insuranceCompanyId === "object" && data.insuranceCompanyId?.name
       ? data.insuranceCompanyId.name
       : "";
-
-  // "Other" fallback
   const otherName = data.otherInsuranceCompany?.name || "";
-
-  // Legacy string
   const legacy = data.insuranceCompany || "";
-
   return populatedName || otherName || legacy || "";
 }
 
@@ -122,7 +119,7 @@ export default function RequestDetailModal({
 }: {
   id: string;
   onClose: () => void;
-  canDelete?: boolean;              // Parent decides (Admin: true; FH/CEM: true only when Submitted)
+  canDelete?: boolean;
   onDeleted?: (id: string) => void;
 }) {
   const [data, setData] = useState<RequestDetail | null>(null);
@@ -136,7 +133,6 @@ export default function RequestDetailModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  // Load full request
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -205,7 +201,6 @@ export default function RequestDetailModal({
               <section>
                 <h4>Insurance</h4>
                 <div><span>Company</span><strong>{displayCompany}</strong></div>
-                {/* Only show "Other" details when Other was used */}
                 {isOther && (
                   <>
                     <div><span>Other Phone</span><strong>{data.otherInsuranceCompany?.phone || ""}</strong></div>
@@ -218,7 +213,6 @@ export default function RequestDetailModal({
                     </div>
                   </>
                 )}
-                {/* Legacy details still displayed */}
                 <div><span>Policy Number(s)</span><strong>{data.policyNumbers || ""}</strong></div>
                 <div><span>Face Amount</span><strong>{data.faceAmount || ""}</strong></div>
                 <div><span>Beneficiaries</span><strong>{data.beneficiaries || ""}</strong></div>
@@ -257,6 +251,7 @@ export default function RequestDetailModal({
                 <h4>Place of Death</h4>
                 <div><span>City</span><strong>{data.decPODCity || ""}</strong></div>
                 <div><span>State</span><strong>{data.decPODState || ""}</strong></div>
+                <div><span>Country</span><strong>{data.decPODCountry || ""}</strong></div>
                 <div><span>In the U.S.?</span><strong>{fmtBool(data.deathInUS)}</strong></div>
                 <div><span>Cause of Death</span>
                   <strong>
@@ -283,6 +278,7 @@ export default function RequestDetailModal({
               {/* Employer */}
               <section>
                 <h4>Employer</h4>
+                <div><span>Relation</span><strong>{data.employerRelation || ""}</strong></div>
                 <div><span>Employer Phone</span><strong>{data.employerPhone || ""}</strong></div>
                 <div><span>Employer Contact</span><strong>{data.employerContact || ""}</strong></div>
                 <div><span>Status</span><strong>{data.employmentStatus || ""}</strong></div>
@@ -310,6 +306,27 @@ export default function RequestDetailModal({
                     <a className="btn" href={`/api/requests/${id}/assignment`} target="_blank" rel="noopener">
                       Download Assignment
                     </a>
+                  ) : (
+                    <em>None</em>
+                  )}
+                </div>
+
+                {/* NEW: Other Documents */}
+                <div><span>Other Documents</span>
+                  {Array.isArray(data.otherUploadPaths) && data.otherUploadPaths.length > 0 ? (
+                    <div style={{ display: "grid", gap: 6, marginTop: 6 }}>
+                      {data.otherUploadPaths.map((_, idx) => (
+                        <a
+                          key={idx}
+                          className="btn"
+                          href={`/api/requests/${id}/other-docs/${idx}`}
+                          target="_blank"
+                          rel="noopener"
+                        >
+                          Download Document #{idx + 1}
+                        </a>
+                      ))}
+                    </div>
                   ) : (
                     <em>None</em>
                   )}
