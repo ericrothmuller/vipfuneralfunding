@@ -185,7 +185,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
   /** Notes */
   const [notes, setNotes] = useState("");
 
-  /** NEW: Upload state (drag & drop + picker) */
+  /** Upload (drag & drop + picker) */
   const [assignmentFile, setAssignmentFile] = useState<File | null>(null);
   const [assignmentOver, setAssignmentOver] = useState(false);
   const assignmentInputRef = useRef<HTMLInputElement | null>(null);
@@ -265,7 +265,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
     const space = MAX_OTHER_UPLOADS - otherFiles.length;
     if (space <= 0) return;
     setOtherFiles(prev => [...prev, ...takeSome(incoming, space)]);
-    // reset input so same files can be re-picked if cleared later
     e.currentTarget.value = "";
   }
 
@@ -273,14 +272,11 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
     e.preventDefault();
     e.stopPropagation();
   }
-
   function onDropAssignment(e: React.DragEvent) {
     onDropPrevent(e);
     setAssignmentOver(false);
     const dtFiles = Array.from(e.dataTransfer.files || []);
-    if (dtFiles.length > 0) {
-      setAssignmentFile(dtFiles[0]); // single
-    }
+    if (dtFiles.length > 0) setAssignmentFile(dtFiles[0]); // single
   }
   function onDropOther(e: React.DragEvent) {
     onDropPrevent(e);
@@ -291,7 +287,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
     if (space <= 0) return;
     setOtherFiles(prev => [...prev, ...takeSome(dtFiles, space)]);
   }
-
   function removeOtherAt(index: number) {
     setOtherFiles(prev => prev.filter((_, i) => i !== index));
   }
@@ -722,7 +717,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
             />
           </label>
 
-        {icOpen && icMatches.length > 0 && (
+          {icOpen && icMatches.length > 0 && (
             <div className="ic-list" role="listbox" aria-label="Insurance company suggestions">
               {icMatches.map(ic => (
                 <div
@@ -754,10 +749,11 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         <div style={{ marginTop: 8 }}>
           {bundles.map((b, i) => {
             const addBeneLabel = b.beneficiaries.length ? "+ Add Another Beneficiary" : "+ Add Beneficiary";
+            const policyTitle = bundles.length === 1 ? "Policy" : `Policy #${i + 1}`;
             return (
               <div className="pb" key={i}>
                 <div className="pb-head">
-                  <strong>Policy {i + 1}</strong>
+                  <strong>{policyTitle}</strong>
                   {bundles.length > 1 && (
                     <button type="button" className="fr-del" onClick={() => removePolicyBundle(i)}>
                       Remove Policy
@@ -770,7 +766,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                   <label>Beneficiary
                     <input
                       type="text"
-                      value={b.beneficiaries[0]}
+                      value={b.beneficiaries[0] || ""}
                       onChange={(e) => updateBeneficiary(i, 0, e.target.value)}
                     />
                   </label>
@@ -877,7 +873,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           <label>Total Assignment Amount
             <input
               name="assignmentAmount" type="text"
-              value={formatMoney(assignmentAmountCalc)}
+              value={formatMoney( parseMoneyNumber(totalServiceAmount) + parseMoneyNumber(familyAdvancementAmount) + Math.max(+((parseMoneyNumber(totalServiceAmount)+parseMoneyNumber(familyAdvancementAmount))*0.03).toFixed(2), 100) )}
               readOnly={!isAdmin}
               className={!isAdmin ? "fr-readonly" : undefined}
             />
@@ -947,7 +943,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         )}
       </fieldset>
 
-      {/* NEW: Upload Other Documents (drag & drop + multiple) */}
+      {/* Upload Other Documents (drag & drop + multiple) */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Upload Other Documents</legend>
         <h3 className="fr-section-title">Upload Other Documents</h3>
