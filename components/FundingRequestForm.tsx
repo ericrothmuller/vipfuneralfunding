@@ -110,7 +110,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
   /** Marital Status (dropdown) */
   const [decMaritalStatus, setDecMaritalStatus] = useState("");
 
-  /** Address (moved into Decedent) */
+  /** Address (in Decedent) */
   const [decAddress, setDecAddress] = useState("");
   const [decCity, setDecCity] = useState("");
   const [decState, setDecState] = useState("");
@@ -548,7 +548,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         </label>
       </fieldset>
 
-      {/* Decedent (now includes Address) */}
+      {/* Decedent (includes Address) */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Decedent</legend>
         <h3 className="fr-section-title">Decedent</h3>
@@ -978,12 +978,21 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         </p>
       </fieldset>
 
-      {/* Notes */}
+      {/* NEW: Download Assignment */}
       <fieldset className="fr-card">
-        <legend className="fr-legend">Additional Notes</legend>
-        <h3 className="fr-section-title">Additional Notes</h3>
-
-        <textarea name="notes" rows={6} style={{ width: "100%" }} value={notes} onChange={(e) => setNotes(e.target.value)} />
+        <legend className="fr-legend">Download Assignment</legend>
+        <h3 className="fr-section-title">Download Assignment</h3>
+        <p className="fr-muted" style={{ marginBottom: 10 }}>
+          Download and print the assignment, complete all required fields in their entirety, obtain the signatures of all necessary parties, and ensure the document is properly notarized.
+        </p>
+        <a
+          href={"/Funding%20Request%20Assignment.pdf"}
+          download
+          className="btn"
+          aria-label="Download assignment PDF"
+        >
+          Download
+        </a>
       </fieldset>
 
       {/* Upload Assignment (with drag & drop) */}
