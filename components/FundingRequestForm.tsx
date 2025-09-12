@@ -110,7 +110,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
   /** Marital Status (dropdown) */
   const [decMaritalStatus, setDecMaritalStatus] = useState("");
 
-  /** Address */
+  /** Address (moved into Decedent) */
   const [decAddress, setDecAddress] = useState("");
   const [decCity, setDecCity] = useState("");
   const [decState, setDecState] = useState("");
@@ -548,7 +548,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         </label>
       </fieldset>
 
-      {/* Decedent */}
+      {/* Decedent (now includes Address) */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Decedent</legend>
         <h3 className="fr-section-title">Decedent</h3>
@@ -598,24 +598,19 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
             <option value="Separated">Separated</option>
           </select>
         </label>
-      </fieldset>
 
-      {/* Address */}
-      <fieldset className="fr-card">
-        <legend className="fr-legend">Address</legend>
-        <h3 className="fr-section-title">Address</h3>
-
+        {/* Address moved here */}
         <label>DEC Address
           <input name="decAddress" type="text" value={decAddress} onChange={(e) => setDecAddress(e.target.value)} />
         </label>
         <div className="fr-grid-3-tight">
-          <label>City
+          <label>DEC City
             <input name="decCity" type="text" value={decCity} onChange={(e) => setDecCity(e.target.value)} />
           </label>
-          <label>State
+          <label>DEC State
             <input name="decState" type="text" value={decState} onChange={(e) => setDecState(e.target.value)} />
           </label>
-          <label>Zip Code
+          <label>DEC Zip
             <input name="decZip" type="text" value={decZip} onChange={(e) => setDecZip(e.target.value)} />
           </label>
         </div>
@@ -816,6 +811,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           {bundles.map((b, i) => {
             const hasAny = b.beneficiaries.some(name => !!name?.trim());
             const policyTitle = bundles.length === 1 ? "Policy" : `Policy #${i + 1}`;
+            const beneHeader = b.beneficiaries.length >= 2 ? "Beneficiaries" : "Beneficiary";
             return (
               <div className="pb" key={i}>
                 <div className="pb-head">
@@ -829,7 +825,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
 
                 {/* Beneficiaries FIRST */}
                 <div style={{ marginTop: 8 }}>
-                  <label>Beneficiary</label>
+                  <label>{beneHeader}</label>
                   {/* First slot */}
                   {b.beneficiaries[0] ? (
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -841,7 +837,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                       >
                         View Info
                       </button>
-                      {/* NEW: allow remove first beneficiary */}
+                      {/* allow remove first beneficiary */}
                       <button
                         type="button"
                         className="fr-del"
@@ -885,7 +881,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                     );
                   })}
 
-                  {/* NEW: show the "Add Another Beneficiary" button only after first has a name */}
+                  {/* Show "Add Another Beneficiary" only after the first has a name */}
                   {hasAny && (
                     <button
                       type="button"
@@ -990,7 +986,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         <textarea name="notes" rows={6} style={{ width: "100%" }} value={notes} onChange={(e) => setNotes(e.target.value)} />
       </fieldset>
 
-      {/* Upload Assignment (with drag & drop + picker) */}
+      {/* Upload Assignment (with drag & drop) */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Upload Assignment</legend>
         <h3 className="fr-section-title">Upload Assignment</h3>
