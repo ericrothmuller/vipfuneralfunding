@@ -22,6 +22,15 @@ type PolicyBundle = {
   faceAmount: string; // currency string (formatted on blur)
 };
 
+type BeneficiaryDetail = {
+  name: string;
+  relationship?: string;
+  address?: string;
+  dob?: string;
+  ssn?: string;
+  phone?: string;
+};
+
 const COD_OPTS = ["Natural", "Accident", "Homicide", "Pending"] as const;
 
 /** v-flag-safe US phone pattern */
@@ -134,12 +143,24 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
     { beneficiaries: [""], policyNumber: "", faceAmount: "" },
   ]);
 
+  /** Structured beneficiary details (parallel to bundles[i].beneficiaries[j]) */
+  const [beneExtra, setBeneExtra] = useState<BeneficiaryDetail[][]>([
+    [{ name: "" }],
+  ]);
+
   const addPolicyBundle = () =>
-    setBundles((arr) => [...arr, { beneficiaries: [""], policyNumber: "", faceAmount: "" }]);
+    setBundles((arr) => {
+      setBeneExtra(prev => [...prev, [{ name: "" }]]);
+      return [...arr, { beneficiaries: [""], policyNumber: "", faceAmount: "" }];
+    });
 
   const removePolicyBundle = (idx: number) =>
     setBundles((arr) => {
-      if (arr.length === 1) return [{ beneficiaries: [""], policyNumber: "", faceAmount: "" }];
+      if (arr.length === 1) {
+        setBeneExtra([[{ name: "" }]]);
+        return [{ beneficiaries: [""], policyNumber: "", faceAmount: "" }];
+      }
+      setBeneExtra(prev => prev.filter((_, i) => i !== idx));
       return arr.filter((_, i) => i !== idx);
     });
 
@@ -152,9 +173,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
   const onFaceInput = (i: number, v: string) => handleCurrencyInput(v, (s) => updateFaceAmount(i, s));
   const onFaceBlur  = (i: number, v: string) => handleCurrencyBlur(v, (s) => updateFaceAmount(i, s));
 
-  const addBeneficiary = (i: number) =>
-    setBundles((arr) => arr.map((b, idx) => (idx === i ? { ...b, beneficiaries: [...b.beneficiaries, ""] } : b)));
-
+  /** Beneficiary name array (kept as-is for submission) helpers */
   const updateBeneficiary = (i: number, j: number, v: string) =>
     setBundles((arr) =>
       arr.map((b, idx) =>
@@ -163,13 +182,36 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
     );
 
   const removeBeneficiary = (i: number, j: number) =>
-    setBundles((arr) =>
-      arr.map((b, idx) =>
+    setBundles((arr) => {
+      setBeneExtra(prev => {
+        const copy = prev.map(row => row.slice());
+        if (!copy[i]) copy[i] = [];
+        copy[i] = copy[i].filter((_, jj) => jj !== j);
+        return copy;
+      });
+      return arr.map((b, idx) =>
         idx === i
           ? { ...b, beneficiaries: b.beneficiaries.filter((_, jj) => jj !== j) }
           : b
-      )
-    );
+      );
+    });
+
+  /** Add a new beneficiary slot and immediately open the modal to fill details */
+  const addBeneficiary = (i: number) =>
+    setBundles((arr) => {
+      const next = arr.map((b, idx) =>
+        idx === i ? { ...b, beneficiaries: [...b.beneficiaries, ""] } : b
+      );
+      setBeneExtra(prev => {
+        const copy = prev.map(row => row.slice());
+        if (!copy[i]) copy[i] = [];
+        copy[i].push({ name: "" });
+        return copy;
+      });
+      const newIdx = arr[i].beneficiaries.length; // new slot index
+      openAddBeneficiary(i, newIdx);
+      return next;
+    });
 
   /** Financials */
   const [totalServiceAmount, setTotalServiceAmount] = useState("");
@@ -187,12 +229,12 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
 
   /** Upload (drag & drop + picker) */
   const [assignmentFile, setAssignmentFile] = useState<File | null>(null);
-  const [assignmentOver, setAssignmentOver] = useState(false);
   const assignmentInputRef = useRef<HTMLInputElement | null>(null);
+  const [assignmentOver, setAssignmentOver] = useState(false);
 
   const [otherFiles, setOtherFiles] = useState<File[]>([]);
-  const [otherOver, setOtherOver] = useState(false);
   const otherInputRef = useRef<HTMLInputElement | null>(null);
+  const [otherOver, setOtherOver] = useState(false);
 
   /** UI state */
   const [saving, setSaving] = useState(false);
@@ -251,6 +293,64 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
+  /** ------------------- Beneficiary modals state ------------------- */
+  const [beneModalOpen, setBeneModalOpen] = useState(false);
+  const [beneViewOpen, setBeneViewOpen] = useState(false);
+  const [benePolicyIdx, setBenePolicyIdx] = useState(0);
+  const [beneIndex, setBeneIndex] = useState(0);
+  const [beneDraft, setBeneDraft] = useState<BeneficiaryDetail>({
+    name: "",
+    relationship: "",
+    address: "",
+    dob: "",
+    ssn: "",
+    phone: "",
+  });
+
+  function openAddBeneficiary(policyIdx: number, idxInPolicy: number) {
+    setBenePolicyIdx(policyIdx);
+    setBeneIndex(idxInPolicy);
+    const existing = beneExtra[policyIdx]?.[idxInPolicy] || { name: "" };
+    setBeneDraft({
+      name: bundles[policyIdx]?.beneficiaries[idxInPolicy] || existing.name || "",
+      relationship: existing.relationship || "",
+      address: existing.address || "",
+      dob: existing.dob || "",
+      ssn: existing.ssn || "",
+      phone: existing.phone || "",
+    });
+    setBeneModalOpen(true);
+  }
+
+  function saveBeneficiaryFromModal() {
+    const name = (beneDraft.name || "").trim();
+    setBeneExtra(prev => {
+      const copy = prev.map(row => row.slice());
+      if (!copy[benePolicyIdx]) copy[benePolicyIdx] = [];
+      copy[benePolicyIdx][beneIndex] = { ...beneDraft, name };
+      return copy;
+    });
+    if (name) {
+      updateBeneficiary(benePolicyIdx, beneIndex, name);
+    }
+    setBeneModalOpen(false);
+  }
+
+  function openViewBeneficiary(policyIdx: number, idxInPolicy: number) {
+    setBenePolicyIdx(policyIdx);
+    setBeneIndex(idxInPolicy);
+    const existing = beneExtra[policyIdx]?.[idxInPolicy] || { name: "" };
+    setBeneDraft({
+      name: bundles[policyIdx]?.beneficiaries[idxInPolicy] || existing.name || "",
+      relationship: existing.relationship || "",
+      address: existing.address || "",
+      dob: existing.dob || "",
+      ssn: existing.ssn || "",
+      phone: existing.phone || "",
+    });
+    setBeneViewOpen(true);
+  }
+
   /** ------------------- Submit ------------------- */
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -293,7 +393,9 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       fd.set("policyNumbers", policyNumbers.join(", "));
       fd.set("beneficiaries", beneficiaries.join(", "));
       fd.set("faceAmount", formatMoney(faceSum));
-      fd.set("policyBundles", JSON.stringify(bundles));
+
+      // optional structured details (safe to ignore server-side)
+      fd.set("policyBeneficiaries", JSON.stringify(beneExtra));
 
       // computed currency
       fd.set("vipFee", formatMoney(vipFeeCalc));
@@ -381,22 +483,15 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         .pb { border:1px dashed var(--border); padding:10px; margin-top:8px; }
         .pb-head { display:flex; justify-content:space-between; align-items:center; gap:8px; }
 
-        /* Dropzones */
-        .dz {
-          border:1px dashed var(--border);
-          background:var(--field-bg);
-          padding:14px;
-          display:grid;
-          place-items:center;
-          text-align:center;
-          cursor:pointer;
-        }
-        .dz.over { outline: 2px dashed var(--gold); outline-offset: 2px; }
-        .dz small { color:var(--muted); }
-        .file-list { display:grid; gap:6px; margin-top:8px; }
-        .file-row { display:flex; align-items:center; justify-content:space-between; gap:8px; }
-        .file-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-        .btn-link { background:transparent; border:1px solid var(--border); padding:4px 8px; cursor:pointer; }
+        /* Simple modal */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: grid; place-items: center; z-index: 60; }
+        .modal { background: var(--card-bg); border: 1px solid var(--border); width: min(640px, 96vw); max-height: 90vh; overflow: auto; padding: 12px; border-radius: 0; }
+        .modal-header { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
+        .modal-title { color: var(--gold); font-weight: 800; margin: 0; }
+        .modal-body { display:grid; gap:10px; }
+        .modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top: 8px; }
+        .row-2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+        @media (max-width:700px){ .row-2 { grid-template-columns: 1fr; } }
       `}</style>
 
       <h2 className="fr-page-title">Funding Request</h2>
@@ -723,35 +818,54 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
 
                 {/* Beneficiaries FIRST */}
                 <div style={{ marginTop: 8 }}>
-                  <label>Beneficiary
-                    <input
-                      type="text"
-                      value={b.beneficiaries[0] || ""}
-                      onChange={(e) => updateBeneficiary(i, 0, e.target.value)}
-                    />
-                  </label>
+                  <label>Beneficiary</label>
+                  {/* First slot */}
+                  {b.beneficiaries[0] ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <div style={{ fontWeight: 600 }}>{b.beneficiaries[0]}</div>
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        onClick={() => openViewBeneficiary(i, 0)}
+                      >
+                        View Info
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      onClick={() => openAddBeneficiary(i, 0)}
+                    >
+                      + Add Beneficiary
+                    </button>
+                  )}
 
-                  {b.beneficiaries.slice(1).map((val, j) => (
-                    <div key={j} style={{ display: "grid", gap: 6, marginTop: 8 }}>
-                      <label>Beneficiary
-                        <input
-                          type="text"
-                          value={val}
-                          onChange={(e) => updateBeneficiary(i, j + 1, e.target.value)}
-                        />
-                      </label>
-                      <div className="fr-inline-actions">
+                  {/* Additional beneficiaries */}
+                  {b.beneficiaries.slice(1).map((val, j) => {
+                    const realIdx = j + 1;
+                    return (
+                      <div key={realIdx} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                        <div style={{ fontWeight: 600 }}>{val || "(unnamed beneficiary)"}</div>
+                        <button
+                          type="button"
+                          className="btn btn-ghost"
+                          onClick={() => (val ? openViewBeneficiary(i, realIdx) : openAddBeneficiary(i, realIdx))}
+                        >
+                          {val ? "View Info" : "Add Info"}
+                        </button>
                         <button
                           type="button"
                           className="fr-del"
-                          onClick={() => removeBeneficiary(i, j + 1)}
+                          onClick={() => removeBeneficiary(i, realIdx)}
                         >
-                          Remove Beneficiary
+                          Remove
                         </button>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
 
+                  {/* Add another beneficiary (creates slot then opens modal) */}
                   <button
                     type="button"
                     className="btn btn-ghost"
@@ -926,7 +1040,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
             const space = MAX_OTHER_UPLOADS - otherFiles.length;
             if (space <= 0) return;
             setOtherFiles(prev => [...prev, ...incoming.slice(0, space)]);
-            e.currentTarget.value = "";
+            (e.currentTarget as HTMLInputElement).value = "";
           }}
           style={{ display: "none" }}
         />
@@ -937,8 +1051,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           onDragEnter={(e) => { e.preventDefault(); setOtherOver(true); }}
           onDragLeave={(e) => { e.preventDefault(); setOtherOver(false); }}
           onDrop={(e) => {
-            e.preventDefault();
-            setOtherOver(false);
+            e.preventDefault(); setOtherOver(false);
             const incoming = Array.from(e.dataTransfer.files || []);
             if (!incoming.length) return;
             const space = MAX_OTHER_UPLOADS - otherFiles.length;
@@ -981,6 +1094,109 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       </button>
 
       {msg && <p role="alert" style={{ color: "crimson", marginTop: 8 }}>{msg}</p>}
+
+      {/* Add Beneficiary Modal */}
+      {beneModalOpen && (
+        <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="bene-add-title">
+          <div className="modal">
+            <div className="modal-header">
+              <h3 id="bene-add-title" className="modal-title">Add Beneficiary</h3>
+              <button className="btn btn-ghost" onClick={() => setBeneModalOpen(false)} aria-label="Close">✕</button>
+            </div>
+            <div className="modal-body">
+              <label>Beneficiary Name *
+                <input
+                  type="text"
+                  value={beneDraft.name}
+                  onChange={(e) => setBeneDraft({ ...beneDraft, name: e.target.value })}
+                  placeholder="Full name"
+                />
+              </label>
+              <div className="row-2">
+                <label>Relationship to DEC
+                  <input
+                    type="text"
+                    value={beneDraft.relationship || ""}
+                    onChange={(e) => setBeneDraft({ ...beneDraft, relationship: e.target.value })}
+                    placeholder="e.g., Spouse, Child"
+                  />
+                </label>
+                <label>Beneficiary DOB
+                  <input
+                    type="date"
+                    value={beneDraft.dob || ""}
+                    onChange={(e) => setBeneDraft({ ...beneDraft, dob: e.target.value })}
+                  />
+                </label>
+              </div>
+              <label>Beneficiary Address
+                <input
+                  type="text"
+                  value={beneDraft.address || ""}
+                  onChange={(e) => setBeneDraft({ ...beneDraft, address: e.target.value })}
+                  placeholder="Street, City, State ZIP"
+                />
+              </label>
+              <div className="row-2">
+                <label>Beneficiary SSN
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern={SSN_PATTERN}
+                    maxLength={11}
+                    value={beneDraft.ssn || ""}
+                    onChange={(e) => setBeneDraft({ ...beneDraft, ssn: formatSSN(e.target.value) })}
+                    placeholder="###-##-####"
+                    title="Enter SSN as 123-45-6789"
+                  />
+                </label>
+                <label>Beneficiary Phone Number
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    pattern={PHONE_PATTERN_VSAFE}
+                    value={beneDraft.phone || ""}
+                    onChange={(e) => setBeneDraft({ ...beneDraft, phone: formatPhone(e.target.value) })}
+                    placeholder="(555) 555-5555"
+                    title="Please enter a valid 10-digit phone number"
+                  />
+                </label>
+              </div>
+              <div className="modal-actions">
+                <button className="btn" onClick={() => setBeneModalOpen(false)}>Cancel</button>
+                <button className="btn btn-gold" onClick={saveBeneficiaryFromModal} disabled={!beneDraft.name.trim()}>
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Beneficiary Modal */}
+      {beneViewOpen && (
+        <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="bene-view-title">
+          <div className="modal">
+            <div className="modal-header">
+              <h3 id="bene-view-title" className="modal-title">Beneficiary Info</h3>
+              <button className="btn btn-ghost" onClick={() => setBeneViewOpen(false)} aria-label="Close">✕</button>
+            </div>
+            <div className="modal-body">
+              <div><strong>Name:</strong> {beneDraft.name || "—"}</div>
+              <div><strong>Relationship to DEC:</strong> {beneDraft.relationship || "—"}</div>
+              <div><strong>Address:</strong> {beneDraft.address || "—"}</div>
+              <div className="row-2">
+                <div><strong>DOB:</strong> {beneDraft.dob || "—"}</div>
+                <div><strong>SSN:</strong> {beneDraft.ssn || "—"}</div>
+              </div>
+              <div><strong>Phone:</strong> {beneDraft.phone || "—"}</div>
+              <div className="modal-actions">
+                <button className="btn" onClick={() => setBeneViewOpen(false)}>Close</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   );
 }
