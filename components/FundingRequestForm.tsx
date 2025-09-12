@@ -322,17 +322,28 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
     setBeneModalOpen(true);
   }
 
+  function validateBeneficiary(b: BeneficiaryDetail): string | null {
+    if (!b.name?.trim()) return "Beneficiary Name is required.";
+    if (!b.relationship?.trim()) return "Relationship to DEC is required.";
+    if (!b.address?.trim()) return "Beneficiary Address is required.";
+    if (!b.dob?.trim()) return "Beneficiary DOB is required.";
+    if (!b.ssn?.trim() || !/^\d{3}-\d{2}-\d{4}$/.test(b.ssn)) return "Beneficiary SSN must be ###-##-####.";
+    if (!b.phone?.trim() || onlyDigits(b.phone).length !== 10) return "Beneficiary Phone must be 10 digits.";
+    return null;
+  }
+
   function saveBeneficiaryFromModal() {
     const name = (beneDraft.name || "").trim();
+    const err = validateBeneficiary({ ...beneDraft, name });
+    if (err) { alert(err); return; }
+
     setBeneExtra(prev => {
       const copy = prev.map(row => row.slice());
       if (!copy[benePolicyIdx]) copy[benePolicyIdx] = [];
       copy[benePolicyIdx][beneIndex] = { ...beneDraft, name };
       return copy;
     });
-    if (name) {
-      updateBeneficiary(benePolicyIdx, beneIndex, name);
-    }
+    updateBeneficiary(benePolicyIdx, beneIndex, name);
     setBeneModalOpen(false);
   }
 
@@ -803,7 +814,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         {/* Linked Policy Bundles */}
         <div style={{ marginTop: 8 }}>
           {bundles.map((b, i) => {
-            const addBeneLabel = b.beneficiaries.length ? "+ Add Another Beneficiary" : "+ Add Beneficiary";
+            const hasAny = b.beneficiaries.some(name => !!name?.trim());
             const policyTitle = bundles.length === 1 ? "Policy" : `Policy #${i + 1}`;
             return (
               <div className="pb" key={i}>
@@ -830,8 +841,17 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                       >
                         View Info
                       </button>
+                      {/* NEW: allow remove first beneficiary */}
+                      <button
+                        type="button"
+                        className="fr-del"
+                        onClick={() => removeBeneficiary(i, 0)}
+                      >
+                        Remove
+                      </button>
                     </div>
                   ) : (
+                    // Initial state: only this button appears (no duplicate add button below)
                     <button
                       type="button"
                       className="btn btn-ghost"
@@ -865,15 +885,17 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                     );
                   })}
 
-                  {/* Add another beneficiary (creates slot then opens modal) */}
-                  <button
-                    type="button"
-                    className="btn btn-ghost"
-                    onClick={() => addBeneficiary(i)}
-                    style={{ marginTop: 8 }}
-                  >
-                    {addBeneLabel}
-                  </button>
+                  {/* NEW: show the "Add Another Beneficiary" button only after first has a name */}
+                  {hasAny && (
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      onClick={() => addBeneficiary(i)}
+                      style={{ marginTop: 8 }}
+                    >
+                      + Add Another Beneficiary
+                    </button>
+                  )}
                 </div>
 
                 {/* Then Policy Number */}
@@ -968,7 +990,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         <textarea name="notes" rows={6} style={{ width: "100%" }} value={notes} onChange={(e) => setNotes(e.target.value)} />
       </fieldset>
 
-      {/* Upload Assignment (with drag & drop) */}
+      {/* Upload Assignment (with drag & drop + picker) */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Upload Assignment</legend>
         <h3 className="fr-section-title">Upload Assignment</h3>
@@ -1110,35 +1132,39 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                   value={beneDraft.name}
                   onChange={(e) => setBeneDraft({ ...beneDraft, name: e.target.value })}
                   placeholder="Full name"
+                  required
                 />
               </label>
               <div className="row-2">
-                <label>Relationship to DEC
+                <label>Relationship to DEC *
                   <input
                     type="text"
                     value={beneDraft.relationship || ""}
                     onChange={(e) => setBeneDraft({ ...beneDraft, relationship: e.target.value })}
                     placeholder="e.g., Spouse, Child"
+                    required
                   />
                 </label>
-                <label>Beneficiary DOB
+                <label>Beneficiary DOB *
                   <input
                     type="date"
                     value={beneDraft.dob || ""}
                     onChange={(e) => setBeneDraft({ ...beneDraft, dob: e.target.value })}
+                    required
                   />
                 </label>
               </div>
-              <label>Beneficiary Address
+              <label>Beneficiary Address *
                 <input
                   type="text"
                   value={beneDraft.address || ""}
                   onChange={(e) => setBeneDraft({ ...beneDraft, address: e.target.value })}
                   placeholder="Street, City, State ZIP"
+                  required
                 />
               </label>
               <div className="row-2">
-                <label>Beneficiary SSN
+                <label>Beneficiary SSN *
                   <input
                     type="text"
                     inputMode="numeric"
@@ -1148,9 +1174,10 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                     onChange={(e) => setBeneDraft({ ...beneDraft, ssn: formatSSN(e.target.value) })}
                     placeholder="###-##-####"
                     title="Enter SSN as 123-45-6789"
+                    required
                   />
                 </label>
-                <label>Beneficiary Phone Number
+                <label>Beneficiary Phone Number *
                   <input
                     type="tel"
                     inputMode="numeric"
@@ -1159,12 +1186,13 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                     onChange={(e) => setBeneDraft({ ...beneDraft, phone: formatPhone(e.target.value) })}
                     placeholder="(555) 555-5555"
                     title="Please enter a valid 10-digit phone number"
+                    required
                   />
                 </label>
               </div>
               <div className="modal-actions">
                 <button className="btn" onClick={() => setBeneModalOpen(false)}>Cancel</button>
-                <button className="btn btn-gold" onClick={saveBeneficiaryFromModal} disabled={!beneDraft.name.trim()}>
+                <button className="btn btn-gold" onClick={saveBeneficiaryFromModal}>
                   Save
                 </button>
               </div>
