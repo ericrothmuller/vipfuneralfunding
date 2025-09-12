@@ -456,7 +456,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         .fr-form { --title-color:#d6b16d; --card-bg:#0b0d0f; --border:#1a1c1f; --field-bg:#121416; --muted:#e0e0e0; font-size:18px; line-height:1.45; display:grid; gap:16px; }
         @media (prefers-color-scheme: light) { .fr-form { --title-color:#000; --card-bg:#fff; --border:#d0d5dd; --field-bg:#f2f4f6; --muted:#333; } }
 
-        .fr-page-title { text-align:center; color:var(--title-color); margin:20px 0 12px; font-weight:800; font-size:26px; }
         .fr-card { background:var(--card-bg); border:1px solid var(--border); border-radius:0; padding:14px; }
         .fr-legend { position:absolute !important; height:1px; width:1px; overflow:hidden; clip:rect(1px,1px,1px,1px); white-space:nowrap; }
         .fr-section-title { color:var(--title-color); font-weight:800; margin:0 0 12px 0; font-size:20px; }
@@ -494,18 +493,28 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         .pb { border:1px dashed var(--border); padding:10px; margin-top:8px; }
         .pb-head { display:flex; justify-content:space-between; align-items:center; gap:8px; }
 
-        /* Simple modal */
-        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: grid; place-items: center; z-index: 60; }
-        .modal { background: var(--card-bg); border: 1px solid var(--border); width: min(640px, 96vw); max-height: 90vh; overflow: auto; padding: 12px; border-radius: 0; }
-        .modal-header { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
-        .modal-title { color: var(--gold); font-weight: 800; margin: 0; }
-        .modal-body { display:grid; gap:10px; }
-        .modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top: 8px; }
-        .row-2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-        @media (max-width:700px){ .row-2 { grid-template-columns: 1fr; } }
-      `}</style>
+        /* Dropzones */
+        .dz {
+          border:1px dashed var(--border);
+          background:var(--field-bg);
+          padding:14px;
+          display:grid;
+          place-items:center;
+          text-align:center;
+          cursor:pointer;
+        }
+        .dz.over { outline: 2px dashed var(--gold); outline-offset: 2px; }
+        .dz small { color:var(--muted); }
+        .file-list { display:grid; gap:6px; margin-top:8px; }
+        .file-row { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+        .file-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .btn-link { background:transparent; border:1px solid var(--border); padding:4px 8px; cursor:pointer; }
 
-      <h2 className="fr-page-title">Funding Request</h2>
+        .btn-ghost { border:1px solid var(--border); background:var(--field-bg); color:#fff; border-radius:0; padding:8px 10px; cursor:pointer; }
+        @media (prefers-color-scheme: light) {
+          .btn-ghost { color:#000; }
+        }
+      `}</style>
 
       {/* FH / CEM */}
       <fieldset className="fr-card">
@@ -978,7 +987,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         </p>
       </fieldset>
 
-      {/* NEW: Download Assignment */}
+      {/* NEW: Download Assignment (button styled like ghost, no underline) */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Download Assignment</legend>
         <h3 className="fr-section-title">Download Assignment</h3>
@@ -988,7 +997,8 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         <a
           href={"/Funding%20Request%20Assignment.pdf"}
           download
-          className="btn"
+          className="btn-ghost"
+          style={{ textDecoration: "none", display: "inline-block" }}
           aria-label="Download assignment PDF"
         >
           Download
@@ -1032,21 +1042,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
             <small>Accepted: PDF, DOC/DOCX, PNG/JPG, TIFF, WEBP, GIF, TXT. Max 500MB.</small>
           </div>
         </div>
-
-        {assignmentFile && (
-          <div className="file-list">
-            <div className="file-row">
-              <span className="file-name">{assignmentFile.name}</span>
-              <button
-                type="button"
-                className="btn-link"
-                onClick={() => setAssignmentFile(null)}
-              >
-                Remove
-              </button>
-            </div>
-          </div>
-        )}
       </fieldset>
 
       {/* Upload Other Documents (drag & drop + multiple) */}
@@ -1121,115 +1116,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       </button>
 
       {msg && <p role="alert" style={{ color: "crimson", marginTop: 8 }}>{msg}</p>}
-
-      {/* Add Beneficiary Modal */}
-      {beneModalOpen && (
-        <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="bene-add-title">
-          <div className="modal">
-            <div className="modal-header">
-              <h3 id="bene-add-title" className="modal-title">Add Beneficiary</h3>
-              <button className="btn btn-ghost" onClick={() => setBeneModalOpen(false)} aria-label="Close">✕</button>
-            </div>
-            <div className="modal-body">
-              <label>Beneficiary Name *
-                <input
-                  type="text"
-                  value={beneDraft.name}
-                  onChange={(e) => setBeneDraft({ ...beneDraft, name: e.target.value })}
-                  placeholder="Full name"
-                  required
-                />
-              </label>
-              <div className="row-2">
-                <label>Relationship to DEC *
-                  <input
-                    type="text"
-                    value={beneDraft.relationship || ""}
-                    onChange={(e) => setBeneDraft({ ...beneDraft, relationship: e.target.value })}
-                    placeholder="e.g., Spouse, Child"
-                    required
-                  />
-                </label>
-                <label>Beneficiary DOB *
-                  <input
-                    type="date"
-                    value={beneDraft.dob || ""}
-                    onChange={(e) => setBeneDraft({ ...beneDraft, dob: e.target.value })}
-                    required
-                  />
-                </label>
-              </div>
-              <label>Beneficiary Address *
-                <input
-                  type="text"
-                  value={beneDraft.address || ""}
-                  onChange={(e) => setBeneDraft({ ...beneDraft, address: e.target.value })}
-                  placeholder="Street, City, State ZIP"
-                  required
-                />
-              </label>
-              <div className="row-2">
-                <label>Beneficiary SSN *
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    pattern={SSN_PATTERN}
-                    maxLength={11}
-                    value={beneDraft.ssn || ""}
-                    onChange={(e) => setBeneDraft({ ...beneDraft, ssn: formatSSN(e.target.value) })}
-                    placeholder="###-##-####"
-                    title="Enter SSN as 123-45-6789"
-                    required
-                  />
-                </label>
-                <label>Beneficiary Phone Number *
-                  <input
-                    type="tel"
-                    inputMode="numeric"
-                    pattern={PHONE_PATTERN_VSAFE}
-                    value={beneDraft.phone || ""}
-                    onChange={(e) => setBeneDraft({ ...beneDraft, phone: formatPhone(e.target.value) })}
-                    placeholder="(555) 555-5555"
-                    title="Please enter a valid 10-digit phone number"
-                    required
-                  />
-                </label>
-              </div>
-              <div className="modal-actions">
-                <button className="btn" onClick={() => setBeneModalOpen(false)}>Cancel</button>
-                <button className="btn btn-gold" onClick={saveBeneficiaryFromModal}>
-                  Save
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* View Beneficiary Modal */}
-      {beneViewOpen && (
-        <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="bene-view-title">
-          <div className="modal">
-            <div className="modal-header">
-              <h3 id="bene-view-title" className="modal-title">Beneficiary Info</h3>
-              <button className="btn btn-ghost" onClick={() => setBeneViewOpen(false)} aria-label="Close">✕</button>
-            </div>
-            <div className="modal-body">
-              <div><strong>Name:</strong> {beneDraft.name || "—"}</div>
-              <div><strong>Relationship to DEC:</strong> {beneDraft.relationship || "—"}</div>
-              <div><strong>Address:</strong> {beneDraft.address || "—"}</div>
-              <div className="row-2">
-                <div><strong>DOB:</strong> {beneDraft.dob || "—"}</div>
-                <div><strong>SSN:</strong> {beneDraft.ssn || "—"}</div>
-              </div>
-              <div><strong>Phone:</strong> {beneDraft.phone || "—"}</div>
-              <div className="modal-actions">
-                <button className="btn" onClick={() => setBeneViewOpen(false)}>Close</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </form>
   );
 }
