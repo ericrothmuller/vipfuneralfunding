@@ -251,46 +251,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
-  /** File helpers */
-  function handleAssignmentPick(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.currentTarget.files?.[0] || null;
-    setAssignmentFile(f);
-  }
-  function takeSome(files: File[], max: number) {
-    return files.slice(0, max);
-  }
-  function handleOtherPick(e: React.ChangeEvent<HTMLInputElement>) {
-    const incoming = Array.from(e.currentTarget.files || []);
-    if (!incoming.length) return;
-    const space = MAX_OTHER_UPLOADS - otherFiles.length;
-    if (space <= 0) return;
-    setOtherFiles(prev => [...prev, ...takeSome(incoming, space)]);
-    e.currentTarget.value = "";
-  }
-
-  function onDropPrevent(e: React.DragEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-  }
-  function onDropAssignment(e: React.DragEvent) {
-    onDropPrevent(e);
-    setAssignmentOver(false);
-    const dtFiles = Array.from(e.dataTransfer.files || []);
-    if (dtFiles.length > 0) setAssignmentFile(dtFiles[0]); // single
-  }
-  function onDropOther(e: React.DragEvent) {
-    onDropPrevent(e);
-    setOtherOver(false);
-    const dtFiles = Array.from(e.dataTransfer.files || []);
-    if (!dtFiles.length) return;
-    const space = MAX_OTHER_UPLOADS - otherFiles.length;
-    if (space <= 0) return;
-    setOtherFiles(prev => [...prev, ...takeSome(dtFiles, space)]);
-  }
-  function removeOtherAt(index: number) {
-    setOtherFiles(prev => prev.filter((_, i) => i !== index));
-  }
-
   /** ------------------- Submit ------------------- */
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -506,7 +466,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
               maxLength={11}
               value={decSSN}
               onChange={(e) => setDecSSN(formatSSN(e.target.value))}
-              placeholder="123-45-6789"
+              placeholder="###-##-####"
               title="Enter SSN as 123-45-6789"
             />
           </label>
@@ -905,7 +865,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           name="assignmentUpload"
           type="file"
           accept={FILE_ACCEPT}
-          onChange={handleAssignmentPick}
+          onChange={(e) => setAssignmentFile(e.currentTarget.files?.[0] || null)}
           style={{ display: "none" }}
         />
 
@@ -914,7 +874,12 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           onDragOver={(e) => { e.preventDefault(); setAssignmentOver(true); }}
           onDragEnter={(e) => { e.preventDefault(); setAssignmentOver(true); }}
           onDragLeave={(e) => { e.preventDefault(); setAssignmentOver(false); }}
-          onDrop={onDropAssignment}
+          onDrop={(e) => {
+            e.preventDefault();
+            setAssignmentOver(false);
+            const dtFiles = Array.from(e.dataTransfer.files || []);
+            if (dtFiles.length > 0) setAssignmentFile(dtFiles[0]);
+          }}
           onClick={() => assignmentInputRef.current?.click()}
           role="button"
           aria-label="Drop assignment file here or click to browse"
@@ -955,7 +920,14 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           type="file"
           multiple
           accept={FILE_ACCEPT}
-          onChange={handleOtherPick}
+          onChange={(e) => {
+            const incoming = Array.from(e.currentTarget.files || []);
+            if (!incoming.length) return;
+            const space = MAX_OTHER_UPLOADS - otherFiles.length;
+            if (space <= 0) return;
+            setOtherFiles(prev => [...prev, ...incoming.slice(0, space)]);
+            e.currentTarget.value = "";
+          }}
           style={{ display: "none" }}
         />
 
@@ -964,7 +936,15 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           onDragOver={(e) => { e.preventDefault(); setOtherOver(true); }}
           onDragEnter={(e) => { e.preventDefault(); setOtherOver(true); }}
           onDragLeave={(e) => { e.preventDefault(); setOtherOver(false); }}
-          onDrop={onDropOther}
+          onDrop={(e) => {
+            e.preventDefault();
+            setOtherOver(false);
+            const incoming = Array.from(e.dataTransfer.files || []);
+            if (!incoming.length) return;
+            const space = MAX_OTHER_UPLOADS - otherFiles.length;
+            if (space <= 0) return;
+            setOtherFiles(prev => [...prev, ...incoming.slice(0, space)]);
+          }}
           onClick={() => otherInputRef.current?.click()}
           role="button"
           aria-label="Drop other documents here or click to browse"
@@ -985,7 +965,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                 <button
                   type="button"
                   className="btn-link"
-                  onClick={() => removeOtherAt(idx)}
+                  onClick={() => setOtherFiles(prev => prev.filter((_, i) => i !== idx))}
                 >
                   Remove
                 </button>
