@@ -29,6 +29,12 @@ type BeneficiaryDetail = {
   dob?: string;
   ssn?: string;
   phone?: string;
+
+  // NEW required fields
+  email?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
 };
 
 const COD_OPTS = ["Natural", "Accident", "Homicide", "Pending"] as const;
@@ -313,6 +319,10 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
     dob: "",
     ssn: "",
     phone: "",
+    email: "",
+    city: "",
+    state: "",
+    zip: "",
   });
 
   function openAddBeneficiary(policyIdx: number, idxInPolicy: number) {
@@ -326,6 +336,10 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       dob: existing.dob || "",
       ssn: existing.ssn || "",
       phone: existing.phone || "",
+      email: existing.email || "",
+      city: existing.city || "",
+      state: existing.state || "",
+      zip: existing.zip || "",
     });
     setBeneModalOpen(true);
   }
@@ -337,6 +351,10 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
     if (!b.dob?.trim()) return "Beneficiary DOB is required.";
     if (!b.ssn?.trim() || !/^\d{3}-\d{2}-\d{4}$/.test(b.ssn)) return "Beneficiary SSN must be ###-##-####.";
     if (!b.phone?.trim() || onlyDigits(b.phone).length !== 10) return "Beneficiary Phone must be 10 digits.";
+    if (!b.email?.trim()) return "Beneficiary Email is required.";
+    if (!b.city?.trim()) return "Beneficiary City is required.";
+    if (!b.state?.trim()) return "Beneficiary State is required.";
+    if (!b.zip?.trim()) return "Beneficiary Zip is required.";
     return null;
   }
 
@@ -366,55 +384,126 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       dob: existing.dob || "",
       ssn: existing.ssn || "",
       phone: existing.phone || "",
+      email: existing.email || "",
+      city: existing.city || "",
+      state: existing.state || "",
+      zip: existing.zip || "",
     });
     setBeneViewOpen(true);
   }
 
-  /** ------------------- NEW: Download filled assignment ------------------- */
+  /** ------------------- NEW: Download filled assignment(s) ------------------- */
   async function downloadFilledAssignment() {
     try {
+      // Core values
       const insuredFirstName = (decFirstName || "").trim();
       const insuredLastName = (decLastName || "").trim();
       const dateOfDeath = fmtDateMDY(decDOD);
-      const assignmentAmount = formatMoney(
-        parseMoneyNumber(totalServiceAmount) +
-        parseMoneyNumber(familyAdvancementAmount) +
-        Math.max(+((parseMoneyNumber(totalServiceAmount)+parseMoneyNumber(familyAdvancementAmount))*0.03).toFixed(2), 100)
-      );
+
+      const total = parseMoneyNumber(totalServiceAmount);
+      const adv   = parseMoneyNumber(familyAdvancementAmount);
+      const vip   = Math.max(+((total + adv) * 0.03).toFixed(2), 100);
+      const assignmentAmount = formatMoney(total + adv + vip);
 
       const insuranceCompanyName = (selectedIC?.name || icInput || "").trim();
       const policyNumbers = bundles.map(b => b.policyNumber.trim()).filter(Boolean).join(", ");
       const fhRepName = (fhRep || "").trim();
 
-      const payload = {
-        insuredFirstName,
-        insuredLastName,
-        dateOfDeath,
-        assignmentAmount,
-        fhName: fhName || "",
-        insuranceCompanyName,
-        policyNumbers,
-        fhRepName,
-      };
-
-      const res = await fetch("/api/forms/assignment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+      // Flatten beneficiaries across all bundles in the order they appear
+      const flatBene: BeneficiaryDetail[] = [];
+      beneExtra.forEach((row, i) => {
+        (row || []).forEach((detail, j) => {
+          const name = (bundles[i]?.beneficiaries[j] || detail?.name || "").trim();
+          const full: BeneficiaryDetail = {
+            name,
+            relationship: detail?.relationship || "",
+            address: detail?.address || "",
+            dob: detail?.dob || "",
+            ssn: detail?.ssn || "",
+            phone: detail?.phone || "",
+            email: detail?.email || "",
+            city: detail?.city || "",
+            state: detail?.state || "",
+            zip: detail?.zip || "",
+          };
+          // include if any content or a name exists
+          if (Object.values(full).some(Boolean)) flatBene.push(full);
+        });
       });
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error(j?.error || `Failed to generate PDF (HTTP ${res.status})`);
+
+      // Pair beneficiaries [B1,B2], [B3,B4], ...
+      const pairs: Array<{ bene1?: BeneficiaryDetail; bene2?: BeneficiaryDetail }> = [];
+      for (let i = 0; i < flatBene.length; i += 2) {
+        pairs.push({ bene1: flatBene[i], bene2: flatBene[i + 1] });
       }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "Assignment-Filled.pdf";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      // If no beneficiaries at all, still produce one PDF with no bene blocks
+      if (pairs.length === 0) pairs.push({});
+
+      // Fire one request per pair and download
+      for (let idx = 0; idx < pairs.length; idx++) {
+        const { bene1, bene2 } = pairs[idx];
+
+        const payload = {
+          insuredFirstName,
+          insuredLastName,
+          dateOfDeath,
+          assignmentAmount,
+          fhName: fhName || "",
+          insuranceCompanyName,
+          policyNumbers,
+          fhRepName,
+          bene1: bene1
+            ? {
+                name: bene1.name || "",
+                relation: bene1.relationship || "",
+                ssn: bene1.ssn || "",
+                dob: bene1.dob || "",
+                phone: bene1.phone || "",
+                email: bene1.email || "",
+                address: bene1.address || "",
+                city: bene1.city || "",
+                state: bene1.state || "",
+                zip: bene1.zip || "",
+              }
+            : undefined,
+          bene2: bene2
+            ? {
+                name: bene2.name || "",
+                relation: bene2.relationship || "",
+                ssn: bene2.ssn || "",
+                dob: bene2.dob || "",
+                phone: bene2.phone || "",
+                email: bene2.email || "",
+                address: bene2.address || "",
+                city: bene2.city || "",
+                state: bene2.state || "",
+                zip: bene2.zip || "",
+              }
+            : undefined,
+          fileName: pairs.length === 1
+            ? "Assignment-Filled.pdf"
+            : `Assignment-Filled-Part${idx + 1}.pdf`,
+        };
+
+        const res = await fetch("/api/forms/assignment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}));
+          throw new Error(j?.error || `Failed to generate PDF (HTTP ${res.status})`);
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = payload.fileName!;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
     } catch (e: any) {
       alert(e?.message || "Could not generate filled assignment.");
     }
@@ -457,18 +546,20 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
 
       // Linked bundles → compat + JSON
       const policyNumbers = bundles.map(b => b.policyNumber.trim()).filter(Boolean);
-      const beneficiaries = bundles.flatMap(b => b.beneficiaries.map(x => x.trim()).filter(Boolean));
+      const beneficiariesNames = beneExtra.flat().map((d, idxRow) => d?.name || "").filter(Boolean);
       const faceSum = bundles.reduce((sum, b) => sum + parseMoneyNumber(b.faceAmount), 0);
+
       fd.set("policyNumbers", policyNumbers.join(", "));
-      fd.set("beneficiaries", beneficiaries.join(", "));
+      fd.set("beneficiaries", beneficiariesNames.join(", "));
       fd.set("faceAmount", formatMoney(faceSum));
       fd.set("policyBeneficiaries", JSON.stringify(beneExtra));
 
       // computed currency
-      fd.set("vipFee", formatMoney(vipFeeCalc));
-      fd.set("assignmentAmount", formatMoney(
-        parseMoneyNumber(totalServiceAmount) + parseMoneyNumber(familyAdvancementAmount) + Math.max(+((parseMoneyNumber(totalServiceAmount)+parseMoneyNumber(familyAdvancementAmount))*0.03).toFixed(2), 100)
-      ));
+      const total = parseMoneyNumber(totalServiceAmount);
+      const adv   = parseMoneyNumber(familyAdvancementAmount);
+      const vip   = Math.max(+((total + adv) * 0.03).toFixed(2), 100);
+      fd.set("vipFee", formatMoney(vip));
+      fd.set("assignmentAmount", formatMoney(total + adv + vip));
 
       // Remove any auto-included file fields (we’ll control them)
       fd.delete("assignmentUpload");
@@ -541,53 +632,38 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         @media (max-width:900px) { .fr-grid-2, .fr-grid-3, .fr-grid-3-tight { grid-template-columns:1fr; } .fr-form { font-size:17px; } }
         @media (max-width:600px) { .fr-form { font-size:16px; } }
 
-        /* Typeahead styles */
         .ic-box { position: relative; }
         .ic-list { position:absolute; z-index:30; top:calc(100% + 4px); left:0; right:0; background:var(--card-bg); border:1px solid var(--border); border-radius:0; max-height:240px; overflow:auto; }
         .ic-item { padding:8px 10px; cursor:pointer; }
         .ic-item:hover { background:rgba(255,255,255,.06); }
 
-        /* Policy bundle card (visual grouping) */
         .pb { border:1px dashed var(--border); padding:10px; margin-top:8px; }
         .pb-head { display:flex; justify-content:space-between; align-items:center; gap:8px; }
 
-        /* Dropzones */
-        .dz {
-          border:1px dashed var(--border);
-          background:var(--field-bg);
-          padding:14px;
-          display:grid;
-          place-items:center;
-          text-align:center;
-          cursor:pointer;
-        }
+        .dz { border:1px dashed var(--border); background:var(--field-bg); padding:14px; display:grid; place-items:center; text-align:center; cursor:pointer; }
         .dz.over { outline: 2px dashed var(--gold); outline-offset: 2px; }
         .dz small { color:var(--muted); }
+
         .file-list { display:grid; gap:6px; margin-top:8px; }
         .file-row { display:flex; align-items:center; justify-content:space-between; gap:8px; }
         .file-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .btn-link { background:transparent; border:1px solid var(--border); padding:4px 8px; cursor:pointer; }
 
         .btn-ghost { border:1px solid var(--border); background:var(--field-bg); color:#fff; border-radius:0; padding:8px 10px; cursor:pointer; text-decoration:none; display:inline-block; }
-        @media (prefers-color-scheme: light) {
-          .btn-ghost { color:#000; }
-        }
+        @media (prefers-color-scheme: light) { .btn-ghost { color:#000; } }
       `}</style>
 
       {/* FH / CEM */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Funeral Home / Cemetery</legend>
         <h3 className="fr-section-title">Funeral Home / Cemetery</h3>
-
         <label>FH/CEM Name
           <input name="fhName" type="text" className="fr-readonly" value={fhName} readOnly />
         </label>
-
         <div className="fr-grid-2">
           <label>FH/CEM REP
             <input name="fhRep" type="text" value={fhRep} onChange={(e) => setFhRep(e.target.value)} />
           </label>
-
           <label>Contact Phone
             <input
               name="contactPhone"
@@ -602,7 +678,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
             />
           </label>
         </div>
-
         <label>Contact Email
           <input
             name="contactEmail"
@@ -619,7 +694,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       <fieldset className="fr-card">
         <legend className="fr-legend">Decedent</legend>
         <h3 className="fr-section-title">Decedent</h3>
-
         <div className="fr-grid-2">
           <label>DEC First Name
             <input name="decFirstName" type="text" required value={decFirstName} onChange={(e) => setDecFirstName(e.target.value)} />
@@ -628,7 +702,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
             <input name="decLastName" type="text" required value={decLastName} onChange={(e) => setDecLastName(e.target.value)} />
           </label>
         </div>
-
         <div className="fr-grid-3-tight">
           <label>DEC Social Security Number
             <input
@@ -650,13 +723,8 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
             <input name="decDOD" type="date" value={decDOD} onChange={(e) => setDecDOD(e.target.value)} />
           </label>
         </div>
-
         <label>DEC Marital Status
-          <select
-            name="decMaritalStatus"
-            value={decMaritalStatus}
-            onChange={(e) => setDecMaritalStatus(e.target.value)}
-          >
+          <select name="decMaritalStatus" value={decMaritalStatus} onChange={(e) => setDecMaritalStatus(e.target.value)}>
             <option value="">— Select —</option>
             <option value="Single">Single</option>
             <option value="Married">Married</option>
@@ -665,7 +733,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
             <option value="Separated">Separated</option>
           </select>
         </label>
-
         {/* Address moved here */}
         <label>DEC Address
           <input name="decAddress" type="text" value={decAddress} onChange={(e) => setDecAddress(e.target.value)} />
@@ -687,7 +754,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       <fieldset className="fr-card">
         <legend className="fr-legend">Death</legend>
         <h3 className="fr-section-title">Death</h3>
-
         <div className="fr-grid-2">
           <label>City (Place of Death)
             <input name="decPODCity" type="text" value={decPODCity} onChange={(e) => setDecPODCity(e.target.value)} />
@@ -696,51 +762,28 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
             <input name="decPODState" type="text" value={decPODState} onChange={(e) => setDecPODState(e.target.value)} />
           </label>
         </div>
-
         <div className="fr-grid-2">
           <label>Was the Death in the U.S.?
-            <select
-              name="deathInUS"
-              value={deathInUS}
-              onChange={(e) => setDeathInUS(e.target.value)}
-            >
+            <select name="deathInUS" value={deathInUS} onChange={(e) => setDeathInUS(e.target.value)}>
               <option value="">— Select —</option>
               <option value="Yes">Yes</option>
               <option value="No">No</option>
             </select>
           </label>
-
           <label>Cause of Death
-            <select
-              name="codSingle"
-              required
-              value={cod}
-              onChange={(e) => setCod(e.target.value)}
-            >
+            <select name="codSingle" required value={cod} onChange={(e) => setCod(e.target.value)}>
               <option value="">— Select —</option>
               {COD_OPTS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
             </select>
           </label>
         </div>
-
         {deathInUS === "No" && (
           <label>Country (Place of Death)
-            <input
-              name="decPODCountry"
-              type="text"
-              value={decPODCountry}
-              onChange={(e) => setDecPODCountry(e.target.value)}
-            />
+            <input name="decPODCountry" type="text" value={decPODCountry} onChange={(e) => setDecPODCountry(e.target.value)} />
           </label>
         )}
-
         <label>Do you have the Final Death Certificate?
-          <select
-            name="hasFinalDC"
-            required
-            value={hasFinalDC}
-            onChange={(e) => setHasFinalDC(e.target.value)}
-          >
+          <select name="hasFinalDC" required value={hasFinalDC} onChange={(e) => setHasFinalDC(e.target.value)}>
             <option value="">— Select —</option>
             <option value="No">No</option>
             <option value="Yes">Yes</option>
@@ -755,12 +798,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
 
         {/* Employer question + conditional fields */}
         <label>Is the insurance through the deceased&apos;s employer?
-          <select
-            name="employerInsuranceSelect"
-            required
-            value={isEmployerInsurance}
-            onChange={(e) => setIsEmployerInsurance(e.target.value)}
-          >
+          <select name="employerInsuranceSelect" required value={isEmployerInsurance} onChange={(e) => setIsEmployerInsurance(e.target.value)}>
             <option value="">— Select —</option>
             <option value="No">No</option>
             <option value="Yes">Yes</option>
@@ -770,11 +808,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         {isEmployerInsurance === "Yes" && (
           <div className="fr-grid-2" style={{ marginTop: 8 }}>
             <label>Deceased was the
-              <select
-                name="employerRelation"
-                value={employerRelation}
-                onChange={(e) => setEmployerRelation(e.target.value)}
-              >
+              <select name="employerRelation" value={employerRelation} onChange={(e) => setEmployerRelation(e.target.value)}>
                 <option value="">— Select —</option>
                 <option value="Employee">Employee</option>
                 <option value="Dependent">Dependent</option>
@@ -782,42 +816,21 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
             </label>
 
             <label>Name of Employer
-              <input
-                name="employerCompanyName"
-                type="text"
-                value={employerCompanyName}
-                onChange={(e) => setEmployerCompanyName(e.target.value)}
-              />
+              <input name="employerCompanyName" type="text" value={employerCompanyName} onChange={(e) => setEmployerCompanyName(e.target.value)} />
             </label>
 
             <label>Employer Phone
-              <input
-                name="employerPhone"
-                type="tel"
-                inputMode="numeric"
-                pattern={PHONE_PATTERN_VSAFE}
-                value={employerPhone}
-                onChange={(e) => setEmployerPhone(formatPhone(e.target.value))}
-                placeholder="(555) 555-5555"
-                title="Please enter a valid 10-digit phone number"
-              />
+              <input name="employerPhone" type="tel" inputMode="numeric" pattern={PHONE_PATTERN_VSAFE}
+                value={employerPhone} onChange={(e) => setEmployerPhone(formatPhone(e.target.value))}
+                placeholder="(555) 555-5555" title="Please enter a valid 10-digit phone number" />
             </label>
 
             <label>Employer Contact Name
-              <input
-                name="employerContact"
-                type="text"
-                value={employerContact}
-                onChange={(e) => setEmployerContact(e.target.value)}
-              />
+              <input name="employerContact" type="text" value={employerContact} onChange={(e) => setEmployerContact(e.target.value)} />
             </label>
 
             <label>Employment Status
-              <select
-                name="employmentStatus"
-                value={employmentStatus}
-                onChange={(e) => setEmploymentStatus(e.target.value)}
-              >
+              <select name="employmentStatus" value={employmentStatus} onChange={(e) => setEmploymentStatus(e.target.value)}>
                 <option value="">— Select —</option>
                 <option value="Active">Active</option>
                 <option value="Retired">Retired</option>
@@ -848,17 +861,8 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           {icOpen && icMatches.length > 0 && (
             <div className="ic-list" role="listbox" aria-label="Insurance company suggestions">
               {icMatches.map(ic => (
-                <div
-                  key={ic.id}
-                  className="ic-item"
-                  role="option"
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    setSelectedIC(ic);
-                    setIcInput(ic.name);
-                    setIcOpen(false);
-                  }}
-                >
+                <div key={ic.id} className="ic-item" role="option"
+                  onMouseDown={(e) => { e.preventDefault(); setSelectedIC(ic); setIcInput(ic.name); setIcOpen(false); }}>
                   <div>{ic.name}</div>
                 </div>
               ))}
@@ -866,7 +870,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           )}
         </div>
 
-        {/* Estimated Verification Time AFTER selection */}
         {!!selectedIC?.verificationTime && (
           <p className="fr-muted" style={{ marginTop: 6 }}>
             <strong>Estimated Verification Time:</strong> {selectedIC.verificationTime}
@@ -884,78 +887,41 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                 <div className="pb-head">
                   <strong>{policyTitle}</strong>
                   {bundles.length > 1 && (
-                    <button type="button" className="fr-del" onClick={() => removePolicyBundle(i)}>
-                      Remove Policy
-                    </button>
+                    <button type="button" className="fr-del" onClick={() => removePolicyBundle(i)}>Remove Policy</button>
                   )}
                 </div>
 
                 {/* Beneficiaries FIRST */}
                 <div style={{ marginTop: 8 }}>
                   <label>{beneHeader}</label>
-                  {/* First slot */}
                   {b.beneficiaries[0] ? (
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                       <div style={{ fontWeight: 600 }}>{b.beneficiaries[0]}</div>
-                      <button
-                        type="button"
-                        className="btn btn-ghost"
-                        onClick={() => openViewBeneficiary(i, 0)}
-                      >
-                        View Info
-                      </button>
-                      {/* allow remove first beneficiary */}
-                      <button
-                        type="button"
-                        className="fr-del"
-                        onClick={() => removeBeneficiary(i, 0)}
-                      >
-                        Remove
-                      </button>
+                      <button type="button" className="btn btn-ghost" onClick={() => openViewBeneficiary(i, 0)}>View Info</button>
+                      <button type="button" className="fr-del" onClick={() => removeBeneficiary(i, 0)}>Remove</button>
                     </div>
                   ) : (
-                    // Initial state: only this button appears (no duplicate add button below)
-                    <button
-                      type="button"
-                      className="btn btn-ghost"
-                      onClick={() => openAddBeneficiary(i, 0)}
-                    >
+                    <button type="button" className="btn btn-ghost" onClick={() => openAddBeneficiary(i, 0)}>
                       + Add Beneficiary
                     </button>
                   )}
 
-                  {/* Additional beneficiaries */}
                   {b.beneficiaries.slice(1).map((val, j) => {
                     const realIdx = j + 1;
                     return (
                       <div key={realIdx} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
                         <div style={{ fontWeight: 600 }}>{val || "(unnamed beneficiary)"}</div>
-                        <button
-                          type="button"
-                          className="btn btn-ghost"
-                          onClick={() => (val ? openViewBeneficiary(i, realIdx) : openAddBeneficiary(i, realIdx))}
-                        >
+                        <button type="button" className="btn btn-ghost"
+                          onClick={() => (val ? openViewBeneficiary(i, realIdx) : openAddBeneficiary(i, realIdx))}>
                           {val ? "View Info" : "Add Info"}
                         </button>
-                        <button
-                          type="button"
-                          className="fr-del"
-                          onClick={() => removeBeneficiary(i, realIdx)}
-                        >
-                          Remove
-                        </button>
+                        <button type="button" className="fr-del" onClick={() => removeBeneficiary(i, realIdx)}>Remove</button>
                       </div>
                     );
                   })}
 
-                  {/* Show "Add Another Beneficiary" only after the first has a name */}
                   {hasAny && (
-                    <button
-                      type="button"
-                      className="btn btn-ghost"
-                      onClick={() => addBeneficiary(i)}
-                      style={{ marginTop: 8 }}
-                    >
+                    <button type="button" className="btn btn-ghost" onClick={() => addBeneficiary(i)} style={{ marginTop: 8 }}>
                       + Add Another Beneficiary
                     </button>
                   )}
@@ -963,26 +929,15 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
 
                 {/* Then Policy Number */}
                 <label style={{ marginTop: 8 }}>Policy Number
-                  <input
-                    type="text"
-                    value={b.policyNumber}
-                    onChange={(e) => updatePolicyNumber(i, e.target.value)}
-                  />
+                  <input type="text" value={b.policyNumber} onChange={(e) => updatePolicyNumber(i, e.target.value)} />
                 </label>
 
                 {/* Then Face Amount */}
                 <label style={{ marginTop: 8 }}>Face Amount
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={b.faceAmount}
-                    onChange={(e) => onFaceInput(i, e.target.value)}
-                    onBlur={(e) => onFaceBlur(i, e.target.value)}
-                    placeholder="$0.00"
-                  />
+                  <input type="text" inputMode="decimal" value={b.faceAmount}
+                    onChange={(e) => onFaceInput(i, e.target.value)} onBlur={(e) => onFaceBlur(i, e.target.value)} placeholder="$0.00" />
                 </label>
 
-                {/* Add Policy Number button only under the last bundle */}
                 {i === bundles.length - 1 && (
                   <button type="button" className="btn btn-ghost" onClick={addPolicyBundle} style={{ marginTop: 8 }}>
                     + Add Policy Number
@@ -998,47 +953,27 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       <fieldset className="fr-card">
         <legend className="fr-legend">Financials</legend>
         <h3 className="fr-section-title">Financials</h3>
-
         <div className="fr-grid-3">
           <label>Total Service Amount
-            <input
-              name="totalServiceAmount" type="text" inputMode="decimal" required
-              value={totalServiceAmount}
-              onChange={(e) => handleCurrencyInput(e.target.value, setTotalServiceAmount)}
-              onBlur={(e) => handleCurrencyBlur(e.target.value, setTotalServiceAmount)}
-              placeholder="$0.00"
-            />
+            <input name="totalServiceAmount" type="text" inputMode="decimal" required
+              value={totalServiceAmount} onChange={(e) => handleCurrencyInput(e.target.value, setTotalServiceAmount)}
+              onBlur={(e) => handleCurrencyBlur(e.target.value, setTotalServiceAmount)} placeholder="$0.00" />
           </label>
-
-        <label>Family Advancement Amount
-            <input
-              name="familyAdvancementAmount" type="text" inputMode="decimal"
-              value={familyAdvancementAmount}
-              onChange={(e) => handleCurrencyInput(e.target.value, setFamilyAdvancementAmount)}
-              onBlur={(e) => handleCurrencyBlur(e.target.value, setFamilyAdvancementAmount)}
-              placeholder="$0.00"
-            />
+          <label>Family Advancement Amount
+            <input name="familyAdvancementAmount" type="text" inputMode="decimal"
+              value={familyAdvancementAmount} onChange={(e) => handleCurrencyInput(e.target.value, setFamilyAdvancementAmount)}
+              onBlur={(e) => handleCurrencyBlur(e.target.value, setFamilyAdvancementAmount)} placeholder="$0.00" />
           </label>
-
           <label>VIP Fee (3% or $100 min)
-            <input
-              name="vipFee" type="text"
-              value={formatMoney(vipFeeCalc)}
-              readOnly={!isAdmin}
-              className={!isAdmin ? "fr-readonly" : undefined}
-            />
+            <input name="vipFee" type="text" value={formatMoney(vipFeeCalc)} readOnly={!isAdmin}
+              className={!isAdmin ? "fr-readonly" : undefined} />
           </label>
-
           <label>Total Assignment Amount
-            <input
-              name="assignmentAmount" type="text"
+            <input name="assignmentAmount" type="text"
               value={formatMoney( parseMoneyNumber(totalServiceAmount) + parseMoneyNumber(familyAdvancementAmount) + Math.max(+((parseMoneyNumber(totalServiceAmount)+parseMoneyNumber(familyAdvancementAmount))*0.03).toFixed(2), 100) )}
-              readOnly={!isAdmin}
-              className={!isAdmin ? "fr-readonly" : undefined}
-            />
+              readOnly={!isAdmin} className={!isAdmin ? "fr-readonly" : undefined} />
           </label>
         </div>
-
         <p className="fr-muted" style={{ marginTop: 6 }}>
           VIP fee is calculated as 3% of (Service + Advancement), with a minimum of $100.<br />
           Total Assignment = Service + Advancement + VIP.
@@ -1052,96 +987,35 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         <p className="fr-muted" style={{ marginBottom: 10 }}>
           Download and print the assignment, complete all required fields in their entirety, obtain the signatures of all necessary parties, and ensure the document is properly notarized.
         </p>
-
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {/* Blank template download (ghost style/no underline) */}
-          <a
-            href={"/Funding%20Request%20Assignment.pdf"}
-            download
-            className="btn-ghost"
-            aria-label="Download blank assignment PDF"
-          >
-            Download
-          </a>
-
-          {/* New filled form download */}
-          <button
-            type="button"
-            className="btn-ghost"
-            onClick={downloadFilledAssignment}
-            aria-label="Download filled assignment PDF"
-          >
-            Download Filled
-          </button>
+          <a href={"/Funding%20Request%20Assignment.pdf"} download className="btn-ghost" aria-label="Download blank assignment PDF">Download</a>
+          <button type="button" className="btn-ghost" onClick={downloadFilledAssignment} aria-label="Download filled assignment PDF">Download Filled</button>
         </div>
       </fieldset>
 
-      {/* Upload Assignment (with drag & drop) */}
+      {/* Upload Assignment */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Upload Assignment</legend>
         <h3 className="fr-section-title">Upload Assignment</h3>
-
-        {/* hidden input to keep native picker */}
-        <input
-          ref={assignmentInputRef}
-          name="assignmentUpload"
-          type="file"
-          accept={FILE_ACCEPT}
-          onChange={(e) => setAssignmentFile(e.currentTarget.files?.[0] || null)}
-          style={{ display: "none" }}
-        />
-
-        <div
-          className={`dz ${assignmentOver ? "over" : ""}`}
-          onDragOver={(e) => { e.preventDefault(); setAssignmentOver(true); }}
-          onDragEnter={(e) => { e.preventDefault(); setAssignmentOver(true); }}
+        <input ref={assignmentInputRef} name="assignmentUpload" type="file" accept={FILE_ACCEPT} onChange={(e) => setAssignmentFile(e.currentTarget.files?.[0] || null)} style={{ display: "none" }} />
+        <div className={`dz ${assignmentOver ? "over" : ""}`}
+          onDragOver={(e) => { e.preventDefault(); }} onDragEnter={(e) => { e.preventDefault(); setAssignmentOver(true); }}
           onDragLeave={(e) => { e.preventDefault(); setAssignmentOver(false); }}
-          onDrop={(e) => {
-            e.preventDefault();
-            setAssignmentOver(false);
-            const dtFiles = Array.from(e.dataTransfer.files || []);
-            if (dtFiles.length > 0) setAssignmentFile(dtFiles[0]);
-          }}
-          onClick={() => assignmentInputRef.current?.click()}
-          role="button"
-          aria-label="Drop assignment file here or click to browse"
-          tabIndex={0}
-        >
+          onDrop={(e) => { e.preventDefault(); setAssignmentOver(false); const dtFiles = Array.from(e.dataTransfer.files || []); if (dtFiles.length > 0) setAssignmentFile(dtFiles[0]); }}
+          onClick={() => assignmentInputRef.current?.click()} role="button" aria-label="Drop assignment file here or click to browse" tabIndex={0}>
           <div>
             <strong>Drag & drop the assignment here</strong>
             <div style={{ marginTop: 6 }}><button type="button" className="btn-link">Browse file</button></div>
             <small>Accepted: PDF, DOC/DOCX, PNG/JPG, TIFF, WEBP, GIF, TXT. Max 500MB.</small>
           </div>
         </div>
-
-        {assignmentFile && (
-          <div className="file-list">
-            <div className="file-row">
-              <span className="file-name">{assignmentFile.name}</span>
-              <button
-                type="button"
-                className="btn-link"
-                onClick={() => setAssignmentFile(null)}
-              >
-                Remove
-              </button>
-            </div>
-          </div>
-        )}
       </fieldset>
 
-      {/* Upload Other Documents (drag & drop + multiple) */}
+      {/* Upload Other Documents */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Upload Other Documents</legend>
         <h3 className="fr-section-title">Upload Other Documents</h3>
-
-        {/* hidden input to keep native picker */}
-        <input
-          ref={otherInputRef}
-          name="otherUploads"
-          type="file"
-          multiple
-          accept={FILE_ACCEPT}
+        <input ref={otherInputRef} name="otherUploads" type="file" multiple accept={FILE_ACCEPT}
           onChange={(e) => {
             const incoming = Array.from(e.currentTarget.files || []);
             if (!incoming.length) return;
@@ -1149,52 +1023,24 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
             if (space <= 0) return;
             setOtherFiles(prev => [...prev, ...incoming.slice(0, space)]);
             (e.currentTarget as HTMLInputElement).value = "";
-          }}
-          style={{ display: "none" }}
-        />
-
-        <div
-          className={`dz ${otherOver ? "over" : ""}`}
-          onDragOver={(e) => { e.preventDefault(); setOtherOver(true); }}
-          onDragEnter={(e) => { e.preventDefault(); setOtherOver(true); }}
+          }} style={{ display: "none" }} />
+        <div className={`dz ${otherOver ? "over" : ""}`}
+          onDragOver={(e) => { e.preventDefault(); setOtherOver(true); }} onDragEnter={(e) => { e.preventDefault(); setOtherOver(true); }}
           onDragLeave={(e) => { e.preventDefault(); setOtherOver(false); }}
-          onDrop={(e) => {
-            e.preventDefault(); setOtherOver(false);
+          onDrop={(e) => { e.preventDefault(); setOtherOver(false);
             const incoming = Array.from(e.dataTransfer.files || []);
             if (!incoming.length) return;
             const space = MAX_OTHER_UPLOADS - otherFiles.length;
             if (space <= 0) return;
             setOtherFiles(prev => [...prev, ...incoming.slice(0, space)]);
           }}
-          onClick={() => otherInputRef.current?.click()}
-          role="button"
-          aria-label="Drop other documents here or click to browse"
-          tabIndex={0}
-        >
+          onClick={() => otherInputRef.current?.click()} role="button" aria-label="Drop other documents here or click to browse" tabIndex={0}>
           <div>
             <strong>Drag & drop documents here</strong>
             <div style={{ marginTop: 6 }}><button type="button" className="btn-link">Browse files</button></div>
             <small>Up to 50 files. Max 500MB each. Accepted: PDF, DOC/DOCX, PNG/JPG, TIFF, WEBP, GIF, TXT.</small>
           </div>
         </div>
-
-        {otherFiles.length > 0 && (
-          <div className="file-list" aria-live="polite">
-            {otherFiles.map((f, idx) => (
-              <div key={idx} className="file-row">
-                <span className="file-name">{idx + 1}. {f.name}</span>
-                <button
-                  type="button"
-                  className="btn-link"
-                  onClick={() => setOtherFiles(prev => prev.filter((_, i) => i !== idx))}
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-            <small>{otherFiles.length} / {MAX_OTHER_UPLOADS} selected</small>
-          </div>
-        )}
       </fieldset>
 
       <button disabled={saving} className="fr-gold fr-submit" type="submit">
@@ -1213,74 +1059,56 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
             </div>
             <div className="modal-body">
               <label>Beneficiary Name *
-                <input
-                  type="text"
-                  value={beneDraft.name}
-                  onChange={(e) => setBeneDraft({ ...beneDraft, name: e.target.value })}
-                  placeholder="Full name"
-                  required
-                />
+                <input type="text" value={beneDraft.name} onChange={(e) => setBeneDraft({ ...beneDraft, name: e.target.value })} placeholder="Full name" required />
               </label>
+
               <div className="row-2">
                 <label>Relationship to DEC *
-                  <input
-                    type="text"
-                    value={beneDraft.relationship || ""}
-                    onChange={(e) => setBeneDraft({ ...beneDraft, relationship: e.target.value })}
-                    placeholder="e.g., Spouse, Child"
-                    required
-                  />
+                  <input type="text" value={beneDraft.relationship || ""} onChange={(e) => setBeneDraft({ ...beneDraft, relationship: e.target.value })} placeholder="e.g., Spouse, Child" required />
                 </label>
                 <label>Beneficiary DOB *
-                  <input
-                    type="date"
-                    value={beneDraft.dob || ""}
-                    onChange={(e) => setBeneDraft({ ...beneDraft, dob: e.target.value })}
-                    required
-                  />
+                  <input type="date" value={beneDraft.dob || ""} onChange={(e) => setBeneDraft({ ...beneDraft, dob: e.target.value })} required />
                 </label>
               </div>
+
               <label>Beneficiary Address *
-                <input
-                  type="text"
-                  value={beneDraft.address || ""}
-                  onChange={(e) => setBeneDraft({ ...beneDraft, address: e.target.value })}
-                  placeholder="Street, City, State ZIP"
-                  required
-                />
+                <input type="text" value={beneDraft.address || ""} onChange={(e) => setBeneDraft({ ...beneDraft, address: e.target.value })} placeholder="Street Address" required />
               </label>
+
+              <div className="row-2">
+                <label>Beneficiary City *
+                  <input type="text" value={beneDraft.city || ""} onChange={(e) => setBeneDraft({ ...beneDraft, city: e.target.value })} required />
+                </label>
+                <label>Beneficiary State *
+                  <input type="text" value={beneDraft.state || ""} onChange={(e) => setBeneDraft({ ...beneDraft, state: e.target.value })} required />
+                </label>
+              </div>
+
+              <div className="row-2">
+                <label>Beneficiary Zip *
+                  <input type="text" value={beneDraft.zip || ""} onChange={(e) => setBeneDraft({ ...beneDraft, zip: e.target.value })} required />
+                </label>
+                <label>Beneficiary Email *
+                  <input type="email" value={beneDraft.email || ""} onChange={(e) => setBeneDraft({ ...beneDraft, email: e.target.value })} placeholder="name@example.com" required />
+                </label>
+              </div>
+
               <div className="row-2">
                 <label>Beneficiary SSN *
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    pattern={SSN_PATTERN}
-                    maxLength={11}
-                    value={beneDraft.ssn || ""}
+                  <input type="text" inputMode="numeric" pattern={SSN_PATTERN} maxLength={11} value={beneDraft.ssn || ""}
                     onChange={(e) => setBeneDraft({ ...beneDraft, ssn: formatSSN(e.target.value) })}
-                    placeholder="###-##-####"
-                    title="Enter SSN as 123-45-6789"
-                    required
-                  />
+                    placeholder="###-##-####" title="Enter SSN as 123-45-6789" required />
                 </label>
                 <label>Beneficiary Phone Number *
-                  <input
-                    type="tel"
-                    inputMode="numeric"
-                    pattern={PHONE_PATTERN_VSAFE}
-                    value={beneDraft.phone || ""}
+                  <input type="tel" inputMode="numeric" pattern={PHONE_PATTERN_VSAFE} value={beneDraft.phone || ""}
                     onChange={(e) => setBeneDraft({ ...beneDraft, phone: formatPhone(e.target.value) })}
-                    placeholder="(555) 555-5555"
-                    title="Please enter a valid 10-digit phone number"
-                    required
-                  />
+                    placeholder="(555) 555-5555" title="Please enter a valid 10-digit phone number" required />
                 </label>
               </div>
+
               <div className="modal-actions">
                 <button className="btn" onClick={() => setBeneModalOpen(false)}>Cancel</button>
-                <button className="btn btn-gold" onClick={saveBeneficiaryFromModal}>
-                  Save
-                </button>
+                <button className="btn btn-gold" onClick={saveBeneficiaryFromModal}>Save</button>
               </div>
             </div>
           </div>
@@ -1299,6 +1127,14 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
               <div><strong>Name:</strong> {beneDraft.name || "—"}</div>
               <div><strong>Relationship to DEC:</strong> {beneDraft.relationship || "—"}</div>
               <div><strong>Address:</strong> {beneDraft.address || "—"}</div>
+              <div className="row-2">
+                <div><strong>City:</strong> {beneDraft.city || "—"}</div>
+                <div><strong>State:</strong> {beneDraft.state || "—"}</div>
+              </div>
+              <div className="row-2">
+                <div><strong>Zip:</strong> {beneDraft.zip || "—"}</div>
+                <div><strong>Email:</strong> {beneDraft.email || "—"}</div>
+              </div>
               <div className="row-2">
                 <div><strong>DOB:</strong> {beneDraft.dob || "—"}</div>
                 <div><strong>SSN:</strong> {beneDraft.ssn || "—"}</div>
