@@ -10,7 +10,7 @@ type BenePayload = {
   name?: string;
   relation?: string;
   ssn?: string;
-  dob?: string;     // MM/DD/YYYY expected
+  dob?: string;     // MM/DD/YYYY
   phone?: string;
   email?: string;
   address?: string;
@@ -32,7 +32,7 @@ type Payload = {
   bene1?: BenePayload;
   bene2?: BenePayload;
 
-  fileName?: string;              // optional: suggests Content-Disposition filename
+  fileName?: string;              // optional: output filename
 };
 
 export async function POST(req: Request) {
@@ -46,12 +46,22 @@ export async function POST(req: Request) {
     const pdf = await PDFDocument.load(bytes);
     const form = pdf.getForm();
 
+    // Strict set (single field name)
     const set = (fieldName: string, value?: string | null) => {
       try {
         form.getTextField(fieldName).setText(value ?? "");
+        return true;
       } catch {
-        // Field not present in the PDF — ignore silently
+        return false;
       }
+    };
+
+    // Robust setter that tries multiple possible names
+    const setAny = (names: string[], value?: string | null) => {
+      for (const name of names) {
+        if (set(name, value)) return true;
+      }
+      return false;
     };
 
     // Compose mapped values
@@ -60,17 +70,46 @@ export async function POST(req: Request) {
       .filter(Boolean)
       .join(" ");
 
-    // === Core field mappings ===
+    // ========== Core field mappings ==========
     set("Insured Deceased Name", insuredDeceasedName);
     set("Date of Death", body.dateOfDeath || "");
-    set("Assignment Amount", body.assignmentAmount || ""); // <— re-tried mapping
     set("Funeral Home or Cemetery Name", body.fhName || "");
     set("Insurance Company Name", body.insuranceCompanyName || "");
     set("Policy Numbers", body.policyNumbers || "");
     set("Name of Funeral Home or Cemetery", body.fhName || "");
-    set("FH or CEM Rep Name", body.fhRepName || "");       // <— re-tried mapping
 
-    // === Bene1 ===
+    // Assignment Amount (try several common variants)
+    setAny(
+      [
+        "Assignment Amount",
+        "Total Assignment Amount",
+        "AssignmentAmount",
+        "Assignment  Amount",
+        "Total Assignment",
+        "Assignment Total",
+      ],
+      body.assignmentAmount || ""
+    );
+
+    // FH / CEM Rep Name (try several variants)
+    setAny(
+      [
+        "FH or CEM Rep Name",
+        "FH/CEM Rep Name",
+        "FH or CEM REP Name",
+        "FH/CEM REP Name",
+        "FH or CEM Rep",
+        "FH/CEM Rep",
+        "FH or CEM REP",
+        "FH/CEM REP",
+        "FH or CEM Representative",
+        "FH Rep Name",
+        "CEM Rep Name",
+      ],
+      body.fhRepName || ""
+    );
+
+    // ========== Beneficiary blocks ==========
     if (body.bene1) {
       set("Bene1 Name",     body.bene1.name || "");
       set("Bene1 Relation", body.bene1.relation || "");
@@ -84,7 +123,6 @@ export async function POST(req: Request) {
       set("Bene1 Zip",      body.bene1.zip || "");
     }
 
-    // === Bene2 ===
     if (body.bene2) {
       set("Bene2 Name",     body.bene2.name || "");
       set("Bene2 Relation", body.bene2.relation || "");
@@ -98,6 +136,7 @@ export async function POST(req: Request) {
       set("Bene2 Zip",      body.bene2.zip || "");
     }
 
+    // Flatten for a clean, non-editable output
     form.flatten();
 
     // Save as base64 and return as a Buffer (clean typings)
