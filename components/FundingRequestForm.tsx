@@ -78,6 +78,14 @@ function formatSSN(value: string): string {
   return `${d.slice(0, 3)}-${d.slice(3, 5)}-${d.slice(5)}`;
 }
 
+// Simple date formatter (YYYY-MM-DD -> MM/DD/YYYY)
+function fmtDateMDY(iso?: string) {
+  if (!iso) return "";
+  const [y, m, d] = iso.split("-");
+  if (!y || !m || !d) return iso;
+  return `${m}/${d}/${y}`;
+}
+
 /** ------------------- Component ------------------- */
 export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: boolean }) {
   const router = useRouter();
@@ -362,6 +370,56 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
     setBeneViewOpen(true);
   }
 
+  /** ------------------- NEW: Download filled assignment ------------------- */
+  async function downloadFilledAssignment() {
+    try {
+      const insuredFirstName = (decFirstName || "").trim();
+      const insuredLastName = (decLastName || "").trim();
+      const dateOfDeath = fmtDateMDY(decDOD);
+      const assignmentAmount = formatMoney(
+        parseMoneyNumber(totalServiceAmount) +
+        parseMoneyNumber(familyAdvancementAmount) +
+        Math.max(+((parseMoneyNumber(totalServiceAmount)+parseMoneyNumber(familyAdvancementAmount))*0.03).toFixed(2), 100)
+      );
+
+      const insuranceCompanyName = (selectedIC?.name || icInput || "").trim();
+      const policyNumbers = bundles.map(b => b.policyNumber.trim()).filter(Boolean).join(", ");
+      const fhRepName = (fhRep || "").trim();
+
+      const payload = {
+        insuredFirstName,
+        insuredLastName,
+        dateOfDeath,
+        assignmentAmount,
+        fhName: fhName || "",
+        insuranceCompanyName,
+        policyNumbers,
+        fhRepName,
+      };
+
+      const res = await fetch("/api/forms/assignment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j?.error || `Failed to generate PDF (HTTP ${res.status})`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "Assignment-Filled.pdf";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      alert(e?.message || "Could not generate filled assignment.");
+    }
+  }
+
   /** ------------------- Submit ------------------- */
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -404,13 +462,13 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       fd.set("policyNumbers", policyNumbers.join(", "));
       fd.set("beneficiaries", beneficiaries.join(", "));
       fd.set("faceAmount", formatMoney(faceSum));
-
-      // optional structured details (safe to ignore server-side)
       fd.set("policyBeneficiaries", JSON.stringify(beneExtra));
 
       // computed currency
       fd.set("vipFee", formatMoney(vipFeeCalc));
-      fd.set("assignmentAmount", formatMoney(assignmentAmountCalc));
+      fd.set("assignmentAmount", formatMoney(
+        parseMoneyNumber(totalServiceAmount) + parseMoneyNumber(familyAdvancementAmount) + Math.max(+((parseMoneyNumber(totalServiceAmount)+parseMoneyNumber(familyAdvancementAmount))*0.03).toFixed(2), 100)
+      ));
 
       // Remove any auto-included file fields (we’ll control them)
       fd.delete("assignmentUpload");
@@ -456,7 +514,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         .fr-form { --title-color:#d6b16d; --card-bg:#0b0d0f; --border:#1a1c1f; --field-bg:#121416; --muted:#e0e0e0; font-size:18px; line-height:1.45; display:grid; gap:16px; }
         @media (prefers-color-scheme: light) { .fr-form { --title-color:#000; --card-bg:#fff; --border:#d0d5dd; --field-bg:#f2f4f6; --muted:#333; } }
 
-        .fr-page-title { text-align:center; color:var(--title-color); margin:20px 0 12px; font-weight:800; font-size:26px; }
         .fr-card { background:var(--card-bg); border:1px solid var(--border); border-radius:0; padding:14px; }
         .fr-legend { position:absolute !important; height:1px; width:1px; overflow:hidden; clip:rect(1px,1px,1px,1px); white-space:nowrap; }
         .fr-section-title { color:var(--title-color); font-weight:800; margin:0 0 12px 0; font-size:20px; }
@@ -494,18 +551,28 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         .pb { border:1px dashed var(--border); padding:10px; margin-top:8px; }
         .pb-head { display:flex; justify-content:space-between; align-items:center; gap:8px; }
 
-        /* Simple modal */
-        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: grid; place-items: center; z-index: 60; }
-        .modal { background: var(--card-bg); border: 1px solid var(--border); width: min(640px, 96vw); max-height: 90vh; overflow: auto; padding: 12px; border-radius: 0; }
-        .modal-header { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
-        .modal-title { color: var(--gold); font-weight: 800; margin: 0; }
-        .modal-body { display:grid; gap:10px; }
-        .modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top: 8px; }
-        .row-2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-        @media (max-width:700px){ .row-2 { grid-template-columns: 1fr; } }
-      `}</style>
+        /* Dropzones */
+        .dz {
+          border:1px dashed var(--border);
+          background:var(--field-bg);
+          padding:14px;
+          display:grid;
+          place-items:center;
+          text-align:center;
+          cursor:pointer;
+        }
+        .dz.over { outline: 2px dashed var(--gold); outline-offset: 2px; }
+        .dz small { color:var(--muted); }
+        .file-list { display:grid; gap:6px; margin-top:8px; }
+        .file-row { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+        .file-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .btn-link { background:transparent; border:1px solid var(--border); padding:4px 8px; cursor:pointer; }
 
-      <h2 className="fr-page-title">Funding Request</h2>
+        .btn-ghost { border:1px solid var(--border); background:var(--field-bg); color:#fff; border-radius:0; padding:8px 10px; cursor:pointer; text-decoration:none; display:inline-block; }
+        @media (prefers-color-scheme: light) {
+          .btn-ghost { color:#000; }
+        }
+      `}</style>
 
       {/* FH / CEM */}
       <fieldset className="fr-card">
@@ -943,7 +1010,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
             />
           </label>
 
-          <label>Family Advancement Amount
+        <label>Family Advancement Amount
             <input
               name="familyAdvancementAmount" type="text" inputMode="decimal"
               value={familyAdvancementAmount}
@@ -978,21 +1045,35 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         </p>
       </fieldset>
 
-      {/* NEW: Download Assignment */}
+      {/* Download Assignment */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Download Assignment</legend>
         <h3 className="fr-section-title">Download Assignment</h3>
         <p className="fr-muted" style={{ marginBottom: 10 }}>
           Download and print the assignment, complete all required fields in their entirety, obtain the signatures of all necessary parties, and ensure the document is properly notarized.
         </p>
-        <a
-          href={"/Funding%20Request%20Assignment.pdf"}
-          download
-          className="btn"
-          aria-label="Download assignment PDF"
-        >
-          Download
-        </a>
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {/* Blank template download (ghost style/no underline) */}
+          <a
+            href={"/Funding%20Request%20Assignment.pdf"}
+            download
+            className="btn-ghost"
+            aria-label="Download blank assignment PDF"
+          >
+            Download
+          </a>
+
+          {/* New filled form download */}
+          <button
+            type="button"
+            className="btn-ghost"
+            onClick={downloadFilledAssignment}
+            aria-label="Download filled assignment PDF"
+          >
+            Download Filled
+          </button>
+        </div>
       </fieldset>
 
       {/* Upload Assignment (with drag & drop) */}

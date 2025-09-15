@@ -21,22 +21,18 @@ export async function POST(req: Request) {
   try {
     const body = (await req.json()) as Payload;
 
-    // Load template PDF from /public
-    // NOTE: In Next.js, /public files are served from root at runtime.
-    // On server, we read them from the filesystem:
+    // Load template from /public
     const tplPath = path.join(process.cwd(), "public", "Funding Request Assignment.pdf");
     const bytes = await readFile(tplPath);
 
     const pdf = await PDFDocument.load(bytes);
     const form = pdf.getForm();
 
-    // Helper to set a text field if present
-    const set = (name: string, val?: string | null) => {
+    const set = (fieldName: string, value?: string | null) => {
       try {
-        const f = form.getTextField(name);
-        f.setText(val ?? "");
+        form.getTextField(fieldName).setText(value ?? "");
       } catch {
-        // Field not found in the PDF - ignore
+        // Field not present in the PDF — ignore
       }
     };
 
@@ -46,7 +42,7 @@ export async function POST(req: Request) {
       .filter(Boolean)
       .join(" ");
 
-    // === Field mappings (as requested) ===
+    // === Field mappings ===
     set("Insured Deceased Name", insuredDeceasedName);
     set("Date of Death", body.dateOfDeath || "");
     set("Assignment Amount", body.assignmentAmount || "");
@@ -55,16 +51,15 @@ export async function POST(req: Request) {
     set("Policy Numbers", body.policyNumbers || "");
     set("Name of Funeral Home or Cemetery", body.fhName || "");
     set("FH or CEM Rep Name", body.fhRepName || "");
+    // (Beneficiary fields can be added later)
 
-    // (Bene fields intentionally not mapped yet per request.)
-    // set("Bene1 Name", ...)
-    // set("Bene2 Name", ...) etc.
-
-    // Flatten to make fields non-editable in the output
     form.flatten();
 
-    const out = await pdf.save();
-    return new Response(out, {
+    // Save as base64 and return as a Buffer to avoid Uint8Array/Blob typing friction
+    const base64 = await pdf.saveAsBase64({ dataUri: false });
+    const buf = Buffer.from(base64, "base64");
+
+    return new Response(buf, {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
@@ -72,7 +67,7 @@ export async function POST(req: Request) {
         "Cache-Control": "no-store",
       },
     });
-  } catch (err: any) {
+  } catch (err) {
     console.error("[assignment form] error", err);
     return NextResponse.json({ error: "Failed to generate PDF" }, { status: 500 });
   }
