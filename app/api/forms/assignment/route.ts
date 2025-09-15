@@ -63,12 +63,16 @@ export async function POST(req: Request) {
     // === Core field mappings ===
     set("Insured Deceased Name", insuredDeceasedName);
     set("Date of Death", body.dateOfDeath || "");
-    set("Assignment Amount", body.assignmentAmount || ""); // <— re-tried mapping
+
+    // Strip only the "$" from assignment amount before setting
+    const assignmentAmountPlain = (body.assignmentAmount || "").replace(/\$/g, "");
+    set("Assignment Amount", assignmentAmountPlain);
+
     set("Funeral Home or Cemetery Name", body.fhName || "");
     set("Insurance Company Name", body.insuranceCompanyName || "");
     set("Policy Numbers", body.policyNumbers || "");
     set("Name of Funeral Home or Cemetery", body.fhName || "");
-    set("FH or CEM Rep Name", body.fhRepName || "");       // <— re-tried mapping
+    set("FH or CEM Rep Name", body.fhRepName || "");
 
     // === Bene1 ===
     if (body.bene1) {
