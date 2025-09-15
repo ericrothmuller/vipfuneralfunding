@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
-   "start": "next start -p 3000",
+    "start": "next start -p 3000",
     "lint": "next lint",
     "seed:ics": "ts-node --transpile-only scripts/seed-insurance-companies.ts"
   },
@@ -16,6 +16,7 @@
     "mongodb": "^6.18.0",
     "mongoose": "^8.17.1",
     "next": "15.4.6",
+    "pdf-lib": "^1.17.1",
     "react": "19.1.0",
     "react-dom": "19.1.0"
   },
