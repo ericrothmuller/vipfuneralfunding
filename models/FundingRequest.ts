@@ -32,8 +32,9 @@ export interface IFundingRequest {
   assignmentAmount?: number;
 
   // uploads
-  assignmentUploadPath?: string;
-  otherUploadPaths?: string[];               // NEW: multiple other documents
+  assignmentUploadPath?: string;             // legacy single
+  assignmentUploadPaths?: string[];          // NEW: multiple assignment files (up to 10)
+  otherUploadPaths?: string[];               // multiple other documents
 
   // workflow
   status: FundingStatus;
@@ -67,8 +68,10 @@ const FundingRequestSchema = new Schema<IFundingRequest>(
     vipFee: { type: Number, default: 0 },
     assignmentAmount: { type: Number, default: 0 },
 
-    assignmentUploadPath: { type: String, trim: true },
-    otherUploadPaths: { type: [String], default: [] }, // NEW
+    // uploads
+    assignmentUploadPath: { type: String, trim: true },        // legacy single
+    assignmentUploadPaths: { type: [String], default: [] },    // NEW multiple
+    otherUploadPaths: { type: [String], default: [] },
 
     status: {
       type: String,
