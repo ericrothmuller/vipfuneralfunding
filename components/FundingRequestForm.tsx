@@ -40,6 +40,7 @@ const SSN_PATTERN = String.raw`\d{3}-\d{2}-\d{4}`;
 const FILE_ACCEPT =
   ".pdf,.doc,.docx,.png,.jpg,.jpeg,.tif,.tiff,.webp,.gif,.txt";
 const MAX_OTHER_UPLOADS = 50;
+const MAX_ASSIGNMENT_UPLOADS = 10;
 
 /** ------------------- Helpers ------------------- */
 function onlyDigits(s: string) { return s.replace(/\D+/g, ""); }
@@ -244,14 +245,21 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
   /** Notes */
   const [notes, setNotes] = useState("");
 
-  /** Upload state (drag & drop + Browse) */
-  const [assignmentFile, setAssignmentFile] = useState<File | null>(null);
+  /** Upload state (Assignment: multi; Other: multi) */
+  const [assignmentFiles, setAssignmentFiles] = useState<File[]>([]);
   const assignmentInputRef = useRef<HTMLInputElement | null>(null);
   const [assignmentOver, setAssignmentOver] = useState(false);
 
   const [otherFiles, setOtherFiles] = useState<File[]>([]);
   const otherInputRef = useRef<HTMLInputElement | null>(null);
   const [otherOver, setOtherOver] = useState(false);
+
+  function addAssignmentFiles(incoming: File[]) {
+    if (!incoming.length) return;
+    const space = MAX_ASSIGNMENT_UPLOADS - assignmentFiles.length;
+    if (space <= 0) return;
+    setAssignmentFiles(prev => [...prev, ...incoming.slice(0, space)]);
+  }
 
   /** UI state */
   const [saving, setSaving] = useState(false);
@@ -395,7 +403,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
 
   /** Edit from View modal */
   function startEditBeneficiary() {
-    // reuse current beneDraft/benePolicyIdx/beneIndex
     setBeneViewOpen(false);
     setBeneModalOpen(true);
   }
@@ -406,7 +413,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
   const [existingChoices, setExistingChoices] = useState<Array<{ label: string; detail: BeneficiaryDetail }>>([]);
   const [existingSelectedIdx, setExistingSelectedIdx] = useState<number | null>(null);
 
-  /** Helpers to decide available existing choices (not already on current policy) */
   function signaturesForPolicy(policyIdx: number): Set<string> {
     const sigs = new Set<string>();
     const row = beneExtra[policyIdx] || [];
@@ -446,7 +452,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       return;
     }
     setExistingChoices(choices);
-    setExistingSelectedIdx(null); // empty default selection
+    setExistingSelectedIdx(null);
     setExistingForPolicyIdx(policyIdx);
     setExistingModalOpen(true);
   }
@@ -483,8 +489,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       const dateOfDeath = fmtDateMDY(decDOD);
 
       const total = parseMoneyNumber(totalServiceAmount);
-      thead: {
-      }
       const adv   = parseMoneyNumber(familyAdvancementAmount);
       const vip   = Math.max(+((total + adv) * 0.03).toFixed(2), 100);
       const assignmentAmount = formatMoney(total + adv + vip);
@@ -642,17 +646,23 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       fd.set("vipFee", formatMoney(vip));
       fd.set("assignmentAmount", formatMoney(total + adv + vip));
 
+      // clean legacy keys, then append plural fields
       fd.delete("assignmentUpload");
+      fd.delete("assignmentUploads");
       fd.delete("otherUploads");
 
-      if (assignmentFile) fd.set("assignmentUpload", assignmentFile);
-      if (otherFiles.length) otherFiles.forEach((f) => fd.append("otherUploads", f));
+      if (assignmentFiles.length) {
+        assignmentFiles.forEach((f) => fd.append("assignmentUploads", f));
+      }
+      if (otherFiles.length) {
+        otherFiles.forEach((f) => fd.append("otherUploads", f));
+      }
 
       const res = await fetch("/api/requests", { method: "POST", body: fd });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json?.error || `Server error (code ${res.status})`);
 
-      setAssignmentFile(null);
+      setAssignmentFiles([]);
       setOtherFiles([]);
 
       form.reset();
@@ -724,7 +734,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         .file-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .btn-link { background:transparent; border:1px solid var(--border); padding:4px 8px; cursor:pointer; }
 
-        /* Make ghost buttons look like "+ Add Policy Number" */
         .btn-ghost, .btn.btn-ghost {
           border:1px solid var(--border);
           background:var(--field-bg);
@@ -1085,17 +1094,22 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         </div>
       </fieldset>
 
-      {/* Upload Assignment (drag & drop + Browse) */}
+      {/* Upload Assignment (multi) */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Upload Assignment</legend>
         <h3 className="fr-section-title">Upload Assignment</h3>
 
         <input
           ref={assignmentInputRef}
-          name="assignmentUpload"
+          name="assignmentUploads"
           type="file"
+          multiple
           accept={FILE_ACCEPT}
-          onChange={(e) => setAssignmentFile(e.currentTarget.files?.[0] || null)}
+          onChange={(e) => {
+            const incoming = Array.from(e.currentTarget.files || []);
+            addAssignmentFiles(incoming);
+            (e.currentTarget as HTMLInputElement).value = "";
+          }}
           style={{ display: "none" }}
         />
 
@@ -1107,33 +1121,35 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           onDrop={(e) => {
             e.preventDefault();
             setAssignmentOver(false);
-            const dtFiles = Array.from(e.dataTransfer.files || []);
-            if (dtFiles.length > 0) setAssignmentFile(dtFiles[0]);
+            addAssignmentFiles(Array.from(e.dataTransfer.files || []));
           }}
           onClick={() => assignmentInputRef.current?.click()}
           role="button"
-          aria-label="Drop assignment file here or click to browse"
+          aria-label="Drop assignment file(s) here or click to browse"
           tabIndex={0}
         >
           <div>
-            <strong>Drag & drop the assignment here</strong>
+            <strong>Drag & drop the assignment file(s) here</strong>
             <div style={{ marginTop: 6 }}>
               <button type="button" className="btn-link" onClick={() => assignmentInputRef.current?.click()}>
-                Browse file
+                Browse files
               </button>
             </div>
-            <small>Accepted: PDF, DOC/DOCX, PNG/JPG, TIFF, WEBP, GIF, TXT. Max 500MB.</small>
+            <small>Up to {MAX_ASSIGNMENT_UPLOADS} files. Max 500MB each. Accepted: PDF, DOC/DOCX, PNG/JPG, TIFF, WEBP, GIF, TXT.</small>
           </div>
         </div>
 
-        {assignmentFile && (
-          <div className="file-list">
-            <div className="file-row">
-              <span className="file-name">{assignmentFile.name}</span>
-              <button type="button" className="btn-link" onClick={() => setAssignmentFile(null)}>
-                Remove
-              </button>
-            </div>
+        {assignmentFiles.length > 0 && (
+          <div className="file-list" aria-live="polite">
+            {assignmentFiles.map((f, idx) => (
+              <div key={idx} className="file-row">
+                <span className="file-name">{idx + 1}. {f.name}</span>
+                <button type="button" className="btn-link" onClick={() => setAssignmentFiles(prev => prev.filter((_, i) => i !== idx))}>
+                  Remove
+                </button>
+              </div>
+            ))}
+            <small>{assignmentFiles.length} / {MAX_ASSIGNMENT_UPLOADS} selected</small>
           </div>
         )}
       </fieldset>
