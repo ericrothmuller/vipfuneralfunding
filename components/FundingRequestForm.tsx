@@ -29,8 +29,6 @@ type BeneficiaryDetail = {
   dob?: string;
   ssn?: string;
   phone?: string;
-
-  // NEW required fields
   email?: string;
   city?: string;
   state?: string;
@@ -222,7 +220,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         copy[i].push({ name: "" });
         return copy;
       });
-      const newIdx = arr[i].beneficiaries.length; // new slot index
+      const newIdx = arr[i].beneficiaries.length;
       openAddBeneficiary(i, newIdx);
       return next;
     });
@@ -392,6 +390,70 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
     setBeneViewOpen(true);
   }
 
+  /** ------------------- NEW: Add Existing Beneficiary ------------------- */
+  const [existingModalOpen, setExistingModalOpen] = useState(false);
+  const [existingForPolicyIdx, setExistingForPolicyIdx] = useState<number>(0);
+  const [existingChoices, setExistingChoices] = useState<Array<{ label: string; detail: BeneficiaryDetail }>>([]);
+  const [existingSelectedIdx, setExistingSelectedIdx] = useState<number | null>(null);
+
+  function openExistingBeneficiaryPicker(policyIdx: number) {
+    // Build list of beneficiaries from OTHER policies with a name
+    const choices: Array<{ label: string; detail: BeneficiaryDetail }> = [];
+    beneExtra.forEach((row, pIdx) => {
+      if (pIdx === policyIdx) return;
+      (row || []).forEach((detail, bIdx) => {
+        const name = (bundles[pIdx]?.beneficiaries[bIdx] || detail?.name || "").trim();
+        if (!name) return;
+        const label = `${name} (from Policy ${pIdx + 1})`;
+        choices.push({
+          label,
+          detail: {
+            name,
+            relationship: detail?.relationship || "",
+            address: detail?.address || "",
+            dob: detail?.dob || "",
+            ssn: detail?.ssn || "",
+            phone: detail?.phone || "",
+            email: detail?.email || "",
+            city: detail?.city || "",
+            state: detail?.state || "",
+            zip: detail?.zip || "",
+          },
+        });
+      });
+    });
+
+    if (!choices.length) {
+      alert("No existing beneficiaries available to add.");
+      return;
+    }
+    setExistingChoices(choices);
+    setExistingSelectedIdx(0);
+    setExistingForPolicyIdx(policyIdx);
+    setExistingModalOpen(true);
+  }
+
+  function addExistingBeneficiaryToPolicy() {
+    if (existingSelectedIdx == null || !existingChoices[existingSelectedIdx]) {
+      alert("Please select a beneficiary to add.");
+      return;
+    }
+    const picked = existingChoices[existingSelectedIdx].detail;
+    // Append to bundles[policyIdx].beneficiaries and beneExtra[policyIdx]
+    setBundles(prev => {
+      const copy = prev.map(b => ({ ...b, beneficiaries: [...b.beneficiaries] }));
+      copy[existingForPolicyIdx].beneficiaries.push(picked.name || "");
+      return copy;
+    });
+    setBeneExtra(prev => {
+      const copy = prev.map(row => row.slice());
+      if (!copy[existingForPolicyIdx]) copy[existingForPolicyIdx] = [];
+      copy[existingForPolicyIdx].push({ ...picked });
+      return copy;
+    });
+    setExistingModalOpen(false);
+  }
+
   /** ------------------- NEW: Download filled assignment(s) ------------------- */
   async function downloadFilledAssignment() {
     try {
@@ -409,7 +471,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       const policyNumbers = bundles.map(b => b.policyNumber.trim()).filter(Boolean).join(", ");
       const fhRepName = (fhRep || "").trim();
 
-      // Flatten beneficiaries across all bundles in the order they appear
+      // Flatten beneficiaries
       const flatBene: BeneficiaryDetail[] = [];
       beneExtra.forEach((row, i) => {
         (row || []).forEach((detail, j) => {
@@ -426,7 +488,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
             state: detail?.state || "",
             zip: detail?.zip || "",
           };
-          // include if any content or a name exists
           if (Object.values(full).some(Boolean)) flatBene.push(full);
         });
       });
@@ -436,13 +497,10 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       for (let i = 0; i < flatBene.length; i += 2) {
         pairs.push({ bene1: flatBene[i], bene2: flatBene[i + 1] });
       }
-      // If no beneficiaries at all, still produce one PDF with no bene blocks
       if (pairs.length === 0) pairs.push({});
 
-      // Fire one request per pair and download
       for (let idx = 0; idx < pairs.length; idx++) {
         const { bene1, bene2 } = pairs[idx];
-
         const payload = {
           insuredFirstName,
           insuredLastName,
@@ -546,7 +604,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
 
       // Linked bundles → compat + JSON
       const policyNumbers = bundles.map(b => b.policyNumber.trim()).filter(Boolean);
-      const beneficiariesNames = beneExtra.flat().map((d, idxRow) => d?.name || "").filter(Boolean);
+      const beneficiariesNames = beneExtra.flat().map((d) => d?.name || "").filter(Boolean);
       const faceSum = bundles.reduce((sum, b) => sum + parseMoneyNumber(b.faceAmount), 0);
 
       fd.set("policyNumbers", policyNumbers.join(", "));
@@ -614,7 +672,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         .fr-grid-3 { display:grid; gap:10px; grid-template-columns:repeat(3, minmax(220px, 1fr)); }
         .fr-grid-3-tight { display:grid; gap:8px; grid-template-columns:repeat(3, minmax(220px, 1fr)); }
 
-        .fr-inline-actions { display:flex; gap:8px; align-items:center; }
+        .fr-inline-actions { display:flex; gap:8px; align-items:center; flex-wrap: wrap; }
         .fr-del { background:transparent; border:1px solid var(--border); border-radius:0; padding:6px 10px; cursor:pointer; color:var(--muted); }
         .fr-del:hover { background:rgba(255,255,255,.06); border-color:rgba(255,255,255,.25); }
 
@@ -651,6 +709,16 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
 
         .btn-ghost { border:1px solid var(--border); background:var(--field-bg); color:#fff; border-radius:0; padding:8px 10px; cursor:pointer; text-decoration:none; display:inline-block; }
         @media (prefers-color-scheme: light) { .btn-ghost { color:#000; } }
+
+        /* Simple modal */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: grid; place-items: center; z-index: 60; }
+        .modal { background: var(--card-bg); border: 1px solid var(--border); width: min(640px, 96vw); max-height: 90vh; overflow: auto; padding: 12px; border-radius: 0; }
+        .modal-header { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
+        .modal-title { color: var(--gold); font-weight: 800; margin: 0; }
+        .modal-body { display:grid; gap:10px; }
+        .modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top: 8px; }
+        .row-2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+        @media (max-width:700px){ .row-2 { grid-template-columns: 1fr; } }
       `}</style>
 
       {/* FH / CEM */}
@@ -796,51 +864,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         <legend className="fr-legend">Insurance</legend>
         <h3 className="fr-section-title">Insurance</h3>
 
-        {/* Employer question + conditional fields */}
-        <label>Is the insurance through the deceased&apos;s employer?
-          <select name="employerInsuranceSelect" required value={isEmployerInsurance} onChange={(e) => setIsEmployerInsurance(e.target.value)}>
-            <option value="">— Select —</option>
-            <option value="No">No</option>
-            <option value="Yes">Yes</option>
-          </select>
-        </label>
-
-        {isEmployerInsurance === "Yes" && (
-          <div className="fr-grid-2" style={{ marginTop: 8 }}>
-            <label>Deceased was the
-              <select name="employerRelation" value={employerRelation} onChange={(e) => setEmployerRelation(e.target.value)}>
-                <option value="">— Select —</option>
-                <option value="Employee">Employee</option>
-                <option value="Dependent">Dependent</option>
-              </select>
-            </label>
-
-            <label>Name of Employer
-              <input name="employerCompanyName" type="text" value={employerCompanyName} onChange={(e) => setEmployerCompanyName(e.target.value)} />
-            </label>
-
-            <label>Employer Phone
-              <input name="employerPhone" type="tel" inputMode="numeric" pattern={PHONE_PATTERN_VSAFE}
-                value={employerPhone} onChange={(e) => setEmployerPhone(formatPhone(e.target.value))}
-                placeholder="(555) 555-5555" title="Please enter a valid 10-digit phone number" />
-            </label>
-
-            <label>Employer Contact Name
-              <input name="employerContact" type="text" value={employerContact} onChange={(e) => setEmployerContact(e.target.value)} />
-            </label>
-
-            <label>Employment Status
-              <select name="employmentStatus" value={employmentStatus} onChange={(e) => setEmploymentStatus(e.target.value)}>
-                <option value="">— Select —</option>
-                <option value="Active">Active</option>
-                <option value="Retired">Retired</option>
-                <option value="On Leave">On Leave</option>
-              </select>
-            </label>
-          </div>
-        )}
-
-        {/* IC Typeahead */}
+        {/* ====== Moved: IC Typeahead FIRST ====== */}
         <div className="ic-box" ref={icBoxRef} style={{ marginTop: 8 }}>
           <label>Insurance Company (type to search)
             <input
@@ -861,8 +885,17 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           {icOpen && icMatches.length > 0 && (
             <div className="ic-list" role="listbox" aria-label="Insurance company suggestions">
               {icMatches.map(ic => (
-                <div key={ic.id} className="ic-item" role="option"
-                  onMouseDown={(e) => { e.preventDefault(); setSelectedIC(ic); setIcInput(ic.name); setIcOpen(false); }}>
+                <div
+                  key={ic.id}
+                  className="ic-item"
+                  role="option"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    setSelectedIC(ic);
+                    setIcInput(ic.name);
+                    setIcOpen(false);
+                  }}
+                >
                   <div>{ic.name}</div>
                 </div>
               ))}
@@ -876,68 +909,195 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           </p>
         )}
 
+        {/* Employer question + conditional fields (now AFTER IC) */}
+        <label style={{ marginTop: 8 }}>Is the insurance through the deceased&apos;s employer?
+          <select
+            name="employerInsuranceSelect"
+            required
+            value={isEmployerInsurance}
+            onChange={(e) => setIsEmployerInsurance(e.target.value)}
+          >
+            <option value="">— Select —</option>
+            <option value="No">No</option>
+            <option value="Yes">Yes</option>
+          </select>
+        </label>
+
+        {isEmployerInsurance === "Yes" && (
+          <div className="fr-grid-2" style={{ marginTop: 8 }}>
+            <label>Deceased was the
+              <select
+                name="employerRelation"
+                value={employerRelation}
+                onChange={(e) => setEmployerRelation(e.target.value)}
+              >
+                <option value="">— Select —</option>
+                <option value="Employee">Employee</option>
+                <option value="Dependent">Dependent</option>
+              </select>
+            </label>
+
+            <label>Name of Employer
+              <input
+                name="employerCompanyName"
+                type="text"
+                value={employerCompanyName}
+                onChange={(e) => setEmployerCompanyName(e.target.value)}
+              />
+            </label>
+
+            <label>Employer Phone
+              <input
+                name="employerPhone"
+                type="tel"
+                inputMode="numeric"
+                pattern={PHONE_PATTERN_VSAFE}
+                value={employerPhone}
+                onChange={(e) => setEmployerPhone(formatPhone(e.target.value))}
+                placeholder="(555) 555-5555"
+                title="Please enter a valid 10-digit phone number"
+              />
+            </label>
+
+            <label>Employer Contact Name
+              <input
+                name="employerContact"
+                type="text"
+                value={employerContact}
+                onChange={(e) => setEmployerContact(e.target.value)}
+              />
+            </label>
+
+            <label>Employment Status
+              <select
+                name="employmentStatus"
+                value={employmentStatus}
+                onChange={(e) => setEmploymentStatus(e.target.value)}
+              >
+                <option value="">— Select —</option>
+                <option value="Active">Active</option>
+                <option value="Retired">Retired</option>
+                <option value="On Leave">On Leave</option>
+              </select>
+            </label>
+          </div>
+        )}
+
         {/* Linked Policy Bundles */}
         <div style={{ marginTop: 8 }}>
           {bundles.map((b, i) => {
             const hasAny = b.beneficiaries.some(name => !!name?.trim());
             const policyTitle = bundles.length === 1 ? "Policy" : `Policy #${i + 1}`;
             const beneHeader = b.beneficiaries.length >= 2 ? "Beneficiaries" : "Beneficiary";
+            const multiplePolicies = bundles.length > 1;
+
+            // Build condition to show "+ Add Existing Beneficiary"
+            const haveExistingFromOthers = beneExtra.some((row, pIdx) =>
+              pIdx !== i && (row || []).some((det, j) => {
+                const nm = (bundles[pIdx]?.beneficiaries[j] || det?.name || "").trim();
+                return !!nm;
+              })
+            );
+
             return (
               <div className="pb" key={i}>
                 <div className="pb-head">
                   <strong>{policyTitle}</strong>
                   {bundles.length > 1 && (
-                    <button type="button" className="fr-del" onClick={() => removePolicyBundle(i)}>Remove Policy</button>
+                    <button type="button" className="fr-del" onClick={() => removePolicyBundle(i)}>
+                      Remove Policy
+                    </button>
                   )}
                 </div>
 
                 {/* Beneficiaries FIRST */}
                 <div style={{ marginTop: 8 }}>
                   <label>{beneHeader}</label>
+                  {/* First slot */}
                   {b.beneficiaries[0] ? (
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <div className="fr-inline-actions">
                       <div style={{ fontWeight: 600 }}>{b.beneficiaries[0]}</div>
                       <button type="button" className="btn btn-ghost" onClick={() => openViewBeneficiary(i, 0)}>View Info</button>
                       <button type="button" className="fr-del" onClick={() => removeBeneficiary(i, 0)}>Remove</button>
                     </div>
                   ) : (
-                    <button type="button" className="btn btn-ghost" onClick={() => openAddBeneficiary(i, 0)}>
-                      + Add Beneficiary
-                    </button>
+                    <div className="fr-inline-actions">
+                      <button type="button" className="btn btn-ghost" onClick={() => openAddBeneficiary(i, 0)}>
+                        + Add Beneficiary
+                      </button>
+                      {multiplePolicies && haveExistingFromOthers && (
+                        <button
+                          type="button"
+                          className="btn btn-ghost"
+                          onClick={() => openExistingBeneficiaryPicker(i)}
+                        >
+                          + Add Existing Beneficiary
+                        </button>
+                      )}
+                    </div>
                   )}
 
+                  {/* Additional beneficiaries */}
                   {b.beneficiaries.slice(1).map((val, j) => {
                     const realIdx = j + 1;
                     return (
-                      <div key={realIdx} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                      <div key={realIdx} className="fr-inline-actions" style={{ marginTop: 8 }}>
                         <div style={{ fontWeight: 600 }}>{val || "(unnamed beneficiary)"}</div>
-                        <button type="button" className="btn btn-ghost"
-                          onClick={() => (val ? openViewBeneficiary(i, realIdx) : openAddBeneficiary(i, realIdx))}>
+                        <button
+                          type="button"
+                          className="btn btn-ghost"
+                          onClick={() => (val ? openViewBeneficiary(i, realIdx) : openAddBeneficiary(i, realIdx))}
+                        >
                           {val ? "View Info" : "Add Info"}
                         </button>
-                        <button type="button" className="fr-del" onClick={() => removeBeneficiary(i, realIdx)}>Remove</button>
+                        <button type="button" className="fr-del" onClick={() => removeBeneficiary(i, realIdx)}>
+                          Remove
+                        </button>
                       </div>
                     );
                   })}
 
+                  {/* "Add Another" and "Add Existing" buttons when we already have at least one */}
                   {hasAny && (
-                    <button type="button" className="btn btn-ghost" onClick={() => addBeneficiary(i)} style={{ marginTop: 8 }}>
-                      + Add Another Beneficiary
-                    </button>
+                    <div className="fr-inline-actions" style={{ marginTop: 8 }}>
+                      <button type="button" className="btn btn-ghost" onClick={() => addBeneficiary(i)}>
+                        + Add Another Beneficiary
+                      </button>
+                      {multiplePolicies && haveExistingFromOthers && (
+                        <button
+                          type="button"
+                          className="btn btn-ghost"
+                          onClick={() => openExistingBeneficiaryPicker(i)}
+                        >
+                          + Add Existing Beneficiary
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
 
                 {/* Then Policy Number */}
                 <label style={{ marginTop: 8 }}>Policy Number
-                  <input type="text" value={b.policyNumber} onChange={(e) => updatePolicyNumber(i, e.target.value)} />
+                  <input
+                    type="text"
+                    value={b.policyNumber}
+                    onChange={(e) => updatePolicyNumber(i, e.target.value)}
+                  />
                 </label>
 
                 {/* Then Face Amount */}
                 <label style={{ marginTop: 8 }}>Face Amount
-                  <input type="text" inputMode="decimal" value={b.faceAmount}
-                    onChange={(e) => onFaceInput(i, e.target.value)} onBlur={(e) => onFaceBlur(i, e.target.value)} placeholder="$0.00" />
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={b.faceAmount}
+                    onChange={(e) => onFaceInput(i, e.target.value)}
+                    onBlur={(e) => onFaceBlur(i, e.target.value)}
+                    placeholder="$0.00"
+                  />
                 </label>
 
+                {/* Add Policy Number button only under the last bundle */}
                 {i === bundles.length - 1 && (
                   <button type="button" className="btn btn-ghost" onClick={addPolicyBundle} style={{ marginTop: 8 }}>
                     + Add Policy Number
@@ -955,23 +1115,38 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         <h3 className="fr-section-title">Financials</h3>
         <div className="fr-grid-3">
           <label>Total Service Amount
-            <input name="totalServiceAmount" type="text" inputMode="decimal" required
-              value={totalServiceAmount} onChange={(e) => handleCurrencyInput(e.target.value, setTotalServiceAmount)}
-              onBlur={(e) => handleCurrencyBlur(e.target.value, setTotalServiceAmount)} placeholder="$0.00" />
+            <input
+              name="totalServiceAmount" type="text" inputMode="decimal" required
+              value={totalServiceAmount}
+              onChange={(e) => handleCurrencyInput(e.target.value, setTotalServiceAmount)}
+              onBlur={(e) => handleCurrencyBlur(e.target.value, setTotalServiceAmount)}
+              placeholder="$0.00"
+            />
           </label>
           <label>Family Advancement Amount
-            <input name="familyAdvancementAmount" type="text" inputMode="decimal"
-              value={familyAdvancementAmount} onChange={(e) => handleCurrencyInput(e.target.value, setFamilyAdvancementAmount)}
-              onBlur={(e) => handleCurrencyBlur(e.target.value, setFamilyAdvancementAmount)} placeholder="$0.00" />
+            <input
+              name="familyAdvancementAmount" type="text" inputMode="decimal"
+              value={familyAdvancementAmount}
+              onChange={(e) => handleCurrencyInput(e.target.value, setFamilyAdvancementAmount)}
+              onBlur={(e) => handleCurrencyBlur(e.target.value, setFamilyAdvancementAmount)}
+              placeholder="$0.00"
+            />
           </label>
           <label>VIP Fee (3% or $100 min)
-            <input name="vipFee" type="text" value={formatMoney(vipFeeCalc)} readOnly={!isAdmin}
-              className={!isAdmin ? "fr-readonly" : undefined} />
+            <input
+              name="vipFee" type="text"
+              value={formatMoney(vipFeeCalc)}
+              readOnly={!isAdmin}
+              className={!isAdmin ? "fr-readonly" : undefined}
+            />
           </label>
           <label>Total Assignment Amount
-            <input name="assignmentAmount" type="text"
+            <input
+              name="assignmentAmount" type="text"
               value={formatMoney( parseMoneyNumber(totalServiceAmount) + parseMoneyNumber(familyAdvancementAmount) + Math.max(+((parseMoneyNumber(totalServiceAmount)+parseMoneyNumber(familyAdvancementAmount))*0.03).toFixed(2), 100) )}
-              readOnly={!isAdmin} className={!isAdmin ? "fr-readonly" : undefined} />
+              readOnly={!isAdmin}
+              className={!isAdmin ? "fr-readonly" : undefined}
+            />
           </label>
         </div>
         <p className="fr-muted" style={{ marginTop: 6 }}>
@@ -997,7 +1172,8 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       <fieldset className="fr-card">
         <legend className="fr-legend">Upload Assignment</legend>
         <h3 className="fr-section-title">Upload Assignment</h3>
-        <input ref={assignmentInputRef} name="assignmentUpload" type="file" accept={FILE_ACCEPT} onChange={(e) => setAssignmentFile(e.currentTarget.files?.[0] || null)} style={{ display: "none" }} />
+        <input ref={assignmentInputRef} name="assignmentUpload" type="file" accept={FILE_ACCEPT}
+          onChange={(e) => setAssignmentFile(e.currentTarget.files?.[0] || null)} style={{ display: "none" }} />
         <div className={`dz ${assignmentOver ? "over" : ""}`}
           onDragOver={(e) => { e.preventDefault(); }} onDragEnter={(e) => { e.preventDefault(); setAssignmentOver(true); }}
           onDragLeave={(e) => { e.preventDefault(); setAssignmentOver(false); }}
@@ -1142,6 +1318,38 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
               <div><strong>Phone:</strong> {beneDraft.phone || "—"}</div>
               <div className="modal-actions">
                 <button className="btn" onClick={() => setBeneViewOpen(false)}>Close</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Existing Beneficiary Picker */}
+      {existingModalOpen && (
+        <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="bene-existing-title">
+          <div className="modal">
+            <div className="modal-header">
+              <h3 id="bene-existing-title" className="modal-title">Add Existing Beneficiary</h3>
+              <button className="btn btn-ghost" onClick={() => setExistingModalOpen(false)} aria-label="Close">✕</button>
+            </div>
+            <div className="modal-body">
+              <label>Select a beneficiary from other policies
+                <select
+                  value={existingSelectedIdx ?? 0}
+                  onChange={(e) => setExistingSelectedIdx(Number(e.target.value))}
+                >
+                  {existingChoices.map((c, idx) => (
+                    <option key={idx} value={idx}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="modal-actions">
+                <button className="btn" onClick={() => setExistingModalOpen(false)}>Cancel</button>
+                <button className="btn btn-gold" onClick={addExistingBeneficiaryToPolicy}>
+                  Add Beneficiary
+                </button>
               </div>
             </div>
           </div>
