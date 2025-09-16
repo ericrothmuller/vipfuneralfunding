@@ -244,7 +244,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
   /** Notes */
   const [notes, setNotes] = useState("");
 
-  /** Upload state (WORKING drag & drop + Browse) */
+  /** Upload state (drag & drop + Browse) */
   const [assignmentFile, setAssignmentFile] = useState<File | null>(null);
   const assignmentInputRef = useRef<HTMLInputElement | null>(null);
   const [assignmentOver, setAssignmentOver] = useState(false);
@@ -470,7 +470,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       const policyNumbers = bundles.map(b => b.policyNumber.trim()).filter(Boolean).join(", ");
       const fhRepName = (fhRep || "").trim();
 
-      // Flatten all bene details (with names maintained from bundles)
+      // Flatten bene details
       const flatBene: BeneficiaryDetail[] = [];
       beneExtra.forEach((row, i) => {
         (row || []).forEach((detail, j) => {
@@ -491,7 +491,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         });
       });
 
-      // De-duplicate by full signature
+      // De-dupe across policies
       const seen = new Set<string>();
       const unique: BeneficiaryDetail[] = [];
       for (const b of flatBene) {
@@ -502,7 +502,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         }
       }
 
-      // Pair unique beneficiaries [B1,B2], [B3,B4], ...
+      // Pair for PDFs
       const pairs: Array<{ bene1?: BeneficiaryDetail; bene2?: BeneficiaryDetail }> = [];
       for (let i = 0; i < unique.length; i += 2) {
         pairs.push({ bene1: unique[i], bene2: unique[i + 1] });
@@ -600,7 +600,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         fd.set("insuranceCompanyId", "");
         if (typed) fd.set("otherIC_name", typed);
       }
-      if (isEmployerInsurance === "Yes" && employerRelation) {
+      if (isEmployerInsurance) {
         fd.set("employerRelation", employerRelation);
       }
 
@@ -904,75 +904,16 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           </select>
         </label>
 
-        {isEmployerInsurance === "Yes" && (
-          <div className="fr-grid-2" style={{ marginTop: 8 }}>
-            <label>Deceased was the
-              <select
-                name="employerRelation"
-                value={employerRelation}
-                onChange={(e) => setEmployerRelation(e.target.value)}
-              >
-                <option value="">— Select —</option>
-                <option value="Employee">Employee</option>
-                <option value="Dependent">Dependent</option>
-              </select>
-            </label>
-
-            <label>Name of Employer
-              <input
-                name="employerCompanyName"
-                type="text"
-                value={employerCompanyName}
-                onChange={(e) => setEmployerCompanyName(e.target.value)}
-              />
-            </label>
-
-            <label>Employer Phone
-              <input
-                name="employerPhone"
-                type="tel"
-                inputMode="numeric"
-                pattern={PHONE_PATTERN_VSAFE}
-                value={employerPhone}
-                onChange={(e) => setEmployerPhone(formatPhone(e.target.value))}
-                placeholder="(555) 555-5555"
-                title="Please enter a valid 10-digit phone number"
-              />
-            </label>
-
-            <label>Employer Contact Name
-              <input
-                name="employerContact"
-                type="text"
-                value={employerContact}
-                onChange={(e) => setEmployerContact(e.target.value)}
-              />
-            </label>
-
-            <label>Employment Status
-              <select
-                name="employmentStatus"
-                value={employmentStatus}
-                onChange={(e) => setEmploymentStatus(e.target.value)}
-              >
-                <option value="">— Select —</option>
-                <option value="Active">Active</option>
-                <option value="Retired">Retired</option>
-                <option value="On Leave">On Leave</option>
-              </select>
-            </label>
-          </div>
-        )}
-
         {/* Linked Policy Bundles */}
         <div style={{ marginTop: 8 }}>
           {bundles.map((b, i) => {
             const nonEmptyCount = b.beneficiaries.filter(n => !!n && !!n.trim()).length;
             const addLabel = nonEmptyCount ? "+ Add Another Beneficiary" : "+ Add Beneficiary";
             const policyTitle = bundles.length === 1 ? "Policy" : `Policy #${i + 1}`;
-            const beneHeader = b.beneficiaries.length >= 2 ? "Beneficiaries" : "Beneficiary";
+            const beneHeader = nonEmptyCount >= 2 ? "Beneficiaries" : "Beneficiary"; // ← changed per request
             const multiplePolicies = bundles.length > 1;
 
+            // Existing bene availability from other policies
             const haveExistingFromOthers = beneExtra.some((row, pIdx) =>
               pIdx !== i && (row || []).some((det, j) => {
                 const nm = (bundles[pIdx]?.beneficiaries[j] || det?.name || "").trim();
@@ -997,6 +938,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                   )}
                 </div>
 
+                {/* Beneficiaries list */}
                 <div style={{ marginTop: 8 }}>
                   <label>{beneHeader}</label>
 
@@ -1107,7 +1049,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         </div>
       </fieldset>
 
-      {/* Upload Assignment (RESTORED drag & drop + Browse) */}
+      {/* Upload Assignment (drag & drop + Browse) */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Upload Assignment</legend>
         <h3 className="fr-section-title">Upload Assignment</h3>
@@ -1160,7 +1102,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         )}
       </fieldset>
 
-      {/* Upload Other Documents (RESTORED drag & drop + multiple Browse) */}
+      {/* Upload Other Documents (drag & drop + multiple Browse) */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Upload Other Documents</legend>
         <h3 className="fr-section-title">Upload Other Documents</h3>
