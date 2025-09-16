@@ -12,10 +12,8 @@ type Profile = {
   contactEmail: string;
 };
 
-// include verificationTime for selected display
 type IC = { id: string; name: string; verificationTime?: string };
 
-// A linked bundle of Beneficiaries[] → Policy Number → Face Amount
 type PolicyBundle = {
   beneficiaries: string[];
   policyNumber: string;
@@ -37,7 +35,6 @@ type BeneficiaryDetail = {
 
 const COD_OPTS = ["Natural", "Accident", "Homicide", "Pending"] as const;
 
-/** v-flag-safe US phone pattern */
 const PHONE_PATTERN_VSAFE = String.raw`[(]?\d{3}[)]?[\s-]?\d{3}-?\d{4}`;
 const SSN_PATTERN = String.raw`\d{3}-\d{2}-\d{4}`;
 const FILE_ACCEPT =
@@ -60,11 +57,7 @@ function parseMoneyNumber(s: string): number {
 function formatMoney(n: number): string {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
 }
-
-// Simpler setter type to avoid TS friction
 type Setter = (next: string) => void;
-
-/** Currency inputs: free typing; format on blur */
 function handleCurrencyInput(value: string, setter: Setter) {
   const clean = value.replace(/[^0-9.]/g, "");
   const parts = clean.split(".");
@@ -74,38 +67,27 @@ function handleCurrencyInput(value: string, setter: Setter) {
 function handleCurrencyBlur(value: string, setter: Setter) {
   setter(formatMoney(parseMoneyNumber(value)));
 }
-/** SSN formatter: 123456789 -> 123-45-6789 */
 function formatSSN(value: string): string {
   const d = onlyDigits(value).slice(0, 9);
   if (d.length <= 3) return d;
   if (d.length <= 5) return `${d.slice(0, 3)}-${d.slice(3)}`;
   return `${d.slice(0, 3)}-${d.slice(3, 5)}-${d.slice(5)}`;
 }
-
-// Simple date formatter (YYYY-MM-DD -> MM/DD/YYYY)
 function fmtDateMDY(iso?: string) {
   if (!iso) return "";
   const [y, m, d] = iso.split("-");
   if (!y || !m || !d) return iso;
   return `${m}/${d}/${y}`;
 }
-
-function norm(s?: string | null) {
-  return (s || "").trim().toLowerCase();
-}
-function normUpper(s?: string | null) {
-  return (s || "").trim().toUpperCase();
-}
-function normDigits(s?: string | null) {
-  return onlyDigits(s || "");
-}
-/** Build a unique signature for a beneficiary to de-duplicate across policies */
+function norm(s?: string | null) { return (s || "").trim().toLowerCase(); }
+function normUpper(s?: string | null) { return (s || "").trim().toUpperCase(); }
+function normDigits(s?: string | null) { return onlyDigits(s || ""); }
 function beneSignature(b: BeneficiaryDetail): string {
   return [
     norm(b.name),
     norm(b.relationship),
     normDigits(b.ssn),
-    norm(b.dob), // as typed
+    norm(b.dob),
     normDigits(b.phone),
     norm(b.email),
     norm(b.address),
@@ -169,18 +151,18 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
   const [employmentStatus, setEmploymentStatus] = useState<string>("");
   const [employerRelation, setEmployerRelation] = useState<string>("");
 
-  /** Insurance company typeahead state */
+  /** Insurance typeahead */
   const [icInput, setIcInput] = useState("");
   const [icOpen, setIcOpen] = useState(false);
   const [selectedIC, setSelectedIC] = useState<IC | null>(null);
   const icBoxRef = useRef<HTMLDivElement | null>(null);
 
-  /** Linked policy bundles (Beneficiaries → Policy Number → Face Amount) */
+  /** Policy bundles */
   const [bundles, setBundles] = useState<PolicyBundle[]>([
     { beneficiaries: [""], policyNumber: "", faceAmount: "" },
   ]);
 
-  /** Structured beneficiary details (parallel to bundles[i].beneficiaries[j]) */
+  /** Beneficiary structured details (parallel) */
   const [beneExtra, setBeneExtra] = useState<BeneficiaryDetail[][]>([
     [{ name: "" }],
   ]);
@@ -210,7 +192,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
   const onFaceInput = (i: number, v: string) => handleCurrencyInput(v, (s) => updateFaceAmount(i, s));
   const onFaceBlur  = (i: number, v: string) => handleCurrencyBlur(v, (s) => updateFaceAmount(i, s));
 
-  /** Beneficiary name array (kept as-is for submission) helpers */
   const updateBeneficiary = (i: number, j: number, v: string) =>
     setBundles((arr) =>
       arr.map((b, idx) =>
@@ -233,7 +214,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       );
     });
 
-  /** Add a new beneficiary slot and immediately open the modal to fill details */
   const addBeneficiary = (i: number) =>
     setBundles((arr) => {
       const next = arr.map((b, idx) =>
@@ -245,7 +225,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         copy[i].push({ name: "" });
         return copy;
       });
-      const newIdx = arr[i].beneficiaries.length; // new slot index
+      const newIdx = arr[i].beneficiaries.length;
       openAddBeneficiary(i, newIdx);
       return next;
     });
@@ -264,7 +244,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
   /** Notes */
   const [notes, setNotes] = useState("");
 
-  /** Upload (drag & drop + picker) */
+  /** Upload state (WORKING drag & drop + Browse) */
   const [assignmentFile, setAssignmentFile] = useState<File | null>(null);
   const assignmentInputRef = useRef<HTMLInputElement | null>(null);
   const [assignmentOver, setAssignmentOver] = useState(false);
@@ -320,7 +300,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
     return companies.filter(c => c.name.toLowerCase().includes(q)).slice(0, 8);
   }, [icInput, companies]);
 
-  // Close suggestions when clicking outside
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
       if (!icBoxRef.current) return;
@@ -491,7 +470,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       const policyNumbers = bundles.map(b => b.policyNumber.trim()).filter(Boolean).join(", ");
       const fhRepName = (fhRep || "").trim();
 
-      // Flatten all beneficiaries (with details) in order
+      // Flatten all bene details (with names maintained from bundles)
       const flatBene: BeneficiaryDetail[] = [];
       beneExtra.forEach((row, i) => {
         (row || []).forEach((detail, j) => {
@@ -512,7 +491,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         });
       });
 
-      // ---- NEW: De-duplicate beneficiaries across policies by signature ----
+      // De-duplicate by full signature
       const seen = new Set<string>();
       const unique: BeneficiaryDetail[] = [];
       for (const b of flatBene) {
@@ -528,7 +507,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       for (let i = 0; i < unique.length; i += 2) {
         pairs.push({ bene1: unique[i], bene2: unique[i + 1] });
       }
-      // If none at all, still generate one cover sheet with company/fh fields
       if (pairs.length === 0) pairs.push({});
 
       for (let idx = 0; idx < pairs.length; idx++) {
@@ -605,7 +583,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       const form = e.currentTarget;
       const fd = new FormData(form);
 
-      // Build death data
       if (deathInUS) fd.set("deathInUS", deathInUS);
       if (deathInUS === "No" && decPODCountry.trim()) fd.set("decPODCountry", decPODCountry.trim());
       fd.set("codNatural",  cod === "Natural"  ? "Yes" : "No");
@@ -613,7 +590,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       fd.set("codHomicide", cod === "Homicide" ? "Yes" : "No");
       fd.set("codPending",  cod === "Pending"  ? "Yes" : "No");
 
-      // Insurance mapping
       if (selectedIC) {
         fd.set("insuranceCompanyMode", "id");
         fd.set("insuranceCompanyId", selectedIC.id);
@@ -628,7 +604,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         fd.set("employerRelation", employerRelation);
       }
 
-      // Linked bundles → compat + JSON
       const policyNumbers = bundles.map(b => b.policyNumber.trim()).filter(Boolean);
       const beneficiariesNames = beneExtra.flat().map((d) => d?.name || "").filter(Boolean);
       const faceSum = bundles.reduce((sum, b) => sum + parseMoneyNumber(b.faceAmount), 0);
@@ -638,18 +613,16 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       fd.set("faceAmount", formatMoney(faceSum));
       fd.set("policyBeneficiaries", JSON.stringify(beneExtra));
 
-      // computed currency
       const total = parseMoneyNumber(totalServiceAmount);
       const adv   = parseMoneyNumber(familyAdvancementAmount);
       const vip   = Math.max(+((total + adv) * 0.03).toFixed(2), 100);
       fd.set("vipFee", formatMoney(vip));
       fd.set("assignmentAmount", formatMoney(total + adv + vip));
 
-      // Remove any auto-included file fields (we’ll control them)
+      // ensure we control files
       fd.delete("assignmentUpload");
       fd.delete("otherUploads");
 
-      // Append our controlled files
       if (assignmentFile) fd.set("assignmentUpload", assignmentFile);
       if (otherFiles.length) otherFiles.forEach((f) => fd.append("otherUploads", f));
 
@@ -719,6 +692,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         .pb { border:1px dashed var(--border); padding:10px; margin-top:8px; }
         .pb-head { display:flex; justify-content:space-between; align-items:center; gap:8px; }
 
+        /* Dropzones */
         .dz { border:1px dashed var(--border); background:var(--field-bg); padding:14px; display:grid; place-items:center; text-align:center; cursor:pointer; }
         .dz.over { outline: 2px dashed var(--gold); outline-offset: 2px; }
         .dz small { color:var(--muted); }
@@ -727,19 +701,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         .file-row { display:flex; align-items:center; justify-content:space-between; gap:8px; }
         .file-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .btn-link { background:transparent; border:1px solid var(--border); padding:4px 8px; cursor:pointer; }
-
-        .btn-ghost { border:1px solid var(--border); background:var(--field-bg); color:#fff; border-radius:0; padding:8px 10px; cursor:pointer; text-decoration:none; display:inline-block; }
-        @media (prefers-color-scheme: light) { .btn-ghost { color:#000; } }
-
-        /* Simple modal */
-        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: grid; place-items: center; z-index: 60; }
-        .modal { background: var(--card-bg); border: 1px solid var(--border); width: min(640px, 96vw); max-height: 90vh; overflow: auto; padding: 12px; border-radius: 0; }
-        .modal-header { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
-        .modal-title { color: var(--gold); font-weight: 800; margin: 0; }
-        .modal-body { display:grid; gap:10px; }
-        .modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top: 8px; }
-        .row-2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-        @media (max-width:700px){ .row-2 { grid-template-columns: 1fr; } }
       `}</style>
 
       {/* FH / CEM */}
@@ -1012,15 +973,12 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
             const beneHeader = b.beneficiaries.length >= 2 ? "Beneficiaries" : "Beneficiary";
             const multiplePolicies = bundles.length > 1;
 
-            // Existing bene availability from other policies
             const haveExistingFromOthers = beneExtra.some((row, pIdx) =>
               pIdx !== i && (row || []).some((det, j) => {
-                const nm = (bundles[pIdx]?.beneficiaries[bIdxToNum(j)] || det?.name || "").trim();
+                const nm = (bundles[pIdx]?.beneficiaries[j] || det?.name || "").trim();
                 return !!nm;
               })
             );
-
-            function bIdxToNum(j: number) { return j; }
 
             function handleAddNew(iPolicy: number) {
               const emptyIdx = b.beneficiaries.findIndex(n => !(n && n.trim()));
@@ -1039,7 +997,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                   )}
                 </div>
 
-                {/* Beneficiaries list */}
                 <div style={{ marginTop: 8 }}>
                   <label>{beneHeader}</label>
 
@@ -1059,7 +1016,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                     );
                   })}
 
-                  {/* Single add button-row BELOW names */}
                   <div className="fr-inline-actions" style={{ marginTop: 8 }}>
                     <button type="button" className="btn btn-ghost" onClick={() => handleAddNew(i)}>
                       {addLabel}
@@ -1072,12 +1028,10 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                   </div>
                 </div>
 
-                {/* Policy Number */}
                 <label style={{ marginTop: 8 }}>Policy Number
                   <input type="text" value={b.policyNumber} onChange={(e) => updatePolicyNumber(i, e.target.value)} />
                 </label>
 
-                {/* Face Amount */}
                 <label style={{ marginTop: 8 }}>Face Amount
                   <input
                     type="text"
@@ -1124,19 +1078,13 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
             />
           </label>
           <label>VIP Fee (3% or $100 min)
-            <input
-              name="vipFee" type="text"
-              value={formatMoney(vipFeeCalc)}
-              readOnly={!isAdmin}
-              className={!isAdmin ? "fr-readonly" : undefined}
-            />
+            <input name="vipFee" type="text" value={formatMoney(vipFeeCalc)} readOnly={!isAdmin} className={!isAdmin ? "fr-readonly" : undefined} />
           </label>
           <label>Total Assignment Amount
             <input
               name="assignmentAmount" type="text"
               value={formatMoney( parseMoneyNumber(totalServiceAmount) + parseMoneyNumber(familyAdvancementAmount) + Math.max(+((parseMoneyNumber(totalServiceAmount)+parseMoneyNumber(familyAdvancementAmount))*0.03).toFixed(2), 100) )}
-              readOnly={!isAdmin}
-              className={!isAdmin ? "fr-readonly" : undefined}
+              readOnly={!isAdmin} className={!isAdmin ? "fr-readonly" : undefined}
             />
           </label>
         </div>
@@ -1159,19 +1107,70 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         </div>
       </fieldset>
 
-      {/* Upload Assignment */}
+      {/* Upload Assignment (RESTORED drag & drop + Browse) */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Upload Assignment</legend>
         <h3 className="fr-section-title">Upload Assignment</h3>
-        <input ref={assignmentInputRef} name="assignmentUpload" type="file" accept={FILE_ACCEPT}
-          onChange={(e) => setAssignmentFile(e.currentTarget.files?.[0] || null)} style={{ display: "none" }} />
+
+        <input
+          ref={assignmentInputRef}
+          name="assignmentUpload"
+          type="file"
+          accept={FILE_ACCEPT}
+          onChange={(e) => setAssignmentFile(e.currentTarget.files?.[0] || null)}
+          style={{ display: "none" }}
+        />
+
+        <div
+          className={`dz ${assignmentOver ? "over" : ""}`}
+          onDragOver={(e) => { e.preventDefault(); }}
+          onDragEnter={(e) => { e.preventDefault(); setAssignmentOver(true); }}
+          onDragLeave={(e) => { e.preventDefault(); setAssignmentOver(false); }}
+          onDrop={(e) => {
+            e.preventDefault();
+            setAssignmentOver(false);
+            const dtFiles = Array.from(e.dataTransfer.files || []);
+            if (dtFiles.length > 0) setAssignmentFile(dtFiles[0]);
+          }}
+          onClick={() => assignmentInputRef.current?.click()}
+          role="button"
+          aria-label="Drop assignment file here or click to browse"
+          tabIndex={0}
+        >
+          <div>
+            <strong>Drag & drop the assignment here</strong>
+            <div style={{ marginTop: 6 }}>
+              <button type="button" className="btn-link" onClick={() => assignmentInputRef.current?.click()}>
+                Browse file
+              </button>
+            </div>
+            <small>Accepted: PDF, DOC/DOCX, PNG/JPG, TIFF, WEBP, GIF, TXT. Max 500MB.</small>
+          </div>
+        </div>
+
+        {assignmentFile && (
+          <div className="file-list">
+            <div className="file-row">
+              <span className="file-name">{assignmentFile.name}</span>
+              <button type="button" className="btn-link" onClick={() => setAssignmentFile(null)}>
+                Remove
+              </button>
+            </div>
+          </div>
+        )}
       </fieldset>
 
-      {/* Upload Other Documents */}
+      {/* Upload Other Documents (RESTORED drag & drop + multiple Browse) */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Upload Other Documents</legend>
         <h3 className="fr-section-title">Upload Other Documents</h3>
-        <input ref={otherInputRef} name="otherUploads" type="file" multiple accept={FILE_ACCEPT}
+
+        <input
+          ref={otherInputRef}
+          name="otherUploads"
+          type="file"
+          multiple
+          accept={FILE_ACCEPT}
           onChange={(e) => {
             const incoming = Array.from(e.currentTarget.files || []);
             if (!incoming.length) return;
@@ -1179,7 +1178,53 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
             if (space <= 0) return;
             setOtherFiles(prev => [...prev, ...incoming.slice(0, space)]);
             (e.currentTarget as HTMLInputElement).value = "";
-          }} style={{ display: "none" }} />
+          }}
+          style={{ display: "none" }}
+        />
+
+        <div
+          className={`dz ${otherOver ? "over" : ""}`}
+          onDragOver={(e) => { e.preventDefault(); }}
+          onDragEnter={(e) => { e.preventDefault(); setOtherOver(true); }}
+          onDragLeave={(e) => { e.preventDefault(); setOtherOver(false); }}
+          onDrop={(e) => {
+            e.preventDefault();
+            setOtherOver(false);
+            const incoming = Array.from(e.dataTransfer.files || []);
+            if (!incoming.length) return;
+            const space = MAX_OTHER_UPLOADS - otherFiles.length;
+            if (space <= 0) return;
+            setOtherFiles(prev => [...prev, ...incoming.slice(0, space)]);
+          }}
+          onClick={() => otherInputRef.current?.click()}
+          role="button"
+          aria-label="Drop other documents here or click to browse"
+          tabIndex={0}
+        >
+          <div>
+            <strong>Drag & drop documents here</strong>
+            <div style={{ marginTop: 6 }}>
+              <button type="button" className="btn-link" onClick={() => otherInputRef.current?.click()}>
+                Browse files
+              </button>
+            </div>
+            <small>Up to 50 files. Max 500MB each. Accepted: PDF, DOC/DOCX, PNG/JPG, TIFF, WEBP, GIF, TXT.</small>
+          </div>
+        </div>
+
+        {otherFiles.length > 0 && (
+          <div className="file-list" aria-live="polite">
+            {otherFiles.map((f, idx) => (
+              <div key={idx} className="file-row">
+                <span className="file-name">{idx + 1}. {f.name}</span>
+                <button type="button" className="btn-link" onClick={() => setOtherFiles(prev => prev.filter((_, i) => i !== idx))}>
+                  Remove
+                </button>
+              </div>
+            ))}
+            <small>{otherFiles.length} / {MAX_OTHER_UPLOADS} selected</small>
+          </div>
+        )}
       </fieldset>
 
       <button disabled={saving} className="fr-gold fr-submit" type="submit">
