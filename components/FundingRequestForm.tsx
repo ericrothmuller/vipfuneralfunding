@@ -135,7 +135,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
   const [decState, setDecState] = useState("");
   const [decZip, setDecZip] = useState("");
 
-  /** Death (formerly Place of Death) */
+  /** Death */
   const [decPODCity, setDecPODCity] = useState("");
   const [decPODState, setDecPODState] = useState("");
   const [deathInUS, setDeathInUS] = useState("");
@@ -284,9 +284,8 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           const data = await c.json();
           if (mounted) setCompanies((data?.items || []) as IC[]);
         }
-      } catch {
-        // ignore
-      } finally {
+      } catch { /* ignore */ }
+      finally {
         if (mounted) setLoadingProfile(false);
       }
     })();
@@ -394,52 +393,74 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
     setBeneViewOpen(true);
   }
 
-  /** ------------------- Add Existing Beneficiary ------------------- */
+  /** Edit from View modal */
+  function startEditBeneficiary() {
+    // reuse current beneDraft/benePolicyIdx/beneIndex
+    setBeneViewOpen(false);
+    setBeneModalOpen(true);
+  }
+
+  /** ------------------- Existing Beneficiary Picker ------------------- */
   const [existingModalOpen, setExistingModalOpen] = useState(false);
   const [existingForPolicyIdx, setExistingForPolicyIdx] = useState<number>(0);
   const [existingChoices, setExistingChoices] = useState<Array<{ label: string; detail: BeneficiaryDetail }>>([]);
   const [existingSelectedIdx, setExistingSelectedIdx] = useState<number | null>(null);
 
-  function openExistingBeneficiaryPicker(policyIdx: number) {
+  /** Helpers to decide available existing choices (not already on current policy) */
+  function signaturesForPolicy(policyIdx: number): Set<string> {
+    const sigs = new Set<string>();
+    const row = beneExtra[policyIdx] || [];
+    row.forEach((detail, j) => {
+      const name = (bundles[policyIdx]?.beneficiaries[j] || detail?.name || "").trim();
+      if (!name) return;
+      const sig = beneSignature({ ...detail, name });
+      sigs.add(sig);
+    });
+    return sigs;
+  }
+
+  function availableExistingForPolicy(policyIdx: number) {
+    const currentSigs = signaturesForPolicy(policyIdx);
     const choices: Array<{ label: string; detail: BeneficiaryDetail }> = [];
+    const seen = new Set<string>();
     beneExtra.forEach((row, pIdx) => {
       if (pIdx === policyIdx) return;
-      (row || []).forEach((detail, bIdx) => {
-        const name = (bundles[pIdx]?.beneficiaries[bIdx] || detail?.name || "").trim();
+      (row || []).forEach((detail, j) => {
+        const name = (bundles[pIdx]?.beneficiaries[j] || detail?.name || "").trim();
         if (!name) return;
-        choices.push({
-          label: `${name} (from Policy ${pIdx + 1})`,
-          detail: {
-            name,
-            relationship: detail?.relationship || "",
-            address: detail?.address || "",
-            dob: detail?.dob || "",
-            ssn: detail?.ssn || "",
-            phone: detail?.phone || "",
-            email: detail?.email || "",
-            city: detail?.city || "",
-            state: detail?.state || "",
-            zip: detail?.zip || "",
-          },
-        });
+        const candidate: BeneficiaryDetail = { ...detail, name };
+        const sig = beneSignature(candidate);
+        if (!currentSigs.has(sig) && !seen.has(sig)) {
+          seen.add(sig);
+          choices.push({ label: `${name} (from Policy ${pIdx + 1})`, detail: candidate });
+        }
       });
     });
+    return choices;
+  }
+
+  function openExistingBeneficiaryPicker(policyIdx: number) {
+    const choices = availableExistingForPolicy(policyIdx);
     if (!choices.length) {
       alert("No existing beneficiaries available to add.");
       return;
     }
     setExistingChoices(choices);
-    setExistingSelectedIdx(0);
+    setExistingSelectedIdx(null); // empty default selection
     setExistingForPolicyIdx(policyIdx);
     setExistingModalOpen(true);
   }
 
   function addExistingBeneficiaryToPolicy() {
-    if (existingSelectedIdx == null || !existingChoices[existingSelectedIdx]) {
+    if (existingSelectedIdx == null) {
       alert("Please select a beneficiary to add.");
       return;
     }
-    const picked = existingChoices[existingSelectedIdx].detail;
+    const picked = existingChoices[existingSelectedIdx]?.detail;
+    if (!picked) {
+      alert("Please select a beneficiary to add.");
+      return;
+    }
     setBundles(prev => {
       const copy = prev.map(b => ({ ...b, beneficiaries: [...b.beneficiaries] }));
       copy[existingForPolicyIdx].beneficiaries.push(picked.name || "");
@@ -462,6 +483,8 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       const dateOfDeath = fmtDateMDY(decDOD);
 
       const total = parseMoneyNumber(totalServiceAmount);
+      thead: {
+      }
       const adv   = parseMoneyNumber(familyAdvancementAmount);
       const vip   = Math.max(+((total + adv) * 0.03).toFixed(2), 100);
       const assignmentAmount = formatMoney(total + adv + vip);
@@ -502,7 +525,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         }
       }
 
-      // Pair for PDFs
+      // Pair unique beneficiaries into PDFs
       const pairs: Array<{ bene1?: BeneficiaryDetail; bene2?: BeneficiaryDetail }> = [];
       for (let i = 0; i < unique.length; i += 2) {
         pairs.push({ bene1: unique[i], bene2: unique[i + 1] });
@@ -619,7 +642,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       fd.set("vipFee", formatMoney(vip));
       fd.set("assignmentAmount", formatMoney(total + adv + vip));
 
-      // ensure we control files
       fd.delete("assignmentUpload");
       fd.delete("otherUploads");
 
@@ -701,6 +723,18 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         .file-row { display:flex; align-items:center; justify-content:space-between; gap:8px; }
         .file-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .btn-link { background:transparent; border:1px solid var(--border); padding:4px 8px; cursor:pointer; }
+
+        /* Make ghost buttons look like "+ Add Policy Number" */
+        .btn-ghost, .btn.btn-ghost {
+          border:1px solid var(--border);
+          background:var(--field-bg);
+          color:inherit;
+          border-radius:0;
+          padding:8px 10px;
+          cursor:pointer;
+          text-decoration:none;
+          display:inline-block;
+        }
       `}</style>
 
       {/* FH / CEM */}
@@ -890,7 +924,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           </p>
         )}
 
-        {/* Employer question AFTER IC */}
+        {/* Employer AFTER IC */}
         <label style={{ marginTop: 8 }}>Is the insurance through the deceased&apos;s employer?
           <select
             name="employerInsuranceSelect"
@@ -904,22 +938,17 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           </select>
         </label>
 
-        {/* Linked Policy Bundles */}
+        {/* Policies */}
         <div style={{ marginTop: 8 }}>
           {bundles.map((b, i) => {
             const nonEmptyCount = b.beneficiaries.filter(n => !!n && !!n.trim()).length;
             const addLabel = nonEmptyCount ? "+ Add Another Beneficiary" : "+ Add Beneficiary";
             const policyTitle = bundles.length === 1 ? "Policy" : `Policy #${i + 1}`;
-            const beneHeader = nonEmptyCount >= 2 ? "Beneficiaries" : "Beneficiary"; // ← changed per request
+            const beneHeader = nonEmptyCount >= 2 ? "Beneficiaries" : "Beneficiary";
             const multiplePolicies = bundles.length > 1;
 
-            // Existing bene availability from other policies
-            const haveExistingFromOthers = beneExtra.some((row, pIdx) =>
-              pIdx !== i && (row || []).some((det, j) => {
-                const nm = (bundles[pIdx]?.beneficiaries[j] || det?.name || "").trim();
-                return !!nm;
-              })
-            );
+            const availableChoices = availableExistingForPolicy(i);
+            const showAddExisting = multiplePolicies && availableChoices.length > 0;
 
             function handleAddNew(iPolicy: number) {
               const emptyIdx = b.beneficiaries.findIndex(n => !(n && n.trim()));
@@ -938,7 +967,16 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                   )}
                 </div>
 
-                {/* Beneficiaries list */}
+                {/* Policy Number first */}
+                <label>Policy Number
+                  <input
+                    type="text"
+                    value={b.policyNumber}
+                    onChange={(e) => updatePolicyNumber(i, e.target.value)}
+                  />
+                </label>
+
+                {/* Beneficiary section */}
                 <div style={{ marginTop: 8 }}>
                   <label>{beneHeader}</label>
 
@@ -962,7 +1000,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                     <button type="button" className="btn btn-ghost" onClick={() => handleAddNew(i)}>
                       {addLabel}
                     </button>
-                    {multiplePolicies && haveExistingFromOthers && (
+                    {showAddExisting && (
                       <button type="button" className="btn btn-ghost" onClick={() => openExistingBeneficiaryPicker(i)}>
                         + Add Existing Beneficiary
                       </button>
@@ -970,10 +1008,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                   </div>
                 </div>
 
-                <label style={{ marginTop: 8 }}>Policy Number
-                  <input type="text" value={b.policyNumber} onChange={(e) => updatePolicyNumber(i, e.target.value)} />
-                </label>
-
+                {/* Face Amount */}
                 <label style={{ marginTop: 8 }}>Face Amount
                   <input
                     type="text"
@@ -985,6 +1020,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                   />
                 </label>
 
+                {/* Add Policy button */}
                 {i === bundles.length - 1 && (
                   <button type="button" className="btn btn-ghost" onClick={addPolicyBundle} style={{ marginTop: 8 }}>
                     + Add Policy Number
@@ -1044,8 +1080,8 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           Download and print the assignment, complete all required fields in their entirety, obtain the signatures of all necessary parties, and ensure the document is properly notarized.
         </p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <a href={"/Funding%20Request%20Assignment.pdf"} download className="btn-ghost" aria-label="Download blank assignment PDF">Download</a>
-          <button type="button" className="btn-ghost" onClick={downloadFilledAssignment} aria-label="Download filled assignment PDF">Download Filled</button>
+          <a href={"/Funding%20Request%20Assignment.pdf"} download className="btn btn-ghost" aria-label="Download blank assignment PDF">Download Blank</a>
+          <button type="button" className="btn btn-ghost" onClick={downloadFilledAssignment} aria-label="Download filled assignment PDF">Download Filled</button>
         </div>
       </fieldset>
 
@@ -1175,12 +1211,12 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
 
       {msg && <p role="alert" style={{ color: "crimson", marginTop: 8 }}>{msg}</p>}
 
-      {/* Add Beneficiary Modal */}
+      {/* Add Beneficiary Modal (Add/Edit) */}
       {beneModalOpen && (
         <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="bene-add-title">
           <div className="modal">
             <div className="modal-header">
-              <h3 id="bene-add-title" className="modal-title">Add Beneficiary</h3>
+              <h3 id="bene-add-title" className="modal-title">Add / Edit Beneficiary</h3>
               <button className="btn btn-ghost" onClick={() => setBeneModalOpen(false)} aria-label="Close">✕</button>
             </div>
             <div className="modal-body">
@@ -1241,7 +1277,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         </div>
       )}
 
-      {/* View Beneficiary Modal */}
+      {/* View Beneficiary Modal (now with Edit) */}
       {beneViewOpen && (
         <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="bene-view-title">
           <div className="modal">
@@ -1268,13 +1304,14 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
               <div><strong>Phone:</strong> {beneDraft.phone || "—"}</div>
               <div className="modal-actions">
                 <button className="btn" onClick={() => setBeneViewOpen(false)}>Close</button>
+                <button className="btn btn-gold" onClick={startEditBeneficiary}>Edit</button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Existing Beneficiary Picker */}
+      {/* Existing Beneficiary Picker (with empty option) */}
       {existingModalOpen && (
         <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="bene-existing-title">
           <div className="modal">
@@ -1285,9 +1322,13 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
             <div className="modal-body">
               <label>Select a beneficiary from other policies
                 <select
-                  value={existingSelectedIdx ?? 0}
-                  onChange={(e) => setExistingSelectedIdx(Number(e.target.value))}
+                  value={existingSelectedIdx === null ? "" : String(existingSelectedIdx)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setExistingSelectedIdx(v === "" ? null : Number(v));
+                  }}
                 >
+                  <option value="">— Select a beneficiary —</option>
                   {existingChoices.map((c, idx) => (
                     <option key={idx} value={idx}>
                       {c.label}
