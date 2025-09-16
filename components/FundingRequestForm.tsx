@@ -29,6 +29,8 @@ type BeneficiaryDetail = {
   dob?: string;
   ssn?: string;
   phone?: string;
+
+  // required fields added earlier
   email?: string;
   city?: string;
   state?: string;
@@ -220,7 +222,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         copy[i].push({ name: "" });
         return copy;
       });
-      const newIdx = arr[i].beneficiaries.length;
+      const newIdx = arr[i].beneficiaries.length; // new slot index
       openAddBeneficiary(i, newIdx);
       return next;
     });
@@ -390,23 +392,21 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
     setBeneViewOpen(true);
   }
 
-  /** ------------------- NEW: Add Existing Beneficiary ------------------- */
+  /** ------------------- Add Existing Beneficiary ------------------- */
   const [existingModalOpen, setExistingModalOpen] = useState(false);
   const [existingForPolicyIdx, setExistingForPolicyIdx] = useState<number>(0);
   const [existingChoices, setExistingChoices] = useState<Array<{ label: string; detail: BeneficiaryDetail }>>([]);
   const [existingSelectedIdx, setExistingSelectedIdx] = useState<number | null>(null);
 
   function openExistingBeneficiaryPicker(policyIdx: number) {
-    // Build list of beneficiaries from OTHER policies with a name
     const choices: Array<{ label: string; detail: BeneficiaryDetail }> = [];
     beneExtra.forEach((row, pIdx) => {
       if (pIdx === policyIdx) return;
       (row || []).forEach((detail, bIdx) => {
         const name = (bundles[pIdx]?.beneficiaries[bIdx] || detail?.name || "").trim();
         if (!name) return;
-        const label = `${name} (from Policy ${pIdx + 1})`;
         choices.push({
-          label,
+          label: `${name} (from Policy ${pIdx + 1})`,
           detail: {
             name,
             relationship: detail?.relationship || "",
@@ -422,7 +422,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         });
       });
     });
-
     if (!choices.length) {
       alert("No existing beneficiaries available to add.");
       return;
@@ -439,7 +438,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       return;
     }
     const picked = existingChoices[existingSelectedIdx].detail;
-    // Append to bundles[policyIdx].beneficiaries and beneExtra[policyIdx]
     setBundles(prev => {
       const copy = prev.map(b => ({ ...b, beneficiaries: [...b.beneficiaries] }));
       copy[existingForPolicyIdx].beneficiaries.push(picked.name || "");
@@ -454,10 +452,9 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
     setExistingModalOpen(false);
   }
 
-  /** ------------------- NEW: Download filled assignment(s) ------------------- */
+  /** ------------------- Download filled assignment(s) ------------------- */
   async function downloadFilledAssignment() {
     try {
-      // Core values
       const insuredFirstName = (decFirstName || "").trim();
       const insuredLastName = (decLastName || "").trim();
       const dateOfDeath = fmtDateMDY(decDOD);
@@ -471,7 +468,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       const policyNumbers = bundles.map(b => b.policyNumber.trim()).filter(Boolean).join(", ");
       const fhRepName = (fhRep || "").trim();
 
-      // Flatten beneficiaries
       const flatBene: BeneficiaryDetail[] = [];
       beneExtra.forEach((row, i) => {
         (row || []).forEach((detail, j) => {
@@ -492,7 +488,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         });
       });
 
-      // Pair beneficiaries [B1,B2], [B3,B4], ...
       const pairs: Array<{ bene1?: BeneficiaryDetail; bene2?: BeneficiaryDetail }> = [];
       for (let i = 0; i < flatBene.length; i += 2) {
         pairs.push({ bene1: flatBene[i], bene2: flatBene[i + 1] });
@@ -510,37 +505,31 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           insuranceCompanyName,
           policyNumbers,
           fhRepName,
-          bene1: bene1
-            ? {
-                name: bene1.name || "",
-                relation: bene1.relationship || "",
-                ssn: bene1.ssn || "",
-                dob: bene1.dob || "",
-                phone: bene1.phone || "",
-                email: bene1.email || "",
-                address: bene1.address || "",
-                city: bene1.city || "",
-                state: bene1.state || "",
-                zip: bene1.zip || "",
-              }
-            : undefined,
-          bene2: bene2
-            ? {
-                name: bene2.name || "",
-                relation: bene2.relationship || "",
-                ssn: bene2.ssn || "",
-                dob: bene2.dob || "",
-                phone: bene2.phone || "",
-                email: bene2.email || "",
-                address: bene2.address || "",
-                city: bene2.city || "",
-                state: bene2.state || "",
-                zip: bene2.zip || "",
-              }
-            : undefined,
-          fileName: pairs.length === 1
-            ? "Assignment-Filled.pdf"
-            : `Assignment-Filled-Part${idx + 1}.pdf`,
+          bene1: bene1 ? {
+            name: bene1.name || "",
+            relation: bene1.relationship || "",
+            ssn: bene1.ssn || "",
+            dob: bene1.dob || "",
+            phone: bene1.phone || "",
+            email: bene1.email || "",
+            address: bene1.address || "",
+            city: bene1.city || "",
+            state: bene1.state || "",
+            zip: bene1.zip || "",
+          } : undefined,
+          bene2: bene2 ? {
+            name: bene2.name || "",
+            relation: bene2.relationship || "",
+            ssn: bene2.ssn || "",
+            dob: bene2.dob || "",
+            phone: bene2.phone || "",
+            email: bene2.email || "",
+            address: bene2.address || "",
+            city: bene2.city || "",
+            state: bene2.state || "",
+            zip: bene2.zip || "",
+          } : undefined,
+          fileName: pairs.length === 1 ? "Assignment-Filled.pdf" : `Assignment-Filled-Part${idx + 1}.pdf`,
         };
 
         const res = await fetch("/api/forms/assignment", {
@@ -579,7 +568,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       const form = e.currentTarget;
       const fd = new FormData(form);
 
-      // Build death data
       if (deathInUS) fd.set("deathInUS", deathInUS);
       if (deathInUS === "No" && decPODCountry.trim()) fd.set("decPODCountry", decPODCountry.trim());
       fd.set("codNatural",  cod === "Natural"  ? "Yes" : "No");
@@ -587,7 +575,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       fd.set("codHomicide", cod === "Homicide" ? "Yes" : "No");
       fd.set("codPending",  cod === "Pending"  ? "Yes" : "No");
 
-      // Insurance mapping
       if (selectedIC) {
         fd.set("insuranceCompanyMode", "id");
         fd.set("insuranceCompanyId", selectedIC.id);
@@ -602,7 +589,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         fd.set("employerRelation", employerRelation);
       }
 
-      // Linked bundles → compat + JSON
       const policyNumbers = bundles.map(b => b.policyNumber.trim()).filter(Boolean);
       const beneficiariesNames = beneExtra.flat().map((d) => d?.name || "").filter(Boolean);
       const faceSum = bundles.reduce((sum, b) => sum + parseMoneyNumber(b.faceAmount), 0);
@@ -612,30 +598,22 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       fd.set("faceAmount", formatMoney(faceSum));
       fd.set("policyBeneficiaries", JSON.stringify(beneExtra));
 
-      // computed currency
       const total = parseMoneyNumber(totalServiceAmount);
       const adv   = parseMoneyNumber(familyAdvancementAmount);
       const vip   = Math.max(+((total + adv) * 0.03).toFixed(2), 100);
       fd.set("vipFee", formatMoney(vip));
       fd.set("assignmentAmount", formatMoney(total + adv + vip));
 
-      // Remove any auto-included file fields (we’ll control them)
       fd.delete("assignmentUpload");
       fd.delete("otherUploads");
 
-      // Append our controlled files
-      if (assignmentFile) {
-        fd.set("assignmentUpload", assignmentFile);
-      }
-      if (otherFiles.length) {
-        otherFiles.forEach((f) => fd.append("otherUploads", f));
-      }
+      if (assignmentFile) fd.set("assignmentUpload", assignmentFile);
+      if (otherFiles.length) otherFiles.forEach((f) => fd.append("otherUploads", f));
 
       const res = await fetch("/api/requests", { method: "POST", body: fd });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json?.error || `Server error (code ${res.status})`);
 
-      // Clear local file state after successful submit
       setAssignmentFile(null);
       setOtherFiles([]);
 
@@ -672,7 +650,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         .fr-grid-3 { display:grid; gap:10px; grid-template-columns:repeat(3, minmax(220px, 1fr)); }
         .fr-grid-3-tight { display:grid; gap:8px; grid-template-columns:repeat(3, minmax(220px, 1fr)); }
 
-        .fr-inline-actions { display:flex; gap:8px; align-items:center; flex-wrap: wrap; }
+        .fr-inline-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
         .fr-del { background:transparent; border:1px solid var(--border); border-radius:0; padding:6px 10px; cursor:pointer; color:var(--muted); }
         .fr-del:hover { background:rgba(255,255,255,.06); border-color:rgba(255,255,255,.25); }
 
@@ -801,7 +779,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
             <option value="Separated">Separated</option>
           </select>
         </label>
-        {/* Address moved here */}
         <label>DEC Address
           <input name="decAddress" type="text" value={decAddress} onChange={(e) => setDecAddress(e.target.value)} />
         </label>
@@ -864,7 +841,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         <legend className="fr-legend">Insurance</legend>
         <h3 className="fr-section-title">Insurance</h3>
 
-        {/* ====== Moved: IC Typeahead FIRST ====== */}
+        {/* IC Typeahead moved FIRST */}
         <div className="ic-box" ref={icBoxRef} style={{ marginTop: 8 }}>
           <label>Insurance Company (type to search)
             <input
@@ -909,7 +886,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           </p>
         )}
 
-        {/* Employer question + conditional fields (now AFTER IC) */}
+        {/* Employer question AFTER IC */}
         <label style={{ marginTop: 8 }}>Is the insurance through the deceased&apos;s employer?
           <select
             name="employerInsuranceSelect"
@@ -986,18 +963,27 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         {/* Linked Policy Bundles */}
         <div style={{ marginTop: 8 }}>
           {bundles.map((b, i) => {
-            const hasAny = b.beneficiaries.some(name => !!name?.trim());
+            const nonEmptyCount = b.beneficiaries.filter(n => !!n && !!n.trim()).length;
+            const addLabel = nonEmptyCount ? "+ Add Another Beneficiary" : "+ Add Beneficiary";
             const policyTitle = bundles.length === 1 ? "Policy" : `Policy #${i + 1}`;
             const beneHeader = b.beneficiaries.length >= 2 ? "Beneficiaries" : "Beneficiary";
             const multiplePolicies = bundles.length > 1;
 
-            // Build condition to show "+ Add Existing Beneficiary"
+            // Existing bene availability from other policies
             const haveExistingFromOthers = beneExtra.some((row, pIdx) =>
               pIdx !== i && (row || []).some((det, j) => {
                 const nm = (bundles[pIdx]?.beneficiaries[j] || det?.name || "").trim();
                 return !!nm;
               })
             );
+
+            // Helper to add (first or next) beneficiary from the single button row
+            function handleAddNew(iPolicy: number) {
+              // try to reuse first empty slot if exists; otherwise add new
+              const emptyIdx = b.beneficiaries.findIndex(n => !(n && n.trim()));
+              if (emptyIdx >= 0) openAddBeneficiary(iPolicy, emptyIdx);
+              else addBeneficiary(iPolicy);
+            }
 
             return (
               <div className="pb" key={i}>
@@ -1010,73 +996,58 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                   )}
                 </div>
 
-                {/* Beneficiaries FIRST */}
+                {/* Beneficiaries list */}
                 <div style={{ marginTop: 8 }}>
                   <label>{beneHeader}</label>
-                  {/* First slot */}
-                  {b.beneficiaries[0] ? (
-                    <div className="fr-inline-actions">
-                      <div style={{ fontWeight: 600 }}>{b.beneficiaries[0]}</div>
-                      <button type="button" className="btn btn-ghost" onClick={() => openViewBeneficiary(i, 0)}>View Info</button>
-                      <button type="button" className="fr-del" onClick={() => removeBeneficiary(i, 0)}>Remove</button>
-                    </div>
-                  ) : (
-                    <div className="fr-inline-actions">
-                      <button type="button" className="btn btn-ghost" onClick={() => openAddBeneficiary(i, 0)}>
-                        + Add Beneficiary
-                      </button>
-                      {multiplePolicies && haveExistingFromOthers && (
-                        <button
-                          type="button"
-                          className="btn btn-ghost"
-                          onClick={() => openExistingBeneficiaryPicker(i)}
-                        >
-                          + Add Existing Beneficiary
-                        </button>
-                      )}
-                    </div>
-                  )}
 
-                  {/* Additional beneficiaries */}
-                  {b.beneficiaries.slice(1).map((val, j) => {
-                    const realIdx = j + 1;
+                  {/* Render all defined beneficiaries with controls */}
+                  {b.beneficiaries.map((val, j) => {
+                    const trimmed = (val || "").trim();
+                    if (!trimmed) return null; // skip placeholders in the list
                     return (
-                      <div key={realIdx} className="fr-inline-actions" style={{ marginTop: 8 }}>
-                        <div style={{ fontWeight: 600 }}>{val || "(unnamed beneficiary)"}</div>
+                      <div key={j} className="fr-inline-actions" style={{ marginTop: 8 }}>
+                        <div style={{ fontWeight: 600 }}>{trimmed}</div>
                         <button
                           type="button"
                           className="btn btn-ghost"
-                          onClick={() => (val ? openViewBeneficiary(i, realIdx) : openAddBeneficiary(i, realIdx))}
+                          onClick={() => openViewBeneficiary(i, j)}
                         >
-                          {val ? "View Info" : "Add Info"}
+                          View Info
                         </button>
-                        <button type="button" className="fr-del" onClick={() => removeBeneficiary(i, realIdx)}>
+                        <button
+                          type="button"
+                          className="fr-del"
+                          onClick={() => removeBeneficiary(i, j)}
+                        >
                           Remove
                         </button>
                       </div>
                     );
                   })}
 
-                  {/* "Add Another" and "Add Existing" buttons when we already have at least one */}
-                  {hasAny && (
-                    <div className="fr-inline-actions" style={{ marginTop: 8 }}>
-                      <button type="button" className="btn btn-ghost" onClick={() => addBeneficiary(i)}>
-                        + Add Another Beneficiary
+                  {/* Single button-row BELOW names (only place to add new/existing) */}
+                  <div className="fr-inline-actions" style={{ marginTop: 8 }}>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      onClick={() => handleAddNew(i)}
+                    >
+                      {addLabel}
+                    </button>
+
+                    {multiplePolicies && haveExistingFromOthers && (
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        onClick={() => openExistingBeneficiaryPicker(i)}
+                      >
+                        + Add Existing Beneficiary
                       </button>
-                      {multiplePolicies && haveExistingFromOthers && (
-                        <button
-                          type="button"
-                          className="btn btn-ghost"
-                          onClick={() => openExistingBeneficiaryPicker(i)}
-                        >
-                          + Add Existing Beneficiary
-                        </button>
-                      )}
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
 
-                {/* Then Policy Number */}
+                {/* Policy Number */}
                 <label style={{ marginTop: 8 }}>Policy Number
                   <input
                     type="text"
@@ -1085,7 +1056,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                   />
                 </label>
 
-                {/* Then Face Amount */}
+                {/* Face Amount */}
                 <label style={{ marginTop: 8 }}>Face Amount
                   <input
                     type="text"
@@ -1097,7 +1068,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                   />
                 </label>
 
-                {/* Add Policy Number button only under the last bundle */}
+                {/* Add Policy Number button under the last bundle */}
                 {i === bundles.length - 1 && (
                   <button type="button" className="btn btn-ghost" onClick={addPolicyBundle} style={{ marginTop: 8 }}>
                     + Add Policy Number
@@ -1174,17 +1145,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         <h3 className="fr-section-title">Upload Assignment</h3>
         <input ref={assignmentInputRef} name="assignmentUpload" type="file" accept={FILE_ACCEPT}
           onChange={(e) => setAssignmentFile(e.currentTarget.files?.[0] || null)} style={{ display: "none" }} />
-        <div className={`dz ${assignmentOver ? "over" : ""}`}
-          onDragOver={(e) => { e.preventDefault(); }} onDragEnter={(e) => { e.preventDefault(); setAssignmentOver(true); }}
-          onDragLeave={(e) => { e.preventDefault(); setAssignmentOver(false); }}
-          onDrop={(e) => { e.preventDefault(); setAssignmentOver(false); const dtFiles = Array.from(e.dataTransfer.files || []); if (dtFiles.length > 0) setAssignmentFile(dtFiles[0]); }}
-          onClick={() => assignmentInputRef.current?.click()} role="button" aria-label="Drop assignment file here or click to browse" tabIndex={0}>
-          <div>
-            <strong>Drag & drop the assignment here</strong>
-            <div style={{ marginTop: 6 }}><button type="button" className="btn-link">Browse file</button></div>
-            <small>Accepted: PDF, DOC/DOCX, PNG/JPG, TIFF, WEBP, GIF, TXT. Max 500MB.</small>
-          </div>
-        </div>
       </fieldset>
 
       {/* Upload Other Documents */}
@@ -1200,23 +1160,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
             setOtherFiles(prev => [...prev, ...incoming.slice(0, space)]);
             (e.currentTarget as HTMLInputElement).value = "";
           }} style={{ display: "none" }} />
-        <div className={`dz ${otherOver ? "over" : ""}`}
-          onDragOver={(e) => { e.preventDefault(); setOtherOver(true); }} onDragEnter={(e) => { e.preventDefault(); setOtherOver(true); }}
-          onDragLeave={(e) => { e.preventDefault(); setOtherOver(false); }}
-          onDrop={(e) => { e.preventDefault(); setOtherOver(false);
-            const incoming = Array.from(e.dataTransfer.files || []);
-            if (!incoming.length) return;
-            const space = MAX_OTHER_UPLOADS - otherFiles.length;
-            if (space <= 0) return;
-            setOtherFiles(prev => [...prev, ...incoming.slice(0, space)]);
-          }}
-          onClick={() => otherInputRef.current?.click()} role="button" aria-label="Drop other documents here or click to browse" tabIndex={0}>
-          <div>
-            <strong>Drag & drop documents here</strong>
-            <div style={{ marginTop: 6 }}><button type="button" className="btn-link">Browse files</button></div>
-            <small>Up to 50 files. Max 500MB each. Accepted: PDF, DOC/DOCX, PNG/JPG, TIFF, WEBP, GIF, TXT.</small>
-          </div>
-        </div>
       </fieldset>
 
       <button disabled={saving} className="fr-gold fr-submit" type="submit">
@@ -1347,9 +1290,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
               </label>
               <div className="modal-actions">
                 <button className="btn" onClick={() => setExistingModalOpen(false)}>Cancel</button>
-                <button className="btn btn-gold" onClick={addExistingBeneficiaryToPolicy}>
-                  Add Beneficiary
-                </button>
+                <button className="btn btn-gold" onClick={addExistingBeneficiaryToPolicy}>Add Beneficiary</button>
               </div>
             </div>
           </div>
