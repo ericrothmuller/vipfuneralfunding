@@ -29,8 +29,6 @@ type BeneficiaryDetail = {
   dob?: string;
   ssn?: string;
   phone?: string;
-
-  // required fields added earlier
   email?: string;
   city?: string;
   state?: string;
@@ -90,6 +88,31 @@ function fmtDateMDY(iso?: string) {
   const [y, m, d] = iso.split("-");
   if (!y || !m || !d) return iso;
   return `${m}/${d}/${y}`;
+}
+
+function norm(s?: string | null) {
+  return (s || "").trim().toLowerCase();
+}
+function normUpper(s?: string | null) {
+  return (s || "").trim().toUpperCase();
+}
+function normDigits(s?: string | null) {
+  return onlyDigits(s || "");
+}
+/** Build a unique signature for a beneficiary to de-duplicate across policies */
+function beneSignature(b: BeneficiaryDetail): string {
+  return [
+    norm(b.name),
+    norm(b.relationship),
+    normDigits(b.ssn),
+    norm(b.dob), // as typed
+    normDigits(b.phone),
+    norm(b.email),
+    norm(b.address),
+    norm(b.city),
+    normUpper(b.state),
+    normDigits(b.zip),
+  ].join("|");
 }
 
 /** ------------------- Component ------------------- */
@@ -468,6 +491,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       const policyNumbers = bundles.map(b => b.policyNumber.trim()).filter(Boolean).join(", ");
       const fhRepName = (fhRep || "").trim();
 
+      // Flatten all beneficiaries (with details) in order
       const flatBene: BeneficiaryDetail[] = [];
       beneExtra.forEach((row, i) => {
         (row || []).forEach((detail, j) => {
@@ -488,10 +512,23 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         });
       });
 
-      const pairs: Array<{ bene1?: BeneficiaryDetail; bene2?: BeneficiaryDetail }> = [];
-      for (let i = 0; i < flatBene.length; i += 2) {
-        pairs.push({ bene1: flatBene[i], bene2: flatBene[i + 1] });
+      // ---- NEW: De-duplicate beneficiaries across policies by signature ----
+      const seen = new Set<string>();
+      const unique: BeneficiaryDetail[] = [];
+      for (const b of flatBene) {
+        const sig = beneSignature(b);
+        if (!seen.has(sig)) {
+          seen.add(sig);
+          unique.push(b);
+        }
       }
+
+      // Pair unique beneficiaries [B1,B2], [B3,B4], ...
+      const pairs: Array<{ bene1?: BeneficiaryDetail; bene2?: BeneficiaryDetail }> = [];
+      for (let i = 0; i < unique.length; i += 2) {
+        pairs.push({ bene1: unique[i], bene2: unique[i + 1] });
+      }
+      // If none at all, still generate one cover sheet with company/fh fields
       if (pairs.length === 0) pairs.push({});
 
       for (let idx = 0; idx < pairs.length; idx++) {
@@ -568,6 +605,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       const form = e.currentTarget;
       const fd = new FormData(form);
 
+      // Build death data
       if (deathInUS) fd.set("deathInUS", deathInUS);
       if (deathInUS === "No" && decPODCountry.trim()) fd.set("decPODCountry", decPODCountry.trim());
       fd.set("codNatural",  cod === "Natural"  ? "Yes" : "No");
@@ -575,6 +613,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       fd.set("codHomicide", cod === "Homicide" ? "Yes" : "No");
       fd.set("codPending",  cod === "Pending"  ? "Yes" : "No");
 
+      // Insurance mapping
       if (selectedIC) {
         fd.set("insuranceCompanyMode", "id");
         fd.set("insuranceCompanyId", selectedIC.id);
@@ -589,6 +628,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         fd.set("employerRelation", employerRelation);
       }
 
+      // Linked bundles → compat + JSON
       const policyNumbers = bundles.map(b => b.policyNumber.trim()).filter(Boolean);
       const beneficiariesNames = beneExtra.flat().map((d) => d?.name || "").filter(Boolean);
       const faceSum = bundles.reduce((sum, b) => sum + parseMoneyNumber(b.faceAmount), 0);
@@ -598,15 +638,18 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       fd.set("faceAmount", formatMoney(faceSum));
       fd.set("policyBeneficiaries", JSON.stringify(beneExtra));
 
+      // computed currency
       const total = parseMoneyNumber(totalServiceAmount);
       const adv   = parseMoneyNumber(familyAdvancementAmount);
       const vip   = Math.max(+((total + adv) * 0.03).toFixed(2), 100);
       fd.set("vipFee", formatMoney(vip));
       fd.set("assignmentAmount", formatMoney(total + adv + vip));
 
+      // Remove any auto-included file fields (we’ll control them)
       fd.delete("assignmentUpload");
       fd.delete("otherUploads");
 
+      // Append our controlled files
       if (assignmentFile) fd.set("assignmentUpload", assignmentFile);
       if (otherFiles.length) otherFiles.forEach((f) => fd.append("otherUploads", f));
 
@@ -841,7 +884,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         <legend className="fr-legend">Insurance</legend>
         <h3 className="fr-section-title">Insurance</h3>
 
-        {/* IC Typeahead moved FIRST */}
+        {/* Insurance Company FIRST */}
         <div className="ic-box" ref={icBoxRef} style={{ marginTop: 8 }}>
           <label>Insurance Company (type to search)
             <input
@@ -972,14 +1015,14 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
             // Existing bene availability from other policies
             const haveExistingFromOthers = beneExtra.some((row, pIdx) =>
               pIdx !== i && (row || []).some((det, j) => {
-                const nm = (bundles[pIdx]?.beneficiaries[j] || det?.name || "").trim();
+                const nm = (bundles[pIdx]?.beneficiaries[bIdxToNum(j)] || det?.name || "").trim();
                 return !!nm;
               })
             );
 
-            // Helper to add (first or next) beneficiary from the single button row
+            function bIdxToNum(j: number) { return j; }
+
             function handleAddNew(iPolicy: number) {
-              // try to reuse first empty slot if exists; otherwise add new
               const emptyIdx = b.beneficiaries.findIndex(n => !(n && n.trim()));
               if (emptyIdx >= 0) openAddBeneficiary(iPolicy, emptyIdx);
               else addBeneficiary(iPolicy);
@@ -1000,47 +1043,29 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                 <div style={{ marginTop: 8 }}>
                   <label>{beneHeader}</label>
 
-                  {/* Render all defined beneficiaries with controls */}
                   {b.beneficiaries.map((val, j) => {
                     const trimmed = (val || "").trim();
-                    if (!trimmed) return null; // skip placeholders in the list
+                    if (!trimmed) return null;
                     return (
                       <div key={j} className="fr-inline-actions" style={{ marginTop: 8 }}>
                         <div style={{ fontWeight: 600 }}>{trimmed}</div>
-                        <button
-                          type="button"
-                          className="btn btn-ghost"
-                          onClick={() => openViewBeneficiary(i, j)}
-                        >
+                        <button type="button" className="btn btn-ghost" onClick={() => openViewBeneficiary(i, j)}>
                           View Info
                         </button>
-                        <button
-                          type="button"
-                          className="fr-del"
-                          onClick={() => removeBeneficiary(i, j)}
-                        >
+                        <button type="button" className="fr-del" onClick={() => removeBeneficiary(i, j)}>
                           Remove
                         </button>
                       </div>
                     );
                   })}
 
-                  {/* Single button-row BELOW names (only place to add new/existing) */}
+                  {/* Single add button-row BELOW names */}
                   <div className="fr-inline-actions" style={{ marginTop: 8 }}>
-                    <button
-                      type="button"
-                      className="btn btn-ghost"
-                      onClick={() => handleAddNew(i)}
-                    >
+                    <button type="button" className="btn btn-ghost" onClick={() => handleAddNew(i)}>
                       {addLabel}
                     </button>
-
                     {multiplePolicies && haveExistingFromOthers && (
-                      <button
-                        type="button"
-                        className="btn btn-ghost"
-                        onClick={() => openExistingBeneficiaryPicker(i)}
-                      >
+                      <button type="button" className="btn btn-ghost" onClick={() => openExistingBeneficiaryPicker(i)}>
                         + Add Existing Beneficiary
                       </button>
                     )}
@@ -1049,11 +1074,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
 
                 {/* Policy Number */}
                 <label style={{ marginTop: 8 }}>Policy Number
-                  <input
-                    type="text"
-                    value={b.policyNumber}
-                    onChange={(e) => updatePolicyNumber(i, e.target.value)}
-                  />
+                  <input type="text" value={b.policyNumber} onChange={(e) => updatePolicyNumber(i, e.target.value)} />
                 </label>
 
                 {/* Face Amount */}
@@ -1068,7 +1089,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                   />
                 </label>
 
-                {/* Add Policy Number button under the last bundle */}
                 {i === bundles.length - 1 && (
                   <button type="button" className="btn btn-ghost" onClick={addPolicyBundle} style={{ marginTop: 8 }}>
                     + Add Policy Number
