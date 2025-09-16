@@ -25,7 +25,7 @@ function guessContentType(p: string): string {
   return map[ext] || "application/octet-stream";
 }
 
-export async function GET(_req: Request, context: any) {
+export async function GET(req: Request, context: any) {
   try {
     const me = await getUserFromCookie();
     if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -34,9 +34,13 @@ export async function GET(_req: Request, context: any) {
     const { id } = await (context?.params ?? {});
     if (!id || typeof id !== "string") return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
+    const url = new URL(req.url);
+    const iParam = url.searchParams.get("i");
+    const index = iParam != null ? Math.max(0, Number(iParam)) : null;
+
     await connectDB();
     const doc: any = await FundingRequest.findById(id)
-      .select("userId assignmentUploadPath")
+      .select("userId assignmentUploadPath assignmentUploadPaths")
       .lean();
     if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -44,11 +48,20 @@ export async function GET(_req: Request, context: any) {
     const isAdmin = me.role === "ADMIN";
     if (!isOwner && !isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    let stored = (doc.assignmentUploadPath as string | undefined) || "";
-    if (!stored) return NextResponse.json({ error: "No assignment uploaded" }, { status: 404 });
+    const paths: string[] = Array.isArray(doc.assignmentUploadPaths) ? doc.assignmentUploadPaths.filter(Boolean) : [];
+    let chosenRelative = "";
 
-    // Normalize legacy values: strip leading slashes and optional "uploads/"
-    let relative = stored.trim().replace(/^[/\\]+/, "");
+    if (paths.length > 0) {
+      const idx = index == null ? 0 : Math.min(paths.length - 1, index);
+      chosenRelative = (paths[idx] || "").trim();
+    } else {
+      chosenRelative = (doc.assignmentUploadPath as string | undefined)?.trim() || "";
+    }
+
+    if (!chosenRelative) return NextResponse.json({ error: "No assignment uploaded" }, { status: 404 });
+
+    // Normalize legacy values
+    let relative = chosenRelative.replace(/^[/\\]+/, "");
     if (relative.toLowerCase().startsWith("uploads/")) relative = relative.slice("uploads/".length);
 
     const root       = path.resolve(UPLOAD_DIR);
@@ -78,7 +91,7 @@ export async function GET(_req: Request, context: any) {
 
     if (!chosen) {
       console.warn("[assignment download] file not found in allowed roots", {
-        stored, normalizedRelative: relative, tried: candidates,
+        stored: chosenRelative, normalizedRelative: relative, tried: candidates,
         roots: { root, legacyRoot },
       });
       return NextResponse.json({ error: "File missing" }, { status: 404 });
@@ -88,12 +101,17 @@ export async function GET(_req: Request, context: any) {
     const nodeStream = createReadStream(chosen);
     const webStream  = Readable.toWeb(nodeStream) as unknown as ReadableStream;
 
+    const base = path.basename(chosen);
+    const name = (paths.length > 1 && index != null)
+      ? `${path.parse(base).name}.part-${index}${path.parse(base).ext}`
+      : base;
+
     return new Response(webStream, {
       status: 200,
       headers: {
         "Content-Type": guessContentType(chosen),
         "Content-Length": String(st.size),
-        "Content-Disposition": `attachment; filename="${path.basename(chosen)}"`,
+        "Content-Disposition": `attachment; filename="${name}"`,
         "Cache-Control": "private, no-store",
       },
     });
