@@ -16,6 +16,7 @@ import mongoose from "mongoose";
 const UPLOAD_DIR = process.env.UPLOAD_DIR || "/home/deploy/uploads/vipfuneralfunding";
 const MAX_UPLOAD_BYTES = 500 * 1024 * 1024; // 500 MB
 const MAX_OTHER_UPLOADS = 50;
+const MAX_ASSIGNMENT_UPLOADS = 10;          // NEW: up to 10 assignment files
 
 /* -------------------- helpers -------------------- */
 function moneyToNumber(v: any): number {
@@ -65,7 +66,7 @@ async function streamToFile(file: File): Promise<{ relative: string; absolute: s
   const dir = path.join(root, subdir);
   await fs.mkdir(dir, { recursive: true, mode: 0o755 });
 
-  const ext = safeExt(file.name);
+  const ext = safeExt((file as any).name);
   const filename = `${randomUUID()}${ext}`;
   const absolute = path.join(dir, filename);
   const relative = path.join(subdir, filename).replace(/\\/g, "/");
@@ -179,17 +180,37 @@ export async function POST(req: Request) {
 
     let body: any = {};
     let assignmentRelative: string | undefined;
+    let assignmentRelatives: string[] = []; // NEW
     let otherRelatives: string[] = [];
 
     if (ctype.includes("multipart/form-data")) {
       const form = await req.formData();
 
-      // Assignment
-      const file = form.get("assignmentUpload");
-      if (file && file instanceof File && file.size > 0) {
-        const saved = await streamToFile(file);
-        assignmentRelative = saved.relative;
+      // Assignment (accept both legacy single and new plural)
+      const legacySingle = form.get("assignmentUpload");
+      const multi = form.getAll("assignmentUploads");
+
+      // normalize to File[]
+      const assignmentFiles: File[] = [];
+      if (legacySingle && legacySingle instanceof File && legacySingle.size > 0) {
+        assignmentFiles.push(legacySingle);
       }
+      for (const v of multi) {
+        if (v instanceof File && v.size > 0) assignmentFiles.push(v);
+      }
+
+      if (assignmentFiles.length > MAX_ASSIGNMENT_UPLOADS) {
+        return NextResponse.json(
+          { error: `Too many assignment files. Max ${MAX_ASSIGNMENT_UPLOADS}.` },
+          { status: 400 }
+        );
+      }
+
+      for (const f of assignmentFiles) {
+        const saved = await streamToFile(f);
+        assignmentRelatives.push(saved.relative);
+      }
+      assignmentRelative = assignmentRelatives[0]; // keep legacy populated with the first
 
       // Other uploads (up to 50)
       const others = form.getAll("otherUploads").filter((v) => v instanceof File) as File[];
@@ -221,7 +242,7 @@ export async function POST(req: Request) {
         contactPhone: text("contactPhone"),
         contactEmail: text("contactEmail"),
 
-        // legacy names (kept for compat if you still submit them from other parts)
+        // legacy names (kept for compat)
         decFirstName: text("decFirstName"),
         decLastName: text("decLastName"),
         // new mirror
@@ -269,7 +290,7 @@ export async function POST(req: Request) {
       body.codPending  = text("codPending");
       body.hasFinalDC  = text("hasFinalDC");
 
-      // “other FH taking assignment” legacy toggles (if you still use them)
+      // legacy toggles (if still used)
       body.otherFHTakingAssignment = bool("otherFHTakingAssignment");
       body.otherFHName   = text("otherFHName");
       body.otherFHAmount = text("otherFHAmount");
@@ -286,7 +307,7 @@ export async function POST(req: Request) {
         body.otherInsuranceCompany = { name: "", phone: "", fax: "", notes: "" };
       }
     } else {
-      // JSON fallback (not typically used with uploads)
+      // JSON fallback (not typical with uploads)
       const json = await req.json().catch(() => ({}));
       body = json || {};
       if (body.decFirstName && !body.decedentFirstName) body.decedentFirstName = body.decFirstName;
@@ -364,7 +385,9 @@ export async function POST(req: Request) {
 
       notes: body.notes,
 
+      // uploads
       ...(assignmentRelative ? { assignmentUploadPath: assignmentRelative } : {}),
+      ...(assignmentRelatives.length ? { assignmentUploadPaths: assignmentRelatives } : {}),
       ...(otherRelatives.length ? { otherUploadPaths: otherRelatives } : {}),
 
       status: "Submitted",
@@ -373,6 +396,7 @@ export async function POST(req: Request) {
     console.log("[upload] created request", {
       id: String(doc._id),
       assignment: assignmentRelative,
+      assignmentsCount: assignmentRelatives.length,
       others: otherRelatives.length,
     });
 
