@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { getUserFromCookie } from "@/lib/auth";
 import { FundingRequest } from "@/models/FundingRequest";
+import { User } from "@/models/User";
 
 import { createReadStream } from "node:fs";
 import fs from "node:fs/promises";
@@ -25,48 +26,56 @@ function guessContentType(p: string): string {
   return map[ext] || "application/octet-stream";
 }
 
+async function fhcemExtraAllow(me: any, doc: any): Promise<boolean> {
+  if (!me || me.role !== "FH_CEM") return false;
+  const meUser = await User.findById(me.sub).select("fhCemId fhName").lean();
+  if (!meUser) return false;
+  if (meUser.fhCemId && doc?.fhCemId && String(meUser.fhCemId) === String(doc.fhCemId)) return true;
+  const a = (meUser.fhName || "").trim().toLowerCase();
+  const b = (doc?.fhName || "").trim().toLowerCase();
+  return !!(a && b && a === b);
+}
+
 export async function GET(req: Request, context: any) {
   try {
     const me = await getUserFromCookie();
     if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     if (me.role === "NEW") return NextResponse.json({ error: "Approval required before accessing funding requests." }, { status: 403 });
 
-    const { id } = await (context?.params ?? {});
-    if (!id || typeof id !== "string") return NextResponse.json({ error: "Missing id" }, { status: 400 });
-
-    const url = new URL(req.url);
-    const iParam = url.searchParams.get("i");
-    const index = iParam != null ? Math.max(0, Number(iParam)) : null;
+    const { id } = (context?.params ?? {}) as { id?: string };
+    if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
     await connectDB();
     const doc: any = await FundingRequest.findById(id)
-      .select("userId assignmentUploadPath assignmentUploadPaths")
+      .select("ownerId userId fhCemId fhName assignmentUploadPath assignmentUploadPaths")
       .lean();
     if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const isOwner = String(doc.userId) === String(me.sub);
+    const isOwner = String(doc.ownerId || doc.userId) === String(me.sub);
     const isAdmin = me.role === "ADMIN";
-    if (!isOwner && !isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
-    const paths: string[] = Array.isArray(doc.assignmentUploadPaths) ? doc.assignmentUploadPaths.filter(Boolean) : [];
-    let chosenRelative = "";
-
-    if (paths.length > 0) {
-      const idx = index == null ? 0 : Math.min(paths.length - 1, index);
-      chosenRelative = (paths[idx] || "").trim();
-    } else {
-      chosenRelative = (doc.assignmentUploadPath as string | undefined)?.trim() || "";
+    let allowed = isOwner || isAdmin;
+    if (!allowed && me.role === "FH_CEM") {
+      allowed = await fhcemExtraAllow(me, doc);
     }
+    if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    if (!chosenRelative) return NextResponse.json({ error: "No assignment uploaded" }, { status: 404 });
+    // choose file by ?i=
+    const url = new URL(req.url);
+    const iParam = url.searchParams.get("i");
+    const index = iParam != null ? Math.max(0, Number(iParam)) : 0;
 
-    // Normalize legacy values
+    const paths: string[] = Array.isArray(doc.assignmentUploadPaths) && doc.assignmentUploadPaths.length
+      ? doc.assignmentUploadPaths
+      : (doc.assignmentUploadPath ? [doc.assignmentUploadPath] : []);
+
+    if (!paths.length) return NextResponse.json({ error: "No assignment uploaded" }, { status: 404 });
+
+    const chosenRelative = (paths[Math.min(paths.length - 1, index)] || "").trim();
     let relative = chosenRelative.replace(/^[/\\]+/, "");
     if (relative.toLowerCase().startsWith("uploads/")) relative = relative.slice("uploads/".length);
 
     const root       = path.resolve(UPLOAD_DIR);
     const legacyRoot = path.resolve(LEGACY_PARENT);
-
     const candidates = [
       path.resolve(root, relative),
       path.resolve(root, path.basename(relative)),
@@ -90,10 +99,7 @@ export async function GET(req: Request, context: any) {
     }
 
     if (!chosen) {
-      console.warn("[assignment download] file not found in allowed roots", {
-        stored: chosenRelative, normalizedRelative: relative, tried: candidates,
-        roots: { root, legacyRoot },
-      });
+      console.warn("[assignment download] file not found", { stored: chosenRelative, normalizedRelative: relative, candidates });
       return NextResponse.json({ error: "File missing" }, { status: 404 });
     }
 
@@ -101,17 +107,12 @@ export async function GET(req: Request, context: any) {
     const nodeStream = createReadStream(chosen);
     const webStream  = Readable.toWeb(nodeStream) as unknown as ReadableStream;
 
-    const base = path.basename(chosen);
-    const name = (paths.length > 1 && index != null)
-      ? `${path.parse(base).name}.part-${index}${path.parse(base).ext}`
-      : base;
-
     return new Response(webStream, {
       status: 200,
       headers: {
         "Content-Type": guessContentType(chosen),
         "Content-Length": String(st.size),
-        "Content-Disposition": `attachment; filename="${name}"`,
+        "Content-Disposition": `attachment; filename="${path.basename(chosen)}"`,
         "Cache-Control": "private, no-store",
       },
     });

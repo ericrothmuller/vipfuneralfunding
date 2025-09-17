@@ -62,7 +62,12 @@ type Setter = (next: string) => void;
 function handleCurrencyInput(value: string, setter: Setter) {
   const clean = value.replace(/[^0-9.]/g, "");
   const parts = clean.split(".");
-  const normalized = parts.length <= 2 ? clean : `${parts[0]}.${parts.slice(1).join("")}`.replace(/\./g, (m, i) => (i === 0 ? "." : ""));
+  const normalized =
+    parts.length <= 2
+      ? clean
+      : `${parts[0]}.${parts.slice(1).join("")}`.replace(/\./g, (m, i) =>
+          i === 0 ? "." : ""
+        );
   setter(normalized);
 }
 function handleCurrencyBlur(value: string, setter: Setter) {
@@ -494,7 +499,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       const assignmentAmount = formatMoney(total + adv + vip);
 
       const insuranceCompanyName = (selectedIC?.name || icInput || "").trim();
-      const policyNumbers = bundles.map(b => b.policyNumber.trim()).filter(Boolean).join(", ");
+      const policyNumbersStr = bundles.map(b => b.policyNumber.trim()).filter(Boolean).join(", ");
       const fhRepName = (fhRep || "").trim();
 
       // Flatten bene details
@@ -545,7 +550,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           assignmentAmount,
           fhName: fhName || "",
           insuranceCompanyName,
-          policyNumbers,
+          policyNumbers: policyNumbersStr,
           fhRepName,
           bene1: bene1 ? {
             name: bene1.name || "",
@@ -639,6 +644,11 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       fd.set("beneficiaries", beneficiariesNames.join(", "));
       fd.set("faceAmount", formatMoney(faceSum));
       fd.set("policyBeneficiaries", JSON.stringify(beneExtra));
+
+      // NEW: send per-policy array (policyNumber + faceAmount) for details view
+      fd.set("policies", JSON.stringify(
+        bundles.map(b => ({ policyNumber: b.policyNumber.trim(), faceAmount: b.faceAmount }))
+      ));
 
       const total = parseMoneyNumber(totalServiceAmount);
       const adv   = parseMoneyNumber(familyAdvancementAmount);
@@ -1070,7 +1080,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           <label>Total Assignment Amount
             <input
               name="assignmentAmount" type="text"
-              value={formatMoney( parseMoneyNumber(totalServiceAmount) + parseMoneyNumber(familyAdvancementAmount) + Math.max(+((parseMoneyNumber(totalServiceAmount)+parseMoneyNumber(familyAdvancementAmount))*0.03).toFixed(2), 100) )}
+              value={formatMoney( parseMoneyNumber(totalServiceAmount) + parseMoneyNumber(familyAdvancementAmount) + Math.max(+((parseMoneyNumber(totalServiceAmount)+parseMoneyNumber(familyAdvancementAmount))*0.03).toFixed(2), 100) ) }
               readOnly={!isAdmin} className={!isAdmin ? "fr-readonly" : undefined}
             />
           </label>
@@ -1293,7 +1303,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         </div>
       )}
 
-      {/* View Beneficiary Modal (now with Edit) */}
+      {/* View Beneficiary Modal */}
       {beneViewOpen && (
         <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="bene-view-title">
           <div className="modal">

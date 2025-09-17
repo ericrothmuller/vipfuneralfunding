@@ -1,7 +1,7 @@
 // components/RequestDetailModal.tsx
 "use client";
 
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const FILE_ACCEPT = ".pdf,.doc,.docx,.png,.jpg,.jpeg,.tif,.tiff,.webp,.gif,.txt";
 const MAX_OTHER_UPLOADS = 50;
@@ -25,6 +25,11 @@ type BeneficiaryDetail = {
   phone?: string;
   ssn?: string;
   dob?: string;
+};
+
+type PolicyItem = {
+  policyNumber?: string;
+  faceAmount?: string; // formatted string
 };
 
 type RequestDetail = {
@@ -64,7 +69,7 @@ type RequestDetail = {
   codPending?: boolean;
   codSuicide?: boolean;
 
-  // Certificates & assignments
+  // Certificates
   hasFinalDC?: boolean;
 
   // Employer
@@ -76,15 +81,17 @@ type RequestDetail = {
   // Insurance linkage
   insuranceCompanyId?: string | { _id?: string; name?: string };
   otherInsuranceCompany?: OtherIC;
-  insuranceCompany?: string; // legacy
-  policyNumbers?: string;     // display string
-  faceAmount?: string;
-  beneficiaries?: string;     // comma-separated names (fallback)
+  insuranceCompany?: string;    // legacy
+  policyNumbers?: string;       // aggregated string (fallback)
+  faceAmount?: string;          // aggregated formatted (fallback)
+  beneficiaries?: string;       // aggregated CSV fallback
 
-  // OPTIONAL structured beneficiaries (if server returns it later)
+  // Structured beneficiaries per policy (optional)
   policyBeneficiaries?: BeneficiaryDetail[][];
+  // Structured policies (optional)
+  policies?: PolicyItem[];
 
-  // Financials
+  // Financials (formatted)
   totalServiceAmount?: string;
   familyAdvancementAmount?: string;
   vipFee?: string;
@@ -92,6 +99,8 @@ type RequestDetail = {
 
   // Misc
   notes?: string;
+
+  // Uploads
   assignmentUploadPath?: string;
   assignmentUploadPaths?: string[];
   otherUploadPaths?: string[];
@@ -228,7 +237,7 @@ export default function RequestDetailModal({
     ? data.assignmentUploadPaths.length
     : (data?.assignmentUploadPath ? 1 : 0);
 
-  // ---------- Beneficiaries list + view modal ----------
+  // Beneficiaries (global list) + modal
   const [beneList, setBeneList] = useState<Array<{ name: string; detail?: BeneficiaryDetail }>>([]);
   const [beneOpen, setBeneOpen] = useState(false);
   const [beneSelected, setBeneSelected] = useState<{ name: string; detail?: BeneficiaryDetail } | null>(null);
@@ -237,7 +246,7 @@ export default function RequestDetailModal({
     const map = new Map<string, BeneficiaryDetail>();
     const nameNorm = (s?: string) => (s || "").trim().toLowerCase();
 
-    // Prefer structured details if present
+    // structured
     if (Array.isArray(r.policyBeneficiaries)) {
       for (const row of r.policyBeneficiaries) {
         for (const ben of (row || [])) {
@@ -245,7 +254,6 @@ export default function RequestDetailModal({
           if (!nm) continue;
           const key = nameNorm(nm);
           const prev = map.get(key) || {};
-          // keep the richer record (more filled fields)
           const prevFilled = Object.values(prev).filter(Boolean).length;
           const nextFilled = Object.values(ben || {}).filter(Boolean).length;
           map.set(key, nextFilled >= prevFilled ? { ...ben } : prev);
@@ -253,7 +261,7 @@ export default function RequestDetailModal({
       }
     }
 
-    // Fallback from CSV names if any missing
+    // CSV fallback
     const names = (r.beneficiaries || "")
       .split(",")
       .map(s => s.trim())
@@ -263,17 +271,15 @@ export default function RequestDetailModal({
       const key = nameNorm(nm);
       if (!map.has(key)) map.set(key, { name: nm });
       else {
-        // ensure name field populated
         const d = map.get(key)!;
         if (!d.name) d.name = nm;
       }
     }
 
     const arr: Array<{ name: string; detail?: BeneficiaryDetail }> = [];
-    for (const [_, detail] of map.entries()) {
+    for (const [, detail] of map.entries()) {
       arr.push({ name: (detail.name || "").trim(), detail });
     }
-    // sort by name
     arr.sort((a, b) => a.name.localeCompare(b.name));
     setBeneList(arr);
   }
@@ -417,10 +423,7 @@ export default function RequestDetailModal({
       assignAdds.forEach(f => fd.append("assignmentUploads", f));
       otherAdds.forEach(f => fd.append("otherUploads", f));
 
-      const res = await fetch(`/api/requests/${id}`, {
-        method: "PUT",
-        body: fd,
-      });
+      const res = await fetch(`/api/requests/${id}`, { method: "PUT", body: fd });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json?.error || `Save failed (HTTP ${res.status})`);
 
@@ -438,6 +441,83 @@ export default function RequestDetailModal({
       setSaving(false);
     }
   }
+
+  // Derived booleans for display
+  const employerYes =
+    !!(data?.employerRelation || data?.employerPhone || data?.employerContact || data?.employmentStatus);
+
+  // Build per-policy display data
+  const policyRows: Array<{
+    index: number;
+    policyNumber: string;
+    faceAmount?: string;
+    beneficiaries: Array<{ name: string; detail?: BeneficiaryDetail }>;
+  }> = useMemo(() => {
+    const rows: Array<{
+      index: number;
+      policyNumber: string;
+      faceAmount?: string;
+      beneficiaries: Array<{ name: string; detail?: BeneficiaryDetail }>;
+    }> = [];
+
+    if (!data) return rows;
+
+    const structured = Array.isArray(data.policies) && data.policies.length > 0;
+    const policyNums = structured
+      ? data.policies!.map(p => (p?.policyNumber || "").trim())
+      : (data.policyNumbers || "")
+          .split(",")
+          .map(s => s.trim())
+          .filter(Boolean);
+
+    const pb = Array.isArray(data.policyBeneficiaries) ? data.policyBeneficiaries : [];
+
+    for (let i = 0; i < policyNums.length; i++) {
+      const num = policyNums[i] || "";
+      const face = structured ? (data.policies?.[i]?.faceAmount || "") : undefined;
+
+      const beneDetails: BeneficiaryDetail[] = Array.isArray(pb[i]) ? pb[i] : [];
+      const beneNames = beneDetails.map(b => (b?.name || "").trim()).filter(Boolean);
+
+      // If no structured details, try to map from global CSV (best effort)
+      const fallbacks: Array<{ name: string; detail?: BeneficiaryDetail }> = [];
+      if (!beneNames.length && (data.beneficiaries || "")) {
+        (data.beneficiaries || "")
+          .split(",")
+          .map(s => s.trim())
+          .filter(Boolean)
+          .forEach(n => fallbacks.push({ name: n }));
+      }
+
+      const rowBeneficiaries: Array<{ name: string; detail?: BeneficiaryDetail }> =
+        beneDetails.length
+          ? beneDetails.map(b => ({ name: (b?.name || "").trim(), detail: b }))
+          : fallbacks;
+
+      rows.push({
+        index: i,
+        policyNumber: num,
+        faceAmount: face,
+        beneficiaries: rowBeneficiaries,
+      });
+    }
+
+    // If no policyNums but we still have a combined CSV, build a single row as fallback
+    if (!policyNums.length && (data.beneficiaries || "")) {
+      rows.push({
+        index: 0,
+        policyNumber: "",
+        faceAmount: data.faceAmount || "",
+        beneficiaries: (data.beneficiaries || "")
+          .split(",")
+          .map(s => s.trim())
+          .filter(Boolean)
+          .map(n => ({ name: n })),
+      });
+    }
+
+    return rows;
+  }, [data]);
 
   return (
     <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="request-modal-title">
@@ -463,92 +543,40 @@ export default function RequestDetailModal({
 
           {data && !loading && !msg && !editing && (
             <div className="detail-grid">
-              {/* Workflow */}
-              <section>
-                <h4>Workflow</h4>
-                <div><span>Status</span><strong>{data.status || "Submitted"}</strong></div>
-                <div><span>Created</span><strong>{fmtDate(data.createdAt)}</strong></div>
-                <div><span>Updated</span><strong>{fmtDate(data.updatedAt)}</strong></div>
-              </section>
-
-              {/* Insurance */}
-              <section>
-                <h4>Insurance</h4>
-                <div><span>Company</span><strong>{companyDisplay(data)}</strong></div>
-                {data.otherInsuranceCompany?.name && !data.insuranceCompanyId && (
-                  <>
-                    <div><span>Other Phone</span><strong>{data.otherInsuranceCompany?.phone || ""}</strong></div>
-                    <div><span>Other Fax</span><strong>{data.otherInsuranceCompany?.fax || ""}</strong></div>
-                    <div>
-                      <span>Other Notes</span>
-                      <div style={{ whiteSpace: "pre-wrap" }}>
-                        <strong>{data.otherInsuranceCompany?.notes || ""}</strong>
-                      </div>
-                    </div>
-                  </>
-                )}
-                <div><span>Policy Number(s)</span><strong>{data.policyNumbers || ""}</strong></div>
-                <div><span>Face Amount</span><strong>{data.faceAmount || ""}</strong></div>
-
-                {/* Beneficiaries list with View buttons */}
-                <div>
-                  <span>Beneficiaries</span>
-                  {beneList.length ? (
-                    <div className="bene-list">
-                      {beneList.map((b, i) => (
-                        <div key={i} className="bene-row">
-                          <div className="bene-name">{b.name || "—"}</div>
-                          <button
-                            type="button"
-                            className="btn"
-                            onClick={() => { setBeneSelected(b); setBeneOpen(true); }}
-                          >
-                            View
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <strong>{data.beneficiaries || "—"}</strong>
-                  )}
-                </div>
-              </section>
-
-              {/* FH / CEM */}
+              {/* 1) FH/CEM */}
               <section>
                 <h4>Funeral Home / Cemetery</h4>
-                <div><span>FH/CEM Name</span><strong>{data.fhName || ""}</strong></div>
-                <div><span>FH/CEM REP</span><strong>{data.fhRep || ""}</strong></div>
-                <div><span>Contact Phone</span><strong>{data.contactPhone || ""}</strong></div>
-                <div><span>Contact Email</span><strong>{data.contactEmail || ""}</strong></div>
+                <div><span>FH/CEM Name</span><strong>{data.fhName || "—"}</strong></div>
+                <div><span>FH/CEM REP</span><strong>{data.fhRep || "—"}</strong></div>
+                <div><span>Contact Phone</span><strong>{data.contactPhone || "—"}</strong></div>
+                <div><span>Contact Email</span><strong>{data.contactEmail || "—"}</strong></div>
               </section>
 
-              {/* Decedent */}
+              {/* 2) Decedent */}
               <section>
                 <h4>Decedent</h4>
-                <div><span>DEC Name</span><strong>{[data.decFirstName, data.decLastName].filter(Boolean).join(" ")}</strong></div>
-                <div><span>SSN</span><strong>{data.decSSN || ""}</strong></div>
-                <div><span>Date of Birth</span><strong>{fmtDate(data.decDOB)}</strong></div>
-                <div><span>Date of Death</span><strong>{fmtDate(data.decDOD)}</strong></div>
-                <div><span>Marital Status</span><strong>{data.decMaritalStatus || ""}</strong></div>
+                <div><span>DEC Name</span><strong>{[data.decFirstName, data.decLastName].filter(Boolean).join(" ") || "—"}</strong></div>
+                <div><span>SSN</span><strong>{data.decSSN || "—"}</strong></div>
+                <div><span>Date of Birth</span><strong>{fmtDate(data.decDOB) || "—"}</strong></div>
+                <div><span>Date of Death</span><strong>{fmtDate(data.decDOD) || "—"}</strong></div>
+                <div><span>Marital Status</span><strong>{data.decMaritalStatus || "—"}</strong></div>
               </section>
 
-              {/* Address */}
+              {/* 2b) Address */}
               <section>
                 <h4>Address</h4>
-                <div><span>Street</span><strong>{data.decAddress || ""}</strong></div>
-                <div><span>City</span><strong>{data.decCity || ""}</strong></div>
-                <div><span>State</span><strong>{data.decState || ""}</strong></div>
-                <div><span>Zip</span><strong>{data.decZip || ""}</strong></div>
+                <div><span>Street</span><strong>{data.decAddress || "—"}</strong></div>
+                <div><span>City</span><strong>{data.decCity || "—"}</strong></div>
+                <div><span>State</span><strong>{data.decState || "—"}</strong></div>
+                <div><span>Zip</span><strong>{data.decZip || "—"}</strong></div>
               </section>
 
-              {/* Place of Death */}
+              {/* 3) Place of Death */}
               <section>
                 <h4>Place of Death</h4>
-                <div><span>City</span><strong>{data.decPODCity || ""}</strong></div>
-                <div><span>State</span><strong>{data.decPODState || ""}</strong></div>
-                <div><span>Country</span><strong>{data.decPODCountry || ""}</strong></div>
-                <div><span>In the U.S.?</span><strong>{fmtBool(data.deathInUS)}</strong></div>
+                <div><span>City</span><strong>{data.decPODCity || "—"}</strong></div>
+                <div><span>State</span><strong>{data.decPODState || "—"}</strong></div>
+                <div><span>Country</span><strong>{data.deathInUS === false ? (data.decPODCountry || "—") : (data.deathInUS === true ? "United States" : (data.decPODCountry || "—"))}</strong></div>
                 <div><span>Cause of Death</span>
                   <strong>
                     {[
@@ -557,16 +585,99 @@ export default function RequestDetailModal({
                       data.codHomicide && "Homicide",
                       data.codPending && "Pending",
                       data.codSuicide && "Suicide",
-                    ].filter(Boolean).join(", ")}
+                    ].filter(Boolean).join(", ") || "—"}
                   </strong>
                 </div>
                 <div><span>Final Death Certificate?</span><strong>{fmtBool(data.hasFinalDC)}</strong></div>
               </section>
 
-              {/* Assignments */}
+              {/* 4) Insurance */}
               <section>
-                <h4>Assignments</h4>
-                <div><span>Existing Assignment Files</span>
+                <h4>Insurance</h4>
+                <div><span>Company</span><strong>{companyDisplay(data) || "—"}</strong></div>
+                <div><span>Total Face Amount</span><strong>{data.faceAmount || "—"}</strong></div>
+                <div><span>Is the insurance through the deceased&apos;s employer?</span>
+                  <strong>{employerYes ? "Yes" : "No"}</strong>
+                </div>
+              </section>
+
+              {/* Employer visible? */}
+              {employerYes && (
+                <section>
+                  <h4>Employer</h4>
+                  <div><span>Relation</span><strong>{data.employerRelation || "—"}</strong></div>
+                  <div><span>Employer Phone</span><strong>{data.employerPhone || "—"}</strong></div>
+                  <div><span>Employer Contact</span><strong>{data.employerContact || "—"}</strong></div>
+                  <div><span>Status</span><strong>{data.employmentStatus || "—"}</strong></div>
+                </section>
+              )}
+
+              {/* 5) POLICIES (per-policy breakdown) */}
+              <section style={{ gridColumn: "1 / -1" }}>
+                <h4>Policies</h4>
+                {policyRows.length ? (
+                  <div className="policies">
+                    {policyRows.map(row => (
+                      <div key={row.index} className="policy-card">
+                        <div className="policy-head">
+                          <strong>{row.policyNumber ? `Policy #${row.index + 1}` : `Policy #${row.index + 1}`}</strong>
+                        </div>
+                        <div className="policy-grid">
+                          <div><span>Policy Number</span><strong>{row.policyNumber || "—"}</strong></div>
+                          <div><span>Face Amount</span><strong>{row.faceAmount || "—"}</strong></div>
+                        </div>
+                        <div style={{ marginTop: 8 }}>
+                          <span style={{ display: "block", marginBottom: 6 }}>Beneficiaries</span>
+                          {row.beneficiaries.length ? (
+                            <div className="bene-list">
+                              {row.beneficiaries.map((b, i) => (
+                                <div key={i} className="bene-row">
+                                  <div className="bene-name">{b.name || "—"}</div>
+                                  <button
+                                    type="button"
+                                    className="btn"
+                                    onClick={() => { setBeneSelected(b); setBeneOpen(true); }}
+                                  >
+                                    View
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          ) : <strong>—</strong>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <em>No policy information.</em>
+                )}
+              </section>
+
+              {/* 6) Financials */}
+              <section>
+                <h4>Financials</h4>
+                <div><span>Total Service Amount</span><strong>{data.totalServiceAmount || "—"}</strong></div>
+                <div><span>Family Advancement Amount</span><strong>{data.familyAdvancementAmount || "—"}</strong></div>
+                <div><span>VIP Fee</span><strong>{data.vipFee || "—"}</strong></div>
+                <div><span>Assignment Amount</span><strong>{data.assignmentAmount || "—"}</strong></div>
+              </section>
+
+              {/* 7) Additional */}
+              <section style={{ gridColumn: "1 / -1" }}>
+                <h4>Additional</h4>
+                <div><span>Notes</span>
+                  <div style={{ whiteSpace: "pre-wrap" }}>
+                    <strong>{data.notes || "—"}</strong>
+                  </div>
+                </div>
+              </section>
+
+              {/* 8) Attachments */}
+              <section style={{ gridColumn: "1 / -1" }}>
+                <h4>Attachments</h4>
+
+                {/* Assignments */}
+                <div><span>Assignment Files</span>
                   {data.assignmentUploadPaths?.length ? (
                     <div style={{ display: "grid", gap: 6, marginTop: 6 }}>
                       {data.assignmentUploadPaths.map((_, idx) => (
@@ -583,36 +694,9 @@ export default function RequestDetailModal({
                     <em>None</em>
                   )}
                 </div>
-              </section>
 
-              {/* Employer */}
-              <section>
-                <h4>Employer</h4>
-                <div><span>Relation</span><strong>{data.employerRelation || ""}</strong></div>
-                <div><span>Employer Phone</span><strong>{data.employerPhone || ""}</strong></div>
-                <div><span>Employer Contact</span><strong>{data.employerContact || ""}</strong></div>
-                <div><span>Status</span><strong>{data.employmentStatus || ""}</strong></div>
-              </section>
-
-              {/* Financials */}
-              <section>
-                <h4>Financials</h4>
-                <div><span>Total Service Amount</span><strong>{data.totalServiceAmount || ""}</strong></div>
-                <div><span>Family Advancement Amount</span><strong>{data.familyAdvancementAmount || ""}</strong></div>
-                <div><span>VIP Fee</span><strong>{data.vipFee || ""}</strong></div>
-                <div><span>Assignment Amount</span><strong>{data.assignmentAmount || ""}</strong></div>
-              </section>
-
-              {/* Additional */}
-              <section>
-                <h4>Additional</h4>
-                <div><span>Notes</span>
-                  <div style={{ whiteSpace: "pre-wrap" }}>
-                    <strong>{data.notes || ""}</strong>
-                  </div>
-                </div>
-
-                <div><span>Other Documents</span>
+                {/* Other Documents */}
+                <div style={{ marginTop: 8 }}><span>Other Documents</span>
                   {Array.isArray(data.otherUploadPaths) && data.otherUploadPaths.length > 0 ? (
                     <div style={{ display: "grid", gap: 6, marginTop: 6 }}>
                       {data.otherUploadPaths.map((_, idx) => (
@@ -635,16 +719,10 @@ export default function RequestDetailModal({
             </div>
           )}
 
-          {/* EDIT MODE (unchanged logic, new light theme styles below handle look & feel) */}
+          {/* EDIT MODE (kept; order aligned with create form) */}
           {data && !loading && !msg && editing && (
             <form onSubmit={onSave} className="edit-grid">
-              <section>
-                <h4>Workflow</h4>
-                <div><span>Status</span><strong>{data.status || "Submitted"}</strong></div>
-                <div><span>Created</span><strong>{fmtDate(data.createdAt)}</strong></div>
-                <div><span>Updated</span><strong>{fmtDate(data.updatedAt)}</strong></div>
-              </section>
-
+              {/* FH/CEM */}
               <section>
                 <h4>Funeral Home / Cemetery</h4>
                 <label>FH/CEM Name (read-only)
@@ -661,6 +739,7 @@ export default function RequestDetailModal({
                 </label>
               </section>
 
+              {/* Decedent */}
               <section>
                 <h4>Decedent</h4>
                 <div className="grid2">
@@ -694,6 +773,7 @@ export default function RequestDetailModal({
                 </label>
               </section>
 
+              {/* Address */}
               <section>
                 <h4>Address</h4>
                 <label>Street
@@ -712,6 +792,7 @@ export default function RequestDetailModal({
                 </div>
               </section>
 
+              {/* Place of Death */}
               <section>
                 <h4>Place of Death</h4>
                 <div className="grid2">
@@ -754,21 +835,23 @@ export default function RequestDetailModal({
                 </label>
               </section>
 
+              {/* Insurance (lightweight editing) */}
               <section>
                 <h4>Insurance</h4>
                 <label>Company (read-only)</label>
                 <div className="readline">{companyDisplay(data)}</div>
+                <label>Total Face Amount (formatted)
+                  <input type="text" value={faceAmount} onChange={(e)=>setFaceAmount(e.target.value)} placeholder="$0.00" />
+                </label>
                 <label>Policy Number(s)
                   <input type="text" value={policyNumbers} onChange={(e)=>setPolicyNumbers(e.target.value)} placeholder="Comma-separated if multiple" />
                 </label>
-                <label>Face Amount
-                  <input type="text" value={faceAmount} onChange={(e)=>setFaceAmount(e.target.value)} placeholder="$0.00" />
-                </label>
-                <label>Beneficiaries
+                <label>Beneficiaries (CSV)
                   <input type="text" value={beneficiariesCsv} onChange={(e)=>setBeneficiariesCsv(e.target.value)} placeholder="Comma-separated names" />
                 </label>
               </section>
 
+              {/* Financials */}
               <section>
                 <h4>Financials</h4>
                 <div className="grid3">
@@ -787,12 +870,13 @@ export default function RequestDetailModal({
                 </label>
               </section>
 
+              {/* Additional */}
               <section>
-                <h4>Notes</h4>
+                <h4>Additional</h4>
                 <textarea rows={3} value={notes} onChange={(e)=>setNotes(e.target.value)} />
               </section>
 
-              {/* Existing Attachments */}
+              {/* Existing + Add uploads */}
               <section>
                 <h4>Existing Attachments</h4>
                 <div><span>Assignments</span>
@@ -1047,6 +1131,12 @@ export default function RequestDetailModal({
         .bene-row { display:flex; align-items:center; justify-content:space-between; gap:8px; border: 1px solid var(--border, #1a1c1f); padding: 6px 8px; }
         .bene-name { font-weight: 700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
+        .policies { display: grid; gap: 10px; }
+        .policy-card { border: 1px solid var(--border, #1a1c1f); background: var(--card-bg, #0b0d0f); padding: 10px; }
+        .policy-head { display: flex; align-items: center; justify-content: space-between; }
+        .policy-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        @media (max-width: 700px) { .policy-grid { grid-template-columns: 1fr; } }
+
         /* -------- Light theme overrides -------- */
         @media (prefers-color-scheme: light) {
           .modal { background: #F7F7FB; border-color: #d0d5dd; }
@@ -1057,7 +1147,7 @@ export default function RequestDetailModal({
           .dz { background: #ffffff; border-color: #d0d5dd; }
           .btn, .btn-ghost, .btn-link { background: #F2F4F6; color: #000; border-color: #d0d5dd; }
           .modal-header, .modal-footer { border-color: #d0d5dd; }
-          .bene-row { border-color: #d0d5dd; }
+          .bene-row, .policy-card { border-color: #d0d5dd; background: #ffffff; }
         }
       `}</style>
     </div>

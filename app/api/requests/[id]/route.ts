@@ -5,14 +5,13 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { getUserFromCookie } from "@/lib/auth";
 import { FundingRequest } from "@/models/FundingRequest";
-import { User } from "@/models/User"; // for FH/CEM org-based access
+import { User } from "@/models/User";
 
 import fs from "node:fs/promises";
 import { createWriteStream } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { Readable, Transform } from "node:stream";
-import mongoose from "mongoose";
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR || "/home/deploy/uploads/vipfuneralfunding";
 const MAX_UPLOAD_BYTES = 500 * 1024 * 1024; // 500 MB
@@ -43,9 +42,7 @@ function safeExt(filename?: string | null): string {
 }
 function splitList(val: unknown): string[] {
   if (Array.isArray(val)) return val.map(String).map(s => s.trim()).filter(Boolean);
-  if (typeof val === "string") {
-    return val.split(/[,\n]/).map(s => s.trim()).filter(Boolean);
-  }
+  if (typeof val === "string") return val.split(/[,\n]/).map(s => s.trim()).filter(Boolean);
   return [];
 }
 async function streamToFile(file: File): Promise<{ relative: string; absolute: string }> {
@@ -89,7 +86,7 @@ async function streamToFile(file: File): Promise<{ relative: string; absolute: s
   return { relative, absolute };
 }
 
-/* --------- base permissions (owner/admin) from your original file --------- */
+/* --------- base permissions (owner/admin) --------- */
 function canView(me: any, doc: any): boolean {
   if (!me) return false;
   if (me.role === "ADMIN") return true;
@@ -112,7 +109,7 @@ function canDelete(me: any, doc: any): boolean {
   return (doc.status === "Submitted") && (String(doc.ownerId || doc.userId) === meId);
 }
 
-/* ---- FH/CEM org allow: allow same fhCemId or legacy fhName match (view/edit) ---- */
+/* ---- FH/CEM org allow: same fhCemId or legacy fhName match (view/edit) ---- */
 async function fhcemExtraAllow(me: any, doc: any): Promise<boolean> {
   if (!me || me.role !== "FH_CEM") return false;
   const meUser = await User.findById(me.sub).select("fhCemId fhName").lean();
@@ -122,9 +119,7 @@ async function fhcemExtraAllow(me: any, doc: any): Promise<boolean> {
 
   const a = (meUser.fhName || "").trim().toLowerCase();
   const b = (doc?.fhName || "").trim().toLowerCase();
-  if (a && b && a === b) return true;
-
-  return false;
+  return !!(a && b && a === b);
 }
 
 /* -------------------- GET: request details -------------------- */
@@ -138,7 +133,9 @@ export async function GET(_req: Request, context: any) {
     const id: string | undefined = context?.params?.id;
     if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
-    const doc: any = await FundingRequest.findById(id).lean();
+    const doc: any = await FundingRequest.findById(id)
+      .populate({ path: "insuranceCompanyId", select: "name" })
+      .lean();
     if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     let allowed = canView(me, doc);
@@ -151,49 +148,61 @@ export async function GET(_req: Request, context: any) {
       id: String(doc._id),
       userId: String(doc.ownerId || doc.userId || ""),
 
+      // FH/CEM
       fhName: doc.fhName || "",
       fhRep: doc.fhRep || "",
       contactPhone: doc.contactPhone || "",
       contactEmail: doc.contactEmail || "",
 
+      // Decedent
       decFirstName: doc.decFirstName || doc.decedentFirstName || "",
-      decLastName: doc.decLastName || doc.decedentLastName || "",
+      decLastName:  doc.decLastName  || doc.decedentLastName  || "",
       decSSN: doc.decSSN || "",
       decDOB: doc.decDOB || null,
       decDOD: doc.decDOD || null,
       decMaritalStatus: doc.decMaritalStatus || "",
 
+      // Address
       decAddress: doc.decAddress || "",
       decCity: doc.decCity || "",
       decState: doc.decState || "",
       decZip: doc.decZip || "",
 
+      // Place of death
       decPODCity: doc.decPODCity || "",
       decPODState: doc.decPODState || "",
       decPODCountry: doc.decPODCountry || "",
-      deathInUS: !!doc.deathInUS,
+      deathInUS: typeof doc.deathInUS === "boolean" ? !!doc.deathInUS : undefined,
 
-      codNatural: !!doc.codNatural,
+      // COD flags
+      codNatural:  !!doc.codNatural,
       codAccident: !!doc.codAccident,
       codHomicide: !!doc.codHomicide,
-      codPending: !!doc.codPending,
-      codSuicide: !!doc.codSuicide,
+      codPending:  !!doc.codPending,
+      codSuicide:  !!doc.codSuicide,
 
       hasFinalDC: !!doc.hasFinalDC,
 
-      employerPhone: doc.employerPhone || "",
+      // Employer
+      employerPhone:   doc.employerPhone || "",
       employerContact: doc.employerContact || "",
-      employmentStatus: doc.employmentStatus || "",
-      employerRelation: doc.employerRelation || "",
+      employmentStatus:doc.employmentStatus || "",
+      employerRelation:doc.employerRelation || "",
 
-      insuranceCompanyId: doc.insuranceCompanyId || null,
+      // Insurance
+      insuranceCompanyId: doc.insuranceCompanyId || null, // populated { _id, name } if set
       otherInsuranceCompany: doc.otherInsuranceCompany || null,
-      insuranceCompany: doc.insuranceCompany || "",
+      insuranceCompany: (doc.insuranceCompanyId?.name as string) || doc.insuranceCompany || "",
 
       policyNumbers: Array.isArray(doc.policyNumbers) ? doc.policyNumbers.join(", ") : (doc.policyNumbers || ""),
       faceAmount: doc.faceAmount || "",
       beneficiaries: Array.isArray(doc.beneficiaries) ? doc.beneficiaries.join(", ") : (doc.beneficiaries || ""),
 
+      // Structured policy data
+      policyBeneficiaries: Array.isArray(doc.policyBeneficiaries) ? doc.policyBeneficiaries : [],
+      policies: Array.isArray(doc.policies) ? doc.policies : [],
+
+      // Financials (formatted strings)
       totalServiceAmount: (typeof doc.totalServiceAmount === "number" ? doc.totalServiceAmount.toLocaleString("en-US", { style: "currency", currency: "USD" }) : (doc.totalServiceAmount || "")),
       familyAdvancementAmount: (typeof doc.familyAdvancementAmount === "number" ? doc.familyAdvancementAmount.toLocaleString("en-US", { style: "currency", currency: "USD" }) : (doc.familyAdvancementAmount || "")),
       vipFee: (typeof doc.vipFee === "number" ? doc.vipFee.toLocaleString("en-US", { style: "currency", currency: "USD" }) : (doc.vipFee || "")),
@@ -230,9 +239,8 @@ export async function PUT(req: Request, context: any) {
     const doc: any = await FundingRequest.findById(id);
     if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    // owner/admin gate
+    // owner/admin gate; FH/CEM can edit while Submitted if same org
     let allowedEdit = canEdit(me, doc);
-    // FH/CEM org-based edit allowed only while Submitted
     if (!allowedEdit && me.role === "FH_CEM" && doc.status === "Submitted") {
       allowedEdit = await fhcemExtraAllow(me, doc);
     }
@@ -245,7 +253,6 @@ export async function PUT(req: Request, context: any) {
 
     if (ctype.includes("multipart/form-data")) {
       const form = await req.formData();
-
       const text = (k: string) => (form.get(k) ? String(form.get(k)) : "");
 
       // uploads (append with caps)
@@ -315,16 +322,22 @@ export async function PUT(req: Request, context: any) {
       const bens = text("beneficiaries"); if (bens) doc.beneficiaries = splitList(bens);
 
       // financials (store normalized numbers)
-      const nTotal = moneyToNumber(text("totalServiceAmount"));
+      const nTotal  = moneyToNumber(text("totalServiceAmount"));
       const nFamily = moneyToNumber(text("familyAdvancementAmount"));
-      const nVip = moneyToNumber(text("vipFee"));
+      const nVip    = moneyToNumber(text("vipFee"));
       const nAssign = moneyToNumber(text("assignmentAmount"));
-      if (!isNaN(nTotal)) doc.totalServiceAmount = nTotal;
+      if (!isNaN(nTotal))  doc.totalServiceAmount = nTotal;
       if (!isNaN(nFamily)) doc.familyAdvancementAmount = nFamily;
-      if (!isNaN(nVip)) doc.vipFee = nVip;
+      if (!isNaN(nVip))    doc.vipFee = nVip;
       if (!isNaN(nAssign)) doc.assignmentAmount = nAssign;
 
       doc.notes = text("notes");
+
+      // optional structured fields (if you send them on edit)
+      const pbJSON = text("policyBeneficiaries");
+      if (pbJSON) { try { doc.policyBeneficiaries = JSON.parse(pbJSON); } catch {} }
+      const policiesJSON = text("policies");
+      if (policiesJSON) { try { doc.policies = JSON.parse(policiesJSON); } catch {} }
     } else {
       // JSON fallback
       const json = await req.json().catch(() => ({}));

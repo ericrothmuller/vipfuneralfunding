@@ -16,7 +16,7 @@ import mongoose from "mongoose";
 const UPLOAD_DIR = process.env.UPLOAD_DIR || "/home/deploy/uploads/vipfuneralfunding";
 const MAX_UPLOAD_BYTES = 500 * 1024 * 1024; // 500 MB
 const MAX_OTHER_UPLOADS = 50;
-const MAX_ASSIGNMENT_UPLOADS = 10;          // NEW: up to 10 assignment files
+const MAX_ASSIGNMENT_UPLOADS = 10;
 
 /* -------------------- helpers -------------------- */
 function moneyToNumber(v: any): number {
@@ -60,7 +60,7 @@ async function streamToFile(file: File): Promise<{ relative: string; absolute: s
   const now = new Date();
   const yyyy = String(now.getFullYear());
   const mm = String(now.getMonth() + 1).padStart(2, "0");
-  const subdir = path.join(yyyy, mm); // "YYYY/MM"
+  const subdir = path.join(yyyy, mm);
 
   const root = path.resolve(UPLOAD_DIR);
   const dir = path.join(root, subdir);
@@ -91,7 +91,6 @@ async function streamToFile(file: File): Promise<{ relative: string; absolute: s
     nodeStream.pipe(limiter).pipe(out).on("finish", resolve).on("error", reject);
   });
 
-  console.log("[upload] saved", { absolute, relative, size: total });
   return { relative, absolute };
 }
 
@@ -106,7 +105,6 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const q = (url.searchParams.get("q") || "").trim();
 
-    // support BOTH legacy userId and new ownerId
     const meId = new mongoose.Types.ObjectId(me.sub);
     const and: any[] = [{ $or: [{ userId: meId }, { ownerId: meId }] }];
 
@@ -114,10 +112,10 @@ export async function GET(req: Request) {
       const rx = { $regex: q, $options: "i" };
       and.push({
         $or: [
-          { decFirstName: rx },        // legacy
-          { decLastName: rx },         // legacy
-          { decedentFirstName: rx },   // new
-          { decedentLastName: rx },    // new
+          { decFirstName: rx },
+          { decLastName: rx },
+          { decedentFirstName: rx },
+          { decedentLastName: rx },
           { policyNumbers: rx },
           { insuranceCompany: rx },
           { "otherInsuranceCompany.name": rx },
@@ -130,7 +128,7 @@ export async function GET(req: Request) {
     const rows = await FundingRequest.find(find)
       .sort({ createdAt: -1 })
       .select(
-        "decFirstName decLastName decedentFirstName decedentLastName insuranceCompanyId otherInsuranceCompany insuranceCompany policyNumbers createdAt fhRep assignmentAmount status"
+        "decFirstName decLastName decedentFirstName decedentLastName insuranceCompanyId otherInsuranceCompany insuranceCompany policyNumbers createdAt fhRep assignmentAmount status ownerId"
       )
       .populate({ path: "insuranceCompanyId", select: "name" })
       .lean();
@@ -176,21 +174,19 @@ export async function POST(req: Request) {
     await connectDB();
 
     const ctype = req.headers.get("content-type") || "";
-    console.log("[upload] content-type:", ctype);
 
     let body: any = {};
     let assignmentRelative: string | undefined;
-    let assignmentRelatives: string[] = []; // NEW
+    let assignmentRelatives: string[] = [];
     let otherRelatives: string[] = [];
 
     if (ctype.includes("multipart/form-data")) {
       const form = await req.formData();
 
-      // Assignment (accept both legacy single and new plural)
+      // Assignment: legacy single + new plural
       const legacySingle = form.get("assignmentUpload");
       const multi = form.getAll("assignmentUploads");
 
-      // normalize to File[]
       const assignmentFiles: File[] = [];
       if (legacySingle && legacySingle instanceof File && legacySingle.size > 0) {
         assignmentFiles.push(legacySingle);
@@ -198,21 +194,19 @@ export async function POST(req: Request) {
       for (const v of multi) {
         if (v instanceof File && v.size > 0) assignmentFiles.push(v);
       }
-
       if (assignmentFiles.length > MAX_ASSIGNMENT_UPLOADS) {
         return NextResponse.json(
           { error: `Too many assignment files. Max ${MAX_ASSIGNMENT_UPLOADS}.` },
           { status: 400 }
         );
       }
-
       for (const f of assignmentFiles) {
         const saved = await streamToFile(f);
         assignmentRelatives.push(saved.relative);
       }
-      assignmentRelative = assignmentRelatives[0]; // keep legacy populated with the first
+      assignmentRelative = assignmentRelatives[0];
 
-      // Other uploads (up to 50)
+      // Other uploads
       const others = form.getAll("otherUploads").filter((v) => v instanceof File) as File[];
       if (others.length > MAX_OTHER_UPLOADS) {
         return NextResponse.json({ error: `Too many files. Max ${MAX_OTHER_UPLOADS}.` }, { status: 400 });
@@ -225,7 +219,6 @@ export async function POST(req: Request) {
       }
 
       const text = (k: string) => (form.get(k) ? String(form.get(k)) : "");
-      const bool = (k: string) => toBool(form.get(k));
 
       const insuranceCompanyMode = text("insuranceCompanyMode");
       const insuranceCompanyId = text("insuranceCompanyId");
@@ -242,13 +235,8 @@ export async function POST(req: Request) {
         contactPhone: text("contactPhone"),
         contactEmail: text("contactEmail"),
 
-        // legacy names (kept for compat)
         decFirstName: text("decFirstName"),
         decLastName: text("decLastName"),
-        // new mirror
-        decedentFirstName: text("decFirstName"),
-        decedentLastName: text("decLastName"),
-
         decSSN: text("decSSN"),
         decMaritalStatus: text("decMaritalStatus"),
         decAddress: text("decAddress"),
@@ -268,7 +256,6 @@ export async function POST(req: Request) {
         policyNumbers: text("policyNumbers"),
         faceAmount: text("faceAmount"),
         beneficiaries: text("beneficiaries"),
-        policyBundles: text("policyBundles"),
 
         totalServiceAmount: text("totalServiceAmount"),
         familyAdvancementAmount: text("familyAdvancementAmount"),
@@ -284,16 +271,11 @@ export async function POST(req: Request) {
       if (dod) body.decDOD = parseDate(dod);
 
       body.deathInUS = text("deathInUS"); // "Yes"/"No"
-      body.codNatural  = text("codNatural");   // "Yes"/"No"
+      body.codNatural  = text("codNatural");
       body.codAccident = text("codAccident");
       body.codHomicide = text("codHomicide");
       body.codPending  = text("codPending");
       body.hasFinalDC  = text("hasFinalDC");
-
-      // legacy toggles (if still used)
-      body.otherFHTakingAssignment = bool("otherFHTakingAssignment");
-      body.otherFHName   = text("otherFHName");
-      body.otherFHAmount = text("otherFHAmount");
 
       // IC mode
       if (insuranceCompanyMode === "id" && insuranceCompanyId) {
@@ -306,15 +288,27 @@ export async function POST(req: Request) {
         body.insuranceCompanyId = null;
         body.otherInsuranceCompany = { name: "", phone: "", fax: "", notes: "" };
       }
+
+      // NEW: structured per-policy beneficiaries (array-of-arrays of details)
+      const policyBeneficiariesJSON = text("policyBeneficiaries");
+      if (policyBeneficiariesJSON) {
+        try { body.policyBeneficiaries = JSON.parse(policyBeneficiariesJSON); } catch {}
+      }
+
+      // NEW: per-policy face amounts (optional)
+      const policiesJSON = text("policies");
+      if (policiesJSON) {
+        try { body.policies = JSON.parse(policiesJSON); } catch {}
+      }
     } else {
-      // JSON fallback (not typical with uploads)
+      // JSON fallback
       const json = await req.json().catch(() => ({}));
       body = json || {};
       if (body.decFirstName && !body.decedentFirstName) body.decedentFirstName = body.decFirstName;
       if (body.decLastName && !body.decedentLastName) body.decedentLastName = body.decLastName;
     }
 
-    // ---- Normalize numeric currency fields ----
+    // Normalize numeric currency fields
     const nTotal = moneyToNumber(body.totalServiceAmount);
     const nFamily = moneyToNumber(body.familyAdvancementAmount);
     let nVip = moneyToNumber(body.vipFee);
@@ -326,22 +320,19 @@ export async function POST(req: Request) {
     let nAssign = moneyToNumber(body.assignmentAmount);
     if (!nAssign) nAssign = nTotal + nFamily + nVip;
 
-    // ---- Legacy "insuranceCompany" display string (optional)
+    // Legacy "insuranceCompany" display string
     let insuranceCompanyDisplay = "";
     if (body.insuranceCompanyId) insuranceCompanyDisplay = "";
     else if (body.otherInsuranceCompany?.name) insuranceCompanyDisplay = body.otherInsuranceCompany.name;
 
-    // ---- Create document; write BOTH userId and ownerId for compat
     const meId = new mongoose.Types.ObjectId(me.sub);
     const doc = await FundingRequest.create({
       userId: meId,                 // legacy
-      ownerId: meId,                // new
+      ownerId: meId,                // canonical
 
-      // names (both legacy & new for cross-compat)
+      // names (compat)
       decFirstName: body.decFirstName || body.decedentFirstName || "",
-      decLastName: body.decLastName || body.decedentLastName || "",
-      decedentFirstName: body.decedentFirstName || body.decFirstName || "",
-      decedentLastName: body.decedentLastName || body.decLastName || "",
+      decLastName:  body.decLastName  || body.decedentLastName  || "",
 
       insuranceCompanyId: body.insuranceCompanyId || null,
       otherInsuranceCompany: body.otherInsuranceCompany || { name: "", phone: "", fax: "", notes: "" },
@@ -349,6 +340,11 @@ export async function POST(req: Request) {
 
       policyNumbers: splitList(body.policyNumbers),
       beneficiaries: splitList(body.beneficiaries),
+      faceAmount: body.faceAmount || "",
+
+      // Structured policy data (optional)
+      policyBeneficiaries: Array.isArray(body.policyBeneficiaries) ? body.policyBeneficiaries : [],
+      policies: Array.isArray(body.policies) ? body.policies : [],
 
       totalServiceAmount: nTotal,
       familyAdvancementAmount: nFamily,
@@ -356,7 +352,7 @@ export async function POST(req: Request) {
       assignmentAmount: nAssign,
 
       fhName: body.fhName,
-      fhRep: body.fhRep,
+      fhRep:  body.fhRep,
       contactPhone: body.contactPhone,
       contactEmail: body.contactEmail,
 
@@ -372,11 +368,11 @@ export async function POST(req: Request) {
       decPODCountry: body.decPODCountry,
       deathInUS: body.deathInUS === "Yes",
 
-      codNatural: body.codNatural === "Yes",
+      codNatural:  body.codNatural  === "Yes",
       codAccident: body.codAccident === "Yes",
       codHomicide: body.codHomicide === "Yes",
-      codPending: body.codPending === "Yes",
-      hasFinalDC: body.hasFinalDC === "Yes",
+      codPending:  body.codPending  === "Yes",
+      hasFinalDC:  body.hasFinalDC  === "Yes",
 
       employerPhone: body.employerPhone,
       employerContact: body.employerContact,
@@ -385,19 +381,11 @@ export async function POST(req: Request) {
 
       notes: body.notes,
 
-      // uploads
       ...(assignmentRelative ? { assignmentUploadPath: assignmentRelative } : {}),
       ...(assignmentRelatives.length ? { assignmentUploadPaths: assignmentRelatives } : {}),
       ...(otherRelatives.length ? { otherUploadPaths: otherRelatives } : {}),
 
       status: "Submitted",
-    });
-
-    console.log("[upload] created request", {
-      id: String(doc._id),
-      assignment: assignmentRelative,
-      assignmentsCount: assignmentRelatives.length,
-      others: otherRelatives.length,
     });
 
     return NextResponse.json({ ok: true, id: String(doc._id) }, { status: 201 });
