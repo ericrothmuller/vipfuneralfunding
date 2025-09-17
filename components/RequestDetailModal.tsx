@@ -14,6 +14,19 @@ type OtherIC = {
   notes?: string;
 };
 
+type BeneficiaryDetail = {
+  name?: string;
+  relationship?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  email?: string;
+  phone?: string;
+  ssn?: string;
+  dob?: string;
+};
+
 type RequestDetail = {
   id: string;
   userId?: string;
@@ -53,9 +66,6 @@ type RequestDetail = {
 
   // Certificates & assignments
   hasFinalDC?: boolean;
-  otherFHTakingAssignment?: boolean;
-  otherFHName?: string;
-  otherFHAmount?: string;
 
   // Employer
   employerPhone?: string;
@@ -69,7 +79,10 @@ type RequestDetail = {
   insuranceCompany?: string; // legacy
   policyNumbers?: string;     // display string
   faceAmount?: string;
-  beneficiaries?: string;
+  beneficiaries?: string;     // comma-separated names (fallback)
+
+  // OPTIONAL structured beneficiaries (if server returns it later)
+  policyBeneficiaries?: BeneficiaryDetail[][];
 
   // Financials
   totalServiceAmount?: string;
@@ -80,7 +93,7 @@ type RequestDetail = {
   // Misc
   notes?: string;
   assignmentUploadPath?: string;
-  assignmentUploadPaths?: string[]; // NEW
+  assignmentUploadPaths?: string[];
   otherUploadPaths?: string[];
 
   status?: "Submitted" | "Verifying" | "Approved" | "Funded" | "Closed" | string;
@@ -186,7 +199,7 @@ export default function RequestDetailModal({
 
   const [policyNumbers, setPolicyNumbers] = useState("");
   const [faceAmount, setFaceAmount] = useState("");
-  const [beneficiaries, setBeneficiaries] = useState("");
+  const [beneficiariesCsv, setBeneficiariesCsv] = useState("");
 
   const [totalServiceAmount, setTotalServiceAmount] = useState("");
   const [familyAdvancementAmount, setFamilyAdvancementAmount] = useState("");
@@ -214,20 +227,55 @@ export default function RequestDetailModal({
   const normalizedAssignCount = data?.assignmentUploadPaths?.length
     ? data.assignmentUploadPaths.length
     : (data?.assignmentUploadPath ? 1 : 0);
-  const assignSlotsLeft = Math.max(0, MAX_ASSIGNMENT_UPLOADS - normalizedAssignCount - assignAdds.length);
-  const otherSlotsLeft = Math.max(0, MAX_OTHER_UPLOADS - (data?.otherUploadPaths?.length || 0) - otherAdds.length);
 
-  function addAssignFiles(incoming: File[]) {
-    if (!incoming.length) return;
-    const space = Math.max(0, MAX_ASSIGNMENT_UPLOADS - normalizedAssignCount - assignAdds.length);
-    if (space <= 0) return;
-    setAssignAdds(prev => [...prev, ...incoming.slice(0, space)]);
-  }
-  function addOtherFiles(incoming: File[]) {
-    if (!incoming.length) return;
-    const space = Math.max(0, MAX_OTHER_UPLOADS - (data?.otherUploadPaths?.length || 0) - otherAdds.length);
-    if (space <= 0) return;
-    setOtherAdds(prev => [...prev, ...incoming.slice(0, space)]);
+  // ---------- Beneficiaries list + view modal ----------
+  const [beneList, setBeneList] = useState<Array<{ name: string; detail?: BeneficiaryDetail }>>([]);
+  const [beneOpen, setBeneOpen] = useState(false);
+  const [beneSelected, setBeneSelected] = useState<{ name: string; detail?: BeneficiaryDetail } | null>(null);
+
+  function buildBeneficiaries(r: RequestDetail) {
+    const map = new Map<string, BeneficiaryDetail>();
+    const nameNorm = (s?: string) => (s || "").trim().toLowerCase();
+
+    // Prefer structured details if present
+    if (Array.isArray(r.policyBeneficiaries)) {
+      for (const row of r.policyBeneficiaries) {
+        for (const ben of (row || [])) {
+          const nm = (ben?.name || "").trim();
+          if (!nm) continue;
+          const key = nameNorm(nm);
+          const prev = map.get(key) || {};
+          // keep the richer record (more filled fields)
+          const prevFilled = Object.values(prev).filter(Boolean).length;
+          const nextFilled = Object.values(ben || {}).filter(Boolean).length;
+          map.set(key, nextFilled >= prevFilled ? { ...ben } : prev);
+        }
+      }
+    }
+
+    // Fallback from CSV names if any missing
+    const names = (r.beneficiaries || "")
+      .split(",")
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    for (const nm of names) {
+      const key = nameNorm(nm);
+      if (!map.has(key)) map.set(key, { name: nm });
+      else {
+        // ensure name field populated
+        const d = map.get(key)!;
+        if (!d.name) d.name = nm;
+      }
+    }
+
+    const arr: Array<{ name: string; detail?: BeneficiaryDetail }> = [];
+    for (const [_, detail] of map.entries()) {
+      arr.push({ name: (detail.name || "").trim(), detail });
+    }
+    // sort by name
+    arr.sort((a, b) => a.name.localeCompare(b.name));
+    setBeneList(arr);
   }
 
   useEffect(() => {
@@ -279,11 +327,13 @@ export default function RequestDetailModal({
 
         setPolicyNumbers(r.policyNumbers || "");
         setFaceAmount(r.faceAmount || "");
-        setBeneficiaries(r.beneficiaries || "");
+        setBeneficiariesCsv(r.beneficiaries || "");
 
         setTotalServiceAmount(r.totalServiceAmount || "");
         setFamilyAdvancementAmount(r.familyAdvancementAmount || "");
         setNotes(r.notes || "");
+
+        buildBeneficiaries(r);
       } catch (e: any) {
         setMsg(e?.message || "Could not load request");
       } finally {
@@ -354,7 +404,7 @@ export default function RequestDetailModal({
 
       if (policyNumbers) fd.set("policyNumbers", policyNumbers);
       if (faceAmount) fd.set("faceAmount", faceAmount);
-      if (beneficiaries) fd.set("beneficiaries", beneficiaries);
+      if (beneficiariesCsv) fd.set("beneficiaries", beneficiariesCsv);
 
       if (totalServiceAmount) fd.set("totalServiceAmount", totalServiceAmount);
       if (familyAdvancementAmount) fd.set("familyAdvancementAmount", familyAdvancementAmount);
@@ -374,14 +424,13 @@ export default function RequestDetailModal({
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json?.error || `Save failed (HTTP ${res.status})`);
 
-      // refresh local state with server copy
       const r: RequestDetail = json.request;
       setData(r);
       setEditing(false);
       setAssignAdds([]);
       setOtherAdds([]);
+      buildBeneficiaries(r);
 
-      // FIX: avoid duplicate 'id' key with spread
       onUpdated?.(r);
     } catch (e: any) {
       setMsg(e?.message || "Save failed");
@@ -440,7 +489,29 @@ export default function RequestDetailModal({
                 )}
                 <div><span>Policy Number(s)</span><strong>{data.policyNumbers || ""}</strong></div>
                 <div><span>Face Amount</span><strong>{data.faceAmount || ""}</strong></div>
-                <div><span>Beneficiaries</span><strong>{data.beneficiaries || ""}</strong></div>
+
+                {/* Beneficiaries list with View buttons */}
+                <div>
+                  <span>Beneficiaries</span>
+                  {beneList.length ? (
+                    <div className="bene-list">
+                      {beneList.map((b, i) => (
+                        <div key={i} className="bene-row">
+                          <div className="bene-name">{b.name || "—"}</div>
+                          <button
+                            type="button"
+                            className="btn"
+                            onClick={() => { setBeneSelected(b); setBeneOpen(true); }}
+                          >
+                            View
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <strong>{data.beneficiaries || "—"}</strong>
+                  )}
+                </div>
               </section>
 
               {/* FH / CEM */}
@@ -540,6 +611,7 @@ export default function RequestDetailModal({
                     <strong>{data.notes || ""}</strong>
                   </div>
                 </div>
+
                 <div><span>Other Documents</span>
                   {Array.isArray(data.otherUploadPaths) && data.otherUploadPaths.length > 0 ? (
                     <div style={{ display: "grid", gap: 6, marginTop: 6 }}>
@@ -563,9 +635,9 @@ export default function RequestDetailModal({
             </div>
           )}
 
+          {/* EDIT MODE (unchanged logic, new light theme styles below handle look & feel) */}
           {data && !loading && !msg && editing && (
             <form onSubmit={onSave} className="edit-grid">
-              {/* Workflow (read-only status here; Admin changes via table) */}
               <section>
                 <h4>Workflow</h4>
                 <div><span>Status</span><strong>{data.status || "Submitted"}</strong></div>
@@ -573,7 +645,6 @@ export default function RequestDetailModal({
                 <div><span>Updated</span><strong>{fmtDate(data.updatedAt)}</strong></div>
               </section>
 
-              {/* FH/CEM */}
               <section>
                 <h4>Funeral Home / Cemetery</h4>
                 <label>FH/CEM Name (read-only)
@@ -590,7 +661,6 @@ export default function RequestDetailModal({
                 </label>
               </section>
 
-              {/* Decedent */}
               <section>
                 <h4>Decedent</h4>
                 <div className="grid2">
@@ -624,7 +694,6 @@ export default function RequestDetailModal({
                 </label>
               </section>
 
-              {/* Address */}
               <section>
                 <h4>Address</h4>
                 <label>Street
@@ -643,7 +712,6 @@ export default function RequestDetailModal({
                 </div>
               </section>
 
-              {/* Place of Death */}
               <section>
                 <h4>Place of Death</h4>
                 <div className="grid2">
@@ -686,7 +754,6 @@ export default function RequestDetailModal({
                 </label>
               </section>
 
-              {/* Insurance (lightweight editing) */}
               <section>
                 <h4>Insurance</h4>
                 <label>Company (read-only)</label>
@@ -698,11 +765,10 @@ export default function RequestDetailModal({
                   <input type="text" value={faceAmount} onChange={(e)=>setFaceAmount(e.target.value)} placeholder="$0.00" />
                 </label>
                 <label>Beneficiaries
-                  <input type="text" value={beneficiaries} onChange={(e)=>setBeneficiaries(e.target.value)} placeholder="Comma-separated names" />
+                  <input type="text" value={beneficiariesCsv} onChange={(e)=>setBeneficiariesCsv(e.target.value)} placeholder="Comma-separated names" />
                 </label>
               </section>
 
-              {/* Financials */}
               <section>
                 <h4>Financials</h4>
                 <div className="grid3">
@@ -721,7 +787,6 @@ export default function RequestDetailModal({
                 </label>
               </section>
 
-              {/* Notes */}
               <section>
                 <h4>Notes</h4>
                 <textarea rows={3} value={notes} onChange={(e)=>setNotes(e.target.value)} />
@@ -766,7 +831,8 @@ export default function RequestDetailModal({
                   accept={FILE_ACCEPT}
                   onChange={(e) => {
                     const incoming = Array.from(e.currentTarget.files || []);
-                    addAssignFiles(incoming);
+                    const space = Math.max(0, MAX_ASSIGNMENT_UPLOADS - normalizedAssignCount - assignAdds.length);
+                    if (space > 0) setAssignAdds(prev => [...prev, ...incoming.slice(0, space)]);
                     (e.currentTarget as HTMLInputElement).value = "";
                   }}
                   style={{ display: "none" }}
@@ -779,7 +845,9 @@ export default function RequestDetailModal({
                   onDrop={(e) => {
                     e.preventDefault();
                     setAssignOver(false);
-                    addAssignFiles(Array.from(e.dataTransfer.files || []));
+                    const incoming = Array.from(e.dataTransfer.files || []);
+                    const space = Math.max(0, MAX_ASSIGNMENT_UPLOADS - normalizedAssignCount - assignAdds.length);
+                    if (space > 0) setAssignAdds(prev => [...prev, ...incoming.slice(0, space)]);
                   }}
                   onClick={() => assignInputRef.current?.click()}
                   role="button"
@@ -820,7 +888,9 @@ export default function RequestDetailModal({
                   accept={FILE_ACCEPT}
                   onChange={(e) => {
                     const incoming = Array.from(e.currentTarget.files || []);
-                    addOtherFiles(incoming);
+                    const existing = data.otherUploadPaths?.length || 0;
+                    const space = Math.max(0, MAX_OTHER_UPLOADS - existing - otherAdds.length);
+                    if (space > 0) setOtherAdds(prev => [...prev, ...incoming.slice(0, space)]);
                     (e.currentTarget as HTMLInputElement).value = "";
                   }}
                   style={{ display: "none" }}
@@ -833,7 +903,10 @@ export default function RequestDetailModal({
                   onDrop={(e) => {
                     e.preventDefault();
                     setOtherOver(false);
-                    addOtherFiles(Array.from(e.dataTransfer.files || []));
+                    const incoming = Array.from(e.dataTransfer.files || []);
+                    const existing = data.otherUploadPaths?.length || 0;
+                    const space = Math.max(0, MAX_OTHER_UPLOADS - existing - otherAdds.length);
+                    if (space > 0) setOtherAdds(prev => [...prev, ...incoming.slice(0, space)]);
                   }}
                   onClick={() => otherInputRef.current?.click()}
                   role="button"
@@ -881,6 +954,51 @@ export default function RequestDetailModal({
         )}
       </div>
 
+      {/* Beneficiary detail modal */}
+      {beneOpen && beneSelected && (
+        <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="bene-title">
+          <div className="modal" style={{ maxWidth: "min(640px, 94vw)" }}>
+            <div className="modal-header">
+              <h3 id="bene-title">Beneficiary Info</h3>
+              <button className="btn btn-ghost modal-close" onClick={() => setBeneOpen(false)} aria-label="Close">✕</button>
+            </div>
+            <div className="modal-body">
+              <div className="detail-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
+                <section>
+                  <h4>Basic</h4>
+                  <div><span>Name</span><strong>{beneSelected.name || "—"}</strong></div>
+                  <div><span>Relationship</span><strong>{beneSelected.detail?.relationship || "—"}</strong></div>
+                  <div><span>DOB</span><strong>{beneSelected.detail?.dob || "—"}</strong></div>
+                  <div><span>SSN</span><strong>{beneSelected.detail?.ssn || "—"}</strong></div>
+                </section>
+                <section>
+                  <h4>Contact</h4>
+                  <div><span>Phone</span><strong>{beneSelected.detail?.phone || "—"}</strong></div>
+                  <div><span>Email</span><strong>{beneSelected.detail?.email || "—"}</strong></div>
+                </section>
+                <section style={{ gridColumn: "1 / -1" }}>
+                  <h4>Address</h4>
+                  <div><span>Street</span><strong>{beneSelected.detail?.address || "—"}</strong></div>
+                  <div className="grid3">
+                    <div><span>City</span><strong>{beneSelected.detail?.city || "—"}</strong></div>
+                    <div><span>State</span><strong>{beneSelected.detail?.state || "—"}</strong></div>
+                    <div><span>Zip</span><strong>{beneSelected.detail?.zip || "—"}</strong></div>
+                  </div>
+                </section>
+              </div>
+              {!beneSelected.detail || Object.values(beneSelected.detail).filter(Boolean).length <= 1 ? (
+                <p className="muted" style={{ marginTop: 12 }}>
+                  No additional details on file for this beneficiary.
+                </p>
+              ) : null}
+            </div>
+            <div className="modal-footer">
+              <button className="btn" onClick={() => setBeneOpen(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style jsx>{`
         .detail-grid, .edit-grid {
           display: grid; gap: 14px;
@@ -889,31 +1007,58 @@ export default function RequestDetailModal({
         @media (max-width: 900px) {
           .detail-grid, .edit-grid { grid-template-columns: 1fr; }
         }
+
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: grid; place-items: center; z-index: 50; }
+        .modal { background: var(--modal-bg, #0b0d0f); border: 1px solid var(--border, #1a1c1f); border-radius: 0; width: min(980px, 96vw); max-height: 92vh; overflow: auto; }
+        .modal-header { display:flex; align-items:center; justify-content:space-between; padding: 12px; border-bottom: 1px solid var(--border, #1a1c1f); }
+        .modal-body { padding: 12px; }
+        .modal-footer { padding: 12px; border-top: 1px solid var(--border, #1a1c1f); display:flex; justify-content:flex-end; gap:8px; }
+
         section { border: 1px solid var(--border, #1a1c1f); padding: 12px; background: var(--card-bg, #0b0d0f); }
-        h4 { margin: 0 0 8px; color: var(--gold, #d6b16d); font-weight: 800; }
+        h4 { margin: 0 0 8px; color: var(--title, #d6b16d); font-weight: 800; }
         .error { color: crimson; }
+
         .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+
         label { display: grid; gap: 4px; }
         input, select, textarea {
-          width: 100%; padding: 8px 10px; border: 1px solid var(--border, #1a1c1f);
-          border-radius: 0; background: var(--field, #121416); color: #fff;
+          width: 100%; padding: 8px 10px; border: 1px solid var(--field-border, #1a1c1f);
+          border-radius: 0; background: var(--field-bg, #121416); color: #fff;
         }
-        @media (prefers-color-scheme: light) {
-          input, select, textarea { color: #000; background: #f6f6f6; border-color: #d0d0d0; }
-        }
+
         .readonly { background: rgba(255,255,255,.08); }
         .readline { padding: 8px 10px; border: 1px dashed var(--border, #1a1c1f); }
+
         .list { display: grid; gap: 6px; margin-top: 6px; }
-        .dz { border: 1px dashed var(--border, #1a1c1f); background: var(--field, #121416); padding: 14px; display: grid; place-items: center; text-align: center; cursor: pointer; }
+        .dz { border: 1px dashed var(--border, #1a1c1f); background: var(--field-bg, #121416); padding: 14px; display: grid; place-items: center; text-align: center; cursor: pointer; }
         .dz.over { outline: 2px dashed var(--gold, #d6b16d); outline-offset: 2px; }
-        .btn { border: 1px solid var(--border, #1a1c1f); background: var(--field, #121416); color:#fff; padding:8px 10px; border-radius:0; cursor:pointer; }
+
+        .btn { border: 1px solid var(--border, #1a1c1f); background: var(--btn-bg, #121416); color:#fff; padding:8px 10px; border-radius:0; cursor:pointer; }
         .btn-gold { background: var(--gold, #d6b16d); border-color: var(--gold, #d6b16d); color:#000; }
         .btn-link { background: transparent; border: 1px solid var(--border, #1a1c1f); padding: 4px 8px; cursor: pointer; }
+
         .file-list { display: grid; gap: 6px; margin-top: 8px; }
         .file-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
         .file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .form-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+        .bene-list { display: grid; gap: 8px; margin-top: 6px; }
+        .bene-row { display:flex; align-items:center; justify-content:space-between; gap:8px; border: 1px solid var(--border, #1a1c1f); padding: 6px 8px; }
+        .bene-name { font-weight: 700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+        /* -------- Light theme overrides -------- */
+        @media (prefers-color-scheme: light) {
+          .modal { background: #F7F7FB; border-color: #d0d5dd; }
+          section { background: #ffffff; border-color: #d0d5dd; }
+          h4 { color: #000000; }
+          .readline { background: #ffffff; border-color: #d0d5dd; color: #000; }
+          input, select, textarea { background: #ffffff; color: #000; border-color: #d0d5dd; }
+          .dz { background: #ffffff; border-color: #d0d5dd; }
+          .btn, .btn-ghost, .btn-link { background: #F2F4F6; color: #000; border-color: #d0d5dd; }
+          .modal-header, .modal-footer { border-color: #d0d5dd; }
+          .bene-row { border-color: #d0d5dd; }
+        }
       `}</style>
     </div>
   );
