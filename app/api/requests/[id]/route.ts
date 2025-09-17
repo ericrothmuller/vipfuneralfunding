@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { getUserFromCookie } from "@/lib/auth";
 import { FundingRequest } from "@/models/FundingRequest";
+import { User } from "@/models/User"; // ⬅ NEW: to check FH/CEM linkage
 
 import fs from "node:fs/promises";
 import { createWriteStream } from "node:fs";
@@ -99,7 +100,7 @@ function canEdit(me: any, doc: any): boolean {
   if (!me) return false;
   if (me.role === "ADMIN") return true;
   if (me.role === "NEW") return false;
-  // FH/CEM can edit only while Submitted AND must be owner
+  // FH/CEM can edit only while Submitted AND must be owner (we'll extend below)
   const meId = String(me.sub);
   return (doc.status === "Submitted") && (String(doc.ownerId || doc.userId) === meId);
 }
@@ -109,6 +110,24 @@ function canDelete(me: any, doc: any): boolean {
   if (me.role === "NEW") return false;
   const meId = String(me.sub);
   return (doc.status === "Submitted") && (String(doc.ownerId || doc.userId) === meId);
+}
+
+/** extra allow for FH/CEM: same org (fhCemId) or legacy fhName match */
+async function fhcemExtraAllow(me: any, doc: any): Promise<boolean> {
+  if (!me || me.role !== "FH_CEM") return false;
+  const meUser = await User.findById(me.sub).select("fhCemId fhName").lean();
+  if (!meUser) return false;
+
+  // same linked FH/CEM id
+  if (meUser.fhCemId && doc?.fhCemId && String(meUser.fhCemId) === String(doc.fhCemId)) {
+    return true;
+  }
+  // legacy name fallback (case-insensitive)
+  const a = (meUser.fhName || "").trim().toLowerCase();
+  const b = (doc?.fhName || "").trim().toLowerCase();
+  if (a && b && a === b) return true;
+
+  return false;
 }
 
 /* -------------------- GET: request details -------------------- */
@@ -123,7 +142,13 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 
     const doc: any = await FundingRequest.findById(id).lean();
     if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    if (!canView(me, doc)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    // existing owner/admin rule OR same FH/CEM org (id/name)
+    let allowed = canView(me, doc);
+    if (!allowed && me.role === "FH_CEM") {
+      allowed = await fhcemExtraAllow(me, doc);
+    }
+    if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const response = {
       id: String(doc._id),
@@ -207,7 +232,14 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 
     const doc: any = await FundingRequest.findById(id);
     if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    if (!canEdit(me, doc)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    // existing owner/admin rule
+    let allowedEdit = canEdit(me, doc);
+    // extra allow for FH/CEM: same org (id/name) AND status === "Submitted"
+    if (!allowedEdit && me.role === "FH_CEM" && doc.status === "Submitted") {
+      allowedEdit = await fhcemExtraAllow(me, doc);
+    }
+    if (!allowedEdit) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const ctype = req.headers.get("content-type") || "";
     let body: Record<string, any> = {};
@@ -219,12 +251,6 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 
       // text helpers
       const text = (k: string) => (form.get(k) ? String(form.get(k)) : "");
-      const bool = (k: string) => {
-        const v = form.get(k);
-        if (v == null) return undefined;
-        const s = String(v).toLowerCase();
-        return s === "yes" || s === "true" || s === "1" || s === "on";
-      };
 
       // gather uploads (append)
       const existingAssigns = Array.isArray(doc.assignmentUploadPaths) ? doc.assignmentUploadPaths.length : (doc.assignmentUploadPath ? 1 : 0);
@@ -256,8 +282,8 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       body.decLastName  = text("decLastName");
       const dob = text("decDOB");
       const dod = text("decDOD");
-      if (dob) body.decDOB = parseDate(dob);
-      if (dod) body.decDOD = parseDate(dod);
+      if (dob) doc.decDOB = parseDate(dob);
+      if (dod) doc.decDOD = parseDate(dod);
       body.decSSN = text("decSSN");
       body.decMaritalStatus = text("decMaritalStatus");
 
@@ -270,27 +296,27 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       body.decPODState = text("decPODState");
       body.decPODCountry = text("decPODCountry");
       const deathInUS = text("deathInUS");
-      if (deathInUS) body.deathInUS = deathInUS === "Yes";
+      if (deathInUS) doc.deathInUS = deathInUS === "Yes";
 
       // COD flags (single -> flags)
-      body.codNatural  = text("codNatural") === "Yes";
-      body.codAccident = text("codAccident") === "Yes";
-      body.codHomicide = text("codHomicide") === "Yes";
-      body.codPending  = text("codPending") === "Yes";
+      doc.codNatural  = text("codNatural") === "Yes";
+      doc.codAccident = text("codAccident") === "Yes";
+      doc.codHomicide = text("codHomicide") === "Yes";
+      doc.codPending  = text("codPending") === "Yes";
       const hasFinalDC = text("hasFinalDC");
-      if (hasFinalDC) body.hasFinalDC = hasFinalDC === "Yes";
+      if (hasFinalDC) doc.hasFinalDC = hasFinalDC === "Yes";
 
       // employer
       const er = text("employerRelation");
-      if (er) body.employerRelation = er;
-      body.employerPhone = text("employerPhone");
-      body.employerContact = text("employerContact");
-      body.employmentStatus = text("employmentStatus");
+      if (er) doc.employerRelation = er;
+      doc.employerPhone = text("employerPhone");
+      doc.employerContact = text("employerContact");
+      doc.employmentStatus = text("employmentStatus");
 
       // policy/basic strings
-      const pnums = text("policyNumbers"); if (pnums) body.policyNumbers = splitList(pnums);
-      body.faceAmount = text("faceAmount");
-      const bens = text("beneficiaries"); if (bens) body.beneficiaries = splitList(bens);
+      const pnums = text("policyNumbers"); if (pnums) doc.policyNumbers = splitList(pnums);
+      doc.faceAmount = text("faceAmount");
+      const bens = text("beneficiaries"); if (bens) doc.beneficiaries = splitList(bens);
 
       // financials (store normalized numbers)
       const nTotal = moneyToNumber(text("totalServiceAmount"));
@@ -302,14 +328,14 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       if (!isNaN(nVip)) doc.vipFee = nVip;
       if (!isNaN(nAssign)) doc.assignmentAmount = nAssign;
 
-      body.notes = text("notes");
+      doc.notes = text("notes");
     } else {
       // JSON fallback
       const json = await req.json().catch(() => ({}));
       body = json || {};
     }
 
-    // apply text/boolean changes
+    // apply text/boolean changes collected in 'body'
     for (const [k, v] of Object.entries(body)) {
       (doc as any)[k] = v;
     }
