@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { getUserFromCookie } from "@/lib/auth";
 import { FundingRequest } from "@/models/FundingRequest";
-import { User } from "@/models/User"; // ⬅ NEW: to check FH/CEM linkage
+import { User } from "@/models/User"; // for FH/CEM org-based access
 
 import fs from "node:fs/promises";
 import { createWriteStream } from "node:fs";
@@ -89,6 +89,7 @@ async function streamToFile(file: File): Promise<{ relative: string; absolute: s
   return { relative, absolute };
 }
 
+/* --------- base permissions (owner/admin) from your original file --------- */
 function canView(me: any, doc: any): boolean {
   if (!me) return false;
   if (me.role === "ADMIN") return true;
@@ -100,7 +101,6 @@ function canEdit(me: any, doc: any): boolean {
   if (!me) return false;
   if (me.role === "ADMIN") return true;
   if (me.role === "NEW") return false;
-  // FH/CEM can edit only while Submitted AND must be owner (we'll extend below)
   const meId = String(me.sub);
   return (doc.status === "Submitted") && (String(doc.ownerId || doc.userId) === meId);
 }
@@ -112,17 +112,14 @@ function canDelete(me: any, doc: any): boolean {
   return (doc.status === "Submitted") && (String(doc.ownerId || doc.userId) === meId);
 }
 
-/** extra allow for FH/CEM: same org (fhCemId) or legacy fhName match */
+/* ---- FH/CEM org allow: allow same fhCemId or legacy fhName match (view/edit) ---- */
 async function fhcemExtraAllow(me: any, doc: any): Promise<boolean> {
   if (!me || me.role !== "FH_CEM") return false;
   const meUser = await User.findById(me.sub).select("fhCemId fhName").lean();
   if (!meUser) return false;
 
-  // same linked FH/CEM id
-  if (meUser.fhCemId && doc?.fhCemId && String(meUser.fhCemId) === String(doc.fhCemId)) {
-    return true;
-  }
-  // legacy name fallback (case-insensitive)
+  if (meUser.fhCemId && doc?.fhCemId && String(meUser.fhCemId) === String(doc.fhCemId)) return true;
+
   const a = (meUser.fhName || "").trim().toLowerCase();
   const b = (doc?.fhName || "").trim().toLowerCase();
   if (a && b && a === b) return true;
@@ -131,19 +128,19 @@ async function fhcemExtraAllow(me: any, doc: any): Promise<boolean> {
 }
 
 /* -------------------- GET: request details -------------------- */
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+// NOTE: No type annotation on the 2nd arg to satisfy Next 15 build worker
+export async function GET(_req: Request, context: any) {
   try {
     const me = await getUserFromCookie();
     if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     await connectDB();
-    const id = params?.id;
+    const id: string | undefined = context?.params?.id;
     if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
     const doc: any = await FundingRequest.findById(id).lean();
     if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    // existing owner/admin rule OR same FH/CEM org (id/name)
     let allowed = canView(me, doc);
     if (!allowed && me.role === "FH_CEM") {
       allowed = await fhcemExtraAllow(me, doc);
@@ -221,21 +218,21 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 }
 
 /* -------------------- PUT: update (multipart/json), gated -------------------- */
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, context: any) {
   try {
     const me = await getUserFromCookie();
     if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     await connectDB();
 
-    const id = params?.id;
+    const id: string | undefined = context?.params?.id;
     if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
     const doc: any = await FundingRequest.findById(id);
     if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    // existing owner/admin rule
+    // owner/admin gate
     let allowedEdit = canEdit(me, doc);
-    // extra allow for FH/CEM: same org (id/name) AND status === "Submitted"
+    // FH/CEM org-based edit allowed only while Submitted
     if (!allowedEdit && me.role === "FH_CEM" && doc.status === "Submitted") {
       allowedEdit = await fhcemExtraAllow(me, doc);
     }
@@ -249,10 +246,9 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     if (ctype.includes("multipart/form-data")) {
       const form = await req.formData();
 
-      // text helpers
       const text = (k: string) => (form.get(k) ? String(form.get(k)) : "");
 
-      // gather uploads (append)
+      // uploads (append with caps)
       const existingAssigns = Array.isArray(doc.assignmentUploadPaths) ? doc.assignmentUploadPaths.length : (doc.assignmentUploadPath ? 1 : 0);
       const newAssignFiles = (form.getAll("assignmentUploads") || []).filter((x): x is File => x instanceof File && x.size > 0);
       if (existingAssigns + newAssignFiles.length > MAX_ASSIGNMENT_UPLOADS) {
@@ -273,7 +269,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         addedOthers.push(saved.relative);
       }
 
-      // common editable fields
+      // editable fields
       body.fhRep = text("fhRep");
       body.contactPhone = text("contactPhone");
       body.contactEmail = text("contactEmail");
@@ -335,7 +331,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       body = json || {};
     }
 
-    // apply text/boolean changes collected in 'body'
+    // apply text fields gathered in 'body'
     for (const [k, v] of Object.entries(body)) {
       (doc as any)[k] = v;
     }
@@ -345,7 +341,6 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       if (!Array.isArray(doc.assignmentUploadPaths)) doc.assignmentUploadPaths = [];
       doc.assignmentUploadPaths.push(...addedAssignments);
       if (!doc.assignmentUploadPath) {
-        // if legacy single empty, set first for backward compat
         doc.assignmentUploadPath = doc.assignmentUploadPaths[0];
       }
     }
@@ -357,7 +352,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     await doc.save();
 
     // respond using GET’s shape
-    const res = await GET(new Request(""), { params: { id } });
+    const res = await GET(new Request(""), { params: { id } } as any);
     const json = await (res as any).json();
     return NextResponse.json(json, { status: 200 });
   } catch (err: any) {
@@ -369,13 +364,13 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 }
 
 /* -------------------- DELETE: gated -------------------- */
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, context: any) {
   try {
     const me = await getUserFromCookie();
     if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     await connectDB();
 
-    const id = params?.id;
+    const id: string | undefined = context?.params?.id;
     if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
     const doc: any = await FundingRequest.findById(id);
