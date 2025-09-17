@@ -14,7 +14,7 @@ import { randomUUID } from "node:crypto";
 import { Readable, Transform } from "node:stream";
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR || "/home/deploy/uploads/vipfuneralfunding";
-const MAX_UPLOAD_BYTES = 500 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 500 * 1024 * 1024; // 500 MB
 const MAX_OTHER_UPLOADS = 50;
 const MAX_ASSIGNMENT_UPLOADS = 10;
 
@@ -52,7 +52,7 @@ async function streamToFile(file: File): Promise<{ relative: string; absolute: s
   const now = new Date();
   const yyyy = String(now.getFullYear());
   const mm = String(now.getMonth() + 1).padStart(2, "0");
-  const subdir = path.join(yyyy, mm);
+  const subdir = path.join(yyyy, mm); // "YYYY/MM"
 
   const root = path.resolve(UPLOAD_DIR);
   const dir = path.join(root, subdir);
@@ -143,12 +143,13 @@ export async function GET(_req: Request, context: any) {
     }
     if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    // Robust company display and face amount fallback
+    // Company display
     const companyName =
       (doc.insuranceCompanyId && (doc.insuranceCompanyId as any).name) ||
       doc.insuranceCompany ||
       (doc.otherInsuranceCompany?.name || "");
 
+    // Total face amount fallback (sum per-policy)
     let faceAmount = doc.faceAmount || "";
     if (!faceAmount && Array.isArray(doc.policies) && doc.policies.length) {
       const sum = doc.policies.reduce((acc: number, p: any) => acc + moneyToNumber(p?.faceAmount || ""), 0);
@@ -211,7 +212,7 @@ export async function GET(_req: Request, context: any) {
       faceAmount,
       beneficiaries: Array.isArray(doc.beneficiaries) ? doc.beneficiaries.join(", ") : (doc.beneficiaries || ""),
 
-      // Structured policy data (for per-policy display)
+      // Per-policy structured data
       policyBeneficiaries: Array.isArray(doc.policyBeneficiaries) ? doc.policyBeneficiaries : [],
       policies: Array.isArray(doc.policies) ? doc.policies : [],
 
@@ -290,7 +291,7 @@ export async function PUT(req: Request, context: any) {
         addedOthers.push(saved.relative);
       }
 
-      // editable fields
+      // editable fields (match your form keys)
       body.fhRep = text("fhRep");
       body.contactPhone = text("contactPhone");
       body.contactEmail = text("contactEmail");
@@ -326,16 +327,16 @@ export async function PUT(req: Request, context: any) {
       // employer
       const er = text("employerRelation");
       if (er) doc.employerRelation = er;
-      doc.employerPhone   = text("employerPhone");
+      doc.employerPhone = text("employerPhone");
       doc.employerContact = text("employerContact");
-      doc.employmentStatus= text("employmentStatus");
+      doc.employmentStatus = text("employmentStatus");
 
       // policy/basic strings
       const pnums = text("policyNumbers"); if (pnums) doc.policyNumbers = splitList(pnums);
       doc.faceAmount = text("faceAmount");
       const bens = text("beneficiaries"); if (bens) doc.beneficiaries = splitList(bens);
 
-      // optional structured per-policy fields (if sent on edit)
+      // optional structured per-policy fields (when you send them on edit)
       const pbJSON = text("policyBeneficiaries");
       if (pbJSON) { try { doc.policyBeneficiaries = JSON.parse(pbJSON); } catch {} }
       const policiesJSON = text("policies");
@@ -357,7 +358,7 @@ export async function PUT(req: Request, context: any) {
       body = json || {};
     }
 
-    // apply text fields
+    // apply simple text fields
     for (const [k, v] of Object.entries(body)) {
       (doc as any)[k] = v;
     }
