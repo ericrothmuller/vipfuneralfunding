@@ -38,7 +38,7 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
   const [msg, setMsg] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  // Filters
+  // Filters (visible to Admin and FH/CEM)
   const [q, setQ] = useState<string>("");
   const [status, setStatus] = useState<string>("");
   const [from, setFrom] = useState<string>("");
@@ -104,7 +104,7 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
 
   return (
     <>
-      {/* Filters */}
+      {/* Filters (always mounted so the cursor doesn't lose focus) */}
       <div className="card" style={{ padding: 12, marginBottom: 12 }}>
         <h3 className="panel-title" style={{ marginBottom: 8 }}>Filters</h3>
         <div style={{ display: "grid", gridTemplateColumns: "minmax(220px, 1fr) 180px 180px 180px auto", gap: 8 }}>
@@ -224,7 +224,7 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
       {selectedId && (
         <RequestDetailModal
           id={selectedId}
-          isAdmin={isAdmin}               {/* <-- pass admin flag so modal shows Edit for admins */}
+          isAdmin={isAdmin}
           onClose={() => setSelectedId(null)}
           canDelete={
             !!rows.find(r => r.id === selectedId && (isAdmin || r.status === "Submitted"))
@@ -234,12 +234,13 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
             setSelectedId(null);
           }}
           onUpdated={(updated) => {
+            // optimistic UI refresh for status/rep/amount in table
             setRows(prev => prev.map(r => r.id === updated.id ? {
               ...r,
               decName: [updated.decFirstName, updated.decLastName].filter(Boolean).join(" ") || r.decName,
-              fhRep: (updated as any).fhRep ?? r.fhRep,
-              assignmentAmount: (updated as any).assignmentAmount ?? r.assignmentAmount,
-              status: (updated as any).status ?? r.status,
+              fhRep: updated.fhRep ?? r.fhRep,
+              assignmentAmount: updated.assignmentAmount ?? r.assignmentAmount,
+              status: updated.status ?? r.status,
             } : r));
           }}
         />
