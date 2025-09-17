@@ -14,7 +14,7 @@ import { randomUUID } from "node:crypto";
 import { Readable, Transform } from "node:stream";
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR || "/home/deploy/uploads/vipfuneralfunding";
-const MAX_UPLOAD_BYTES = 500 * 1024 * 1024; // 500 MB
+const MAX_UPLOAD_BYTES = 500 * 1024 * 1024;
 const MAX_OTHER_UPLOADS = 50;
 const MAX_ASSIGNMENT_UPLOADS = 10;
 
@@ -52,7 +52,7 @@ async function streamToFile(file: File): Promise<{ relative: string; absolute: s
   const now = new Date();
   const yyyy = String(now.getFullYear());
   const mm = String(now.getMonth() + 1).padStart(2, "0");
-  const subdir = path.join(yyyy, mm); // "YYYY/MM"
+  const subdir = path.join(yyyy, mm);
 
   const root = path.resolve(UPLOAD_DIR);
   const dir = path.join(root, subdir);
@@ -122,14 +122,13 @@ async function fhcemExtraAllow(me: any, doc: any): Promise<boolean> {
   return !!(a && b && a === b);
 }
 
-/* -------------------- GET: request details -------------------- */
-// NOTE: No type annotation on the 2nd arg to satisfy Next 15 build worker
+/* -------------------- GET -------------------- */
 export async function GET(_req: Request, context: any) {
   try {
     const me = await getUserFromCookie();
     if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
     await connectDB();
+
     const id: string | undefined = context?.params?.id;
     if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
@@ -144,11 +143,25 @@ export async function GET(_req: Request, context: any) {
     }
     if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
+    // Robust company display and face amount fallback
+    const companyName =
+      (doc.insuranceCompanyId && (doc.insuranceCompanyId as any).name) ||
+      doc.insuranceCompany ||
+      (doc.otherInsuranceCompany?.name || "");
+
+    let faceAmount = doc.faceAmount || "";
+    if (!faceAmount && Array.isArray(doc.policies) && doc.policies.length) {
+      const sum = doc.policies.reduce((acc: number, p: any) => acc + moneyToNumber(p?.faceAmount || ""), 0);
+      if (sum > 0) {
+        faceAmount = sum.toLocaleString("en-US", { style: "currency", currency: "USD" });
+      }
+    }
+
     const response = {
       id: String(doc._id),
       userId: String(doc.ownerId || doc.userId || ""),
 
-      // FH/CEM
+      // FH/CEM snapshot
       fhName: doc.fhName || "",
       fhRep: doc.fhRep || "",
       contactPhone: doc.contactPhone || "",
@@ -190,19 +203,19 @@ export async function GET(_req: Request, context: any) {
       employerRelation:doc.employerRelation || "",
 
       // Insurance
-      insuranceCompanyId: doc.insuranceCompanyId || null, // populated { _id, name } if set
+      insuranceCompanyId: doc.insuranceCompanyId || null,   // populated {_id,name} if present
       otherInsuranceCompany: doc.otherInsuranceCompany || null,
-      insuranceCompany: (doc.insuranceCompanyId?.name as string) || doc.insuranceCompany || "",
+      insuranceCompany: companyName,
 
       policyNumbers: Array.isArray(doc.policyNumbers) ? doc.policyNumbers.join(", ") : (doc.policyNumbers || ""),
-      faceAmount: doc.faceAmount || "",
+      faceAmount,
       beneficiaries: Array.isArray(doc.beneficiaries) ? doc.beneficiaries.join(", ") : (doc.beneficiaries || ""),
 
-      // Structured policy data
+      // Structured policy data (for per-policy display)
       policyBeneficiaries: Array.isArray(doc.policyBeneficiaries) ? doc.policyBeneficiaries : [],
       policies: Array.isArray(doc.policies) ? doc.policies : [],
 
-      // Financials (formatted strings)
+      // Financials (formatted)
       totalServiceAmount: (typeof doc.totalServiceAmount === "number" ? doc.totalServiceAmount.toLocaleString("en-US", { style: "currency", currency: "USD" }) : (doc.totalServiceAmount || "")),
       familyAdvancementAmount: (typeof doc.familyAdvancementAmount === "number" ? doc.familyAdvancementAmount.toLocaleString("en-US", { style: "currency", currency: "USD" }) : (doc.familyAdvancementAmount || "")),
       vipFee: (typeof doc.vipFee === "number" ? doc.vipFee.toLocaleString("en-US", { style: "currency", currency: "USD" }) : (doc.vipFee || "")),
@@ -210,6 +223,7 @@ export async function GET(_req: Request, context: any) {
 
       notes: doc.notes || "",
 
+      // Uploads
       assignmentUploadPath: doc.assignmentUploadPath || "",
       assignmentUploadPaths: Array.isArray(doc.assignmentUploadPaths) ? doc.assignmentUploadPaths : [],
       otherUploadPaths: Array.isArray(doc.otherUploadPaths) ? doc.otherUploadPaths : [],
@@ -226,7 +240,7 @@ export async function GET(_req: Request, context: any) {
   }
 }
 
-/* -------------------- PUT: update (multipart/json), gated -------------------- */
+/* -------------------- PUT (multipart/json), gated -------------------- */
 export async function PUT(req: Request, context: any) {
   try {
     const me = await getUserFromCookie();
@@ -239,7 +253,7 @@ export async function PUT(req: Request, context: any) {
     const doc: any = await FundingRequest.findById(id);
     if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    // owner/admin gate; FH/CEM can edit while Submitted if same org
+    // owner/admin; FH/CEM can edit while Submitted if same org
     let allowedEdit = canEdit(me, doc);
     if (!allowedEdit && me.role === "FH_CEM" && doc.status === "Submitted") {
       allowedEdit = await fhcemExtraAllow(me, doc);
@@ -312,16 +326,22 @@ export async function PUT(req: Request, context: any) {
       // employer
       const er = text("employerRelation");
       if (er) doc.employerRelation = er;
-      doc.employerPhone = text("employerPhone");
+      doc.employerPhone   = text("employerPhone");
       doc.employerContact = text("employerContact");
-      doc.employmentStatus = text("employmentStatus");
+      doc.employmentStatus= text("employmentStatus");
 
       // policy/basic strings
       const pnums = text("policyNumbers"); if (pnums) doc.policyNumbers = splitList(pnums);
       doc.faceAmount = text("faceAmount");
       const bens = text("beneficiaries"); if (bens) doc.beneficiaries = splitList(bens);
 
-      // financials (store normalized numbers)
+      // optional structured per-policy fields (if sent on edit)
+      const pbJSON = text("policyBeneficiaries");
+      if (pbJSON) { try { doc.policyBeneficiaries = JSON.parse(pbJSON); } catch {} }
+      const policiesJSON = text("policies");
+      if (policiesJSON) { try { doc.policies = JSON.parse(policiesJSON); } catch {} }
+
+      // financials (normalized)
       const nTotal  = moneyToNumber(text("totalServiceAmount"));
       const nFamily = moneyToNumber(text("familyAdvancementAmount"));
       const nVip    = moneyToNumber(text("vipFee"));
@@ -332,19 +352,12 @@ export async function PUT(req: Request, context: any) {
       if (!isNaN(nAssign)) doc.assignmentAmount = nAssign;
 
       doc.notes = text("notes");
-
-      // optional structured fields (if you send them on edit)
-      const pbJSON = text("policyBeneficiaries");
-      if (pbJSON) { try { doc.policyBeneficiaries = JSON.parse(pbJSON); } catch {} }
-      const policiesJSON = text("policies");
-      if (policiesJSON) { try { doc.policies = JSON.parse(policiesJSON); } catch {} }
     } else {
-      // JSON fallback
       const json = await req.json().catch(() => ({}));
       body = json || {};
     }
 
-    // apply text fields gathered in 'body'
+    // apply text fields
     for (const [k, v] of Object.entries(body)) {
       (doc as any)[k] = v;
     }
@@ -376,7 +389,7 @@ export async function PUT(req: Request, context: any) {
   }
 }
 
-/* -------------------- DELETE: gated -------------------- */
+/* -------------------- DELETE -------------------- */
 export async function DELETE(_req: Request, context: any) {
   try {
     const me = await getUserFromCookie();
