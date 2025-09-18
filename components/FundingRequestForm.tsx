@@ -132,12 +132,14 @@ function splitName(full: string): {
   let suffix: string | undefined;
   let suffixRaw: string | undefined;
 
-  const lastTok = parts[parts.length - 1];
+  const lastTok = parts[parts.length - 1]; // always a string here
 
   if (recognized.has(lastTok)) {
+    // known suffix like "Jr.", "III", etc.
     suffix = lastTok;
     parts.pop();
   } else if (lastTok) {
+    // treat unknown trailing token as a custom suffix
     suffix = "Other";
     suffixRaw = lastTok;
     parts.pop();
@@ -148,6 +150,7 @@ function splitName(full: string): {
 
   return { first, last, suffix, suffixRaw };
 }
+
 
 /** ------------------- Component ------------------- */
 export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: boolean }) {
@@ -580,7 +583,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         });
       });
 
-      // De-dupe across policies
+      // dedupe
       const seen = new Set<string>();
       const unique: BeneficiaryDetail[] = [];
       for (const b of flatBene) {
@@ -591,11 +594,9 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         }
       }
 
-      // Pair unique beneficiaries into PDFs
+      // pair & download
       const pairs: Array<{ bene1?: BeneficiaryDetail; bene2?: BeneficiaryDetail }> = [];
-      for (let i = 0; i < unique.length; i += 2) {
-        pairs.push({ bene1: unique[i], bene2: unique[i + 1] });
-      }
+      for (let i = 0; i < unique.length; i += 2) pairs.push({ bene1: unique[i], bene2: unique[i + 1] });
       if (pairs.length === 0) pairs.push({});
 
       for (let idx = 0; idx < pairs.length; idx++) {
@@ -1261,7 +1262,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           <div>
             <strong>Drag & drop the assignment file(s) here</strong>
             <div style={{ marginTop: 6 }}>
-              {/* STOP BUBBLING so the dropzone click doesn't re-trigger */}
+              {/* FIX: stop bubbling so parent onClick doesn't re-open the picker */}
               <button
                 type="button"
                 className="btn-link"
@@ -1333,7 +1334,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           <div>
             <strong>Drag & drop documents here</strong>
             <div style={{ marginTop: 6 }}>
-              {/* STOP BUBBLING here too */}
+              {/* FIX: stop bubbling so parent onClick doesn't re-open the picker */}
               <button
                 type="button"
                 className="btn-link"
@@ -1367,7 +1368,162 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
 
       {msg && <p role="alert" style={{ color: "crimson", marginTop: 8 }}>{msg}</p>}
 
-      {/* Modals remain exactly as above (Add/Edit Beneficiary with First/Last/Suffix, View, and Existing Picker) */}
+      {/* Add Beneficiary Modal (Add/Edit) */}
+      {beneModalOpen && (
+        <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="bene-add-title">
+          <div className="modal">
+            <div className="modal-header">
+              <h3 id="bene-add-title" className="modal-title">Add / Edit Beneficiary</h3>
+              <button className="btn btn-ghost" onClick={() => setBeneModalOpen(false)} aria-label="Close">✕</button>
+            </div>
+            <div className="modal-body">
+              <div className="row-2">
+                <label>First Name *
+                  <input type="text" value={beneDraft.firstName || ""} onChange={(e) => setBeneDraft({ ...beneDraft, firstName: e.target.value })} required />
+                </label>
+                <label>Last Name *
+                  <input type="text" value={beneDraft.lastName || ""} onChange={(e) => setBeneDraft({ ...beneDraft, lastName: e.target.value })} required />
+                </label>
+              </div>
+
+              <label>Suffix
+                <select
+                  value={beneDraft.suffix || ""}
+                  onChange={(e) => setBeneDraft({ ...beneDraft, suffix: e.target.value, suffixRaw: e.target.value === "Other" ? (beneDraft.suffixRaw || "") : "" })}
+                >
+                  {SUFFIX_OPTS.map(opt => <option key={opt || "_none"} value={opt}>{opt || "— None —"}</option>)}
+                </select>
+              </label>
+              {beneDraft.suffix === "Other" && (
+                <label>Specify Suffix
+                  <input
+                    type="text"
+                    value={beneDraft.suffixRaw || ""}
+                    onChange={(e) => setBeneDraft({ ...beneDraft, suffixRaw: e.target.value })}
+                    placeholder="e.g., Esq., PhD"
+                  />
+                </label>
+              )}
+
+              <label>Relationship to DEC *
+                <input type="text" value={beneDraft.relationship || ""} onChange={(e) => setBeneDraft({ ...beneDraft, relationship: e.target.value })} placeholder="e.g., Spouse, Child" required />
+              </label>
+
+              <label>Beneficiary Address *
+                <input type="text" value={beneDraft.address || ""} onChange={(e) => setBeneDraft({ ...beneDraft, address: e.target.value })} placeholder="Street Address" required />
+              </label>
+
+              <div className="row-2">
+                <label>Beneficiary City *
+                  <input type="text" value={beneDraft.city || ""} onChange={(e) => setBeneDraft({ ...beneDraft, city: e.target.value })} required />
+                </label>
+                <label>Beneficiary State *
+                  <input type="text" value={beneDraft.state || ""} onChange={(e) => setBeneDraft({ ...beneDraft, state: e.target.value })} required />
+                </label>
+              </div>
+
+              <div className="row-2">
+                <label>Beneficiary Zip *
+                  <input type="text" value={beneDraft.zip || ""} onChange={(e) => setBeneDraft({ ...beneDraft, zip: e.target.value })} required />
+                </label>
+                <label>Beneficiary Email *
+                  <input type="email" value={beneDraft.email || ""} onChange={(e) => setBeneDraft({ ...beneDraft, email: e.target.value })} placeholder="name@example.com" required />
+                </label>
+              </div>
+
+              <div className="row-2">
+                <label>Beneficiary DOB *
+                  <input type="date" value={beneDraft.dob || ""} onChange={(e) => setBeneDraft({ ...beneDraft, dob: e.target.value })} required />
+                </label>
+                <label>Beneficiary SSN *
+                  <input type="text" inputMode="numeric" pattern={SSN_PATTERN} maxLength={11} value={beneDraft.ssn || ""}
+                    onChange={(e) => setBeneDraft({ ...beneDraft, ssn: formatSSN(e.target.value) })}
+                    placeholder="###-##-####" title="Enter SSN as 123-45-6789" required />
+                </label>
+              </div>
+
+              <label>Beneficiary Phone Number *
+                <input type="tel" inputMode="numeric" pattern={PHONE_PATTERN_VSAFE} value={beneDraft.phone || ""}
+                  onChange={(e) => setBeneDraft({ ...beneDraft, phone: formatPhone(e.target.value) })}
+                  placeholder="(555) 555-5555" title="Please enter a valid 10-digit phone number" required />
+              </label>
+
+              <div className="modal-actions">
+                <button className="btn" onClick={() => setBeneModalOpen(false)}>Cancel</button>
+                <button className="btn btn-gold" onClick={saveBeneficiaryFromModal}>Save</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Beneficiary Modal */}
+      {beneViewOpen && (
+        <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="bene-view-title">
+          <div className="modal">
+            <div className="modal-header">
+              <h3 id="bene-view-title" className="modal-title">Beneficiary Info</h3>
+              <button className="btn btn-ghost" onClick={() => setBeneViewOpen(false)} aria-label="Close">✕</button>
+            </div>
+            <div className="modal-body">
+              <div><strong>Name:</strong> {nameFromParts(beneDraft.firstName, beneDraft.lastName, beneDraft.suffix, beneDraft.suffixRaw) || beneDraft.name || "—"}</div>
+              <div><strong>Relationship to DEC:</strong> {beneDraft.relationship || "—"}</div>
+              <div><strong>Address:</strong> {beneDraft.address || "—"}</div>
+              <div className="row-2">
+                <div><strong>City:</strong> {beneDraft.city || "—"}</div>
+                <div><strong>State:</strong> {beneDraft.state || "—"}</div>
+              </div>
+              <div className="row-2">
+                <div><strong>Zip:</strong> {beneDraft.zip || "—"}</div>
+                <div><strong>Email:</strong> {beneDraft.email || "—"}</div>
+              </div>
+              <div className="row-2">
+                <div><strong>DOB:</strong> {beneDraft.dob || "—"}</div>
+                <div><strong>SSN:</strong> {beneDraft.ssn || "—"}</div>
+              </div>
+              <div><strong>Phone:</strong> {beneDraft.phone || "—"}</div>
+              <div className="modal-actions">
+                <button className="btn" onClick={() => setBeneViewOpen(false)}>Close</button>
+                <button className="btn btn-gold" onClick={startEditBeneficiary}>Edit</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Existing Beneficiary Picker */}
+      {existingModalOpen && (
+        <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="bene-existing-title">
+          <div className="modal">
+            <div className="modal-header">
+              <h3 id="bene-existing-title" className="modal-title">Add Existing Beneficiary</h3>
+              <button className="btn btn-ghost" onClick={() => setExistingModalOpen(false)} aria-label="Close">✕</button>
+            </div>
+            <div className="modal-body">
+              <label>Select a beneficiary from other policies
+                <select
+                  value={existingSelectedIdx === null ? "" : String(existingSelectedIdx)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setExistingSelectedIdx(v === "" ? null : Number(v));
+                  }}
+                >
+                  <option value="">— Select a beneficiary —</option>
+                  {existingChoices.map((c, idx) => (
+                    <option key={idx} value={idx}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="modal-actions">
+                <button className="btn" onClick={() => setExistingModalOpen(false)}>Cancel</button>
+                <button className="btn btn-gold" onClick={addExistingBeneficiaryToPolicy}>Add Beneficiary</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   );
 }
