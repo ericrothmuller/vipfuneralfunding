@@ -29,7 +29,8 @@ type BeneficiaryDetail = {
   // legacy full name kept for compatibility everywhere else
   name: string;
 
-  relationship?: string;
+  relationship?: string;          // final resolved relationship value
+  relationshipOther?: string;     // temp holder when "Other" selected
   address?: string;
   dob?: string;
   ssn?: string;
@@ -50,6 +51,10 @@ const MAX_OTHER_UPLOADS = 50;
 const MAX_ASSIGNMENT_UPLOADS = 10;
 
 const SUFFIX_OPTS = ["", "Sr.", "Jr.", "II", "III", "IV", "V", "Other"] as const;
+const RELN_OPTS = [
+  "Spouse","Child","Parent","Sibling","Grandparent","Grandchild","Aunt","Uncle",
+  "Cousin","Niece","Nephew","Guardian","Friend","Other"
+] as const;
 
 /** ------------------- Helpers ------------------- */
 function onlyDigits(s: string) { return s.replace(/\D+/g, ""); }
@@ -116,41 +121,25 @@ function nameFromParts(first?: string, last?: string, suffix?: string, suffixRaw
   return [first || "", last || "", sfx || ""].filter(Boolean).join(" ").trim();
 }
 function splitName(full: string): {
-  first?: string;
-  last?: string;
-  suffix?: string;
-  suffixRaw?: string;
+  first?: string; last?: string; suffix?: string; suffixRaw?: string;
 } {
   const clean = (full || "").trim();
   if (!clean) return {};
   const parts = clean.split(/\s+/);
   if (parts.length === 1) return { first: parts[0], last: "" };
 
-  // Recognized suffixes (filter out the empty string)
   const recognized = new Set<string>(SUFFIX_OPTS.filter(Boolean) as string[]);
-
   let suffix: string | undefined;
   let suffixRaw: string | undefined;
+  const lastTok = parts[parts.length - 1];
 
-  const lastTok = parts[parts.length - 1]; // always a string here
-
-  if (recognized.has(lastTok)) {
-    // known suffix like "Jr.", "III", etc.
-    suffix = lastTok;
-    parts.pop();
-  } else if (lastTok) {
-    // treat unknown trailing token as a custom suffix
-    suffix = "Other";
-    suffixRaw = lastTok;
-    parts.pop();
-  }
+  if (recognized.has(lastTok)) { suffix = lastTok; parts.pop(); }
+  else if (lastTok) { suffix = "Other"; suffixRaw = lastTok; parts.pop(); }
 
   const first = parts.shift() || "";
   const last = parts.join(" ").trim();
-
   return { first, last, suffix, suffixRaw };
 }
-
 
 /** ------------------- Component ------------------- */
 export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: boolean }) {
@@ -202,7 +191,8 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
   const [isEmployerInsurance, setIsEmployerInsurance] = useState<string>("");
   const [employerPhone, setEmployerPhone] = useState("");
   const [employerContact, setEmployerContact] = useState("");
-  const [employmentStatus, setEmploymentStatus] = useState<string>("");
+  const [employerEmail, setEmployerEmail] = useState("");              // NEW
+  const [employmentStatus, setEmploymentStatus] = useState<string>(""); // now dropdown
   const [employerRelation, setEmployerRelation] = useState<string>("");
 
   /** Insurance typeahead */
@@ -295,7 +285,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
   const vipFeeCalc = useMemo(() => Math.max(vipFeeRaw, 100), [vipFeeRaw]);
   const assignmentAmountCalc = useMemo(() => +(baseSum + vipFeeCalc).toFixed(2), [baseSum, vipFeeCalc]);
 
-  /** Notes */
+  /** Notes (used for new Additional Notes section) */
   const [notes, setNotes] = useState("");
 
   /** Upload state (Assignment: multi; Other: multi) */
@@ -381,6 +371,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
     suffix: "",
     suffixRaw: "",
     relationship: "",
+    relationshipOther: "",
     address: "",
     dob: "",
     ssn: "",
@@ -395,18 +386,19 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
     setBenePolicyIdx(policyIdx);
     setBeneIndex(idxInPolicy);
     const existing = beneExtra[policyIdx]?.[idxInPolicy] || { name: "" };
-    // Try to split legacy name
-    const parts = existing.firstName || existing.lastName || existing.suffix
-      ? { first: existing.firstName, last: existing.lastName, suffix: existing.suffix }
-      : splitName(bundles[policyIdx]?.beneficiaries[idxInPolicy] || existing.name || "");
+    const parts =
+      existing.firstName || existing.lastName || existing.suffix
+        ? { first: existing.firstName, last: existing.lastName, suffix: existing.suffix, suffixRaw: existing.suffixRaw }
+        : splitName(bundles[policyIdx]?.beneficiaries[idxInPolicy] || existing.name || "");
     setBeneDraft({
       ...existing,
       name: existing.name || "",
       firstName: (parts.first as string) || existing.firstName || "",
       lastName: (parts.last as string) || existing.lastName || "",
       suffix: (parts.suffix as string) || existing.suffix || "",
-      suffixRaw: existing.suffixRaw || "",
+      suffixRaw: (parts.suffixRaw as string) || existing.suffixRaw || "",
       relationship: existing.relationship || "",
+      relationshipOther: existing.relationshipOther || "",
       address: existing.address || "",
       dob: existing.dob || "",
       ssn: existing.ssn || "",
@@ -420,9 +412,10 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
   }
 
   function validateBeneficiary(b: BeneficiaryDetail): string | null {
+    const relFinal = b.relationship === "Other" ? (b.relationshipOther || "").trim() : (b.relationship || "").trim();
     if (!(b.firstName || "").trim()) return "Beneficiary First Name is required.";
     if (!(b.lastName || "").trim()) return "Beneficiary Last Name is required.";
-    if (!b.relationship?.trim()) return "Relationship to DEC is required.";
+    if (!relFinal) return "Relationship to DEC is required.";
     if (!b.address?.trim()) return "Beneficiary Address is required.";
     if (!b.dob?.trim()) return "Beneficiary DOB is required.";
     if (!b.ssn?.trim() || !/^\d{3}-\d{2}-\d{4}$/.test(b.ssn)) return "Beneficiary SSN must be ###-##-####.";
@@ -437,6 +430,9 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
   function saveBeneficiaryFromModal() {
     const err = validateBeneficiary(beneDraft);
     if (err) { alert(err); return; }
+    const relFinal = beneDraft.relationship === "Other"
+      ? (beneDraft.relationshipOther || "").trim()
+      : (beneDraft.relationship || "").trim();
     const fullName = nameFromParts(beneDraft.firstName, beneDraft.lastName, beneDraft.suffix, beneDraft.suffixRaw);
 
     setBeneExtra(prev => {
@@ -444,8 +440,9 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       if (!copy[benePolicyIdx]) copy[benePolicyIdx] = [];
       copy[benePolicyIdx][beneIndex] = {
         ...beneDraft,
+        relationship: relFinal,          // store resolved relationship
+        relationshipOther: "",           // clear helper
         name: fullName,
-        // store resolved suffix (if "Other", use suffixRaw)
         suffix: beneDraft.suffix === "Other" ? (beneDraft.suffixRaw || "") : (beneDraft.suffix || ""),
       };
       return copy;
@@ -458,14 +455,16 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
     setBenePolicyIdx(policyIdx);
     setBeneIndex(idxInPolicy);
     const existing = beneExtra[policyIdx]?.[idxInPolicy] || { name: "" };
-    const parts = existing.firstName || existing.lastName || existing.suffix
-      ? { first: existing.firstName, last: existing.lastName, suffix: existing.suffix }
-      : splitName(bundles[policyIdx]?.beneficiaries[idxInPolicy] || existing.name || "");
+    const parts =
+      existing.firstName || existing.lastName || existing.suffix
+        ? { first: existing.firstName, last: existing.lastName, suffix: existing.suffix, suffixRaw: existing.suffixRaw }
+        : splitName(bundles[policyIdx]?.beneficiaries[idxInPolicy] || existing.name || "");
     setBeneDraft({
       ...existing,
       firstName: (parts.first as string) || existing.firstName || "",
       lastName: (parts.last as string) || existing.lastName || "",
       suffix: (parts.suffix as string) || existing.suffix || "",
+      suffixRaw: (parts.suffixRaw as string) || existing.suffixRaw || "",
     });
     setBeneViewOpen(true);
   }
@@ -694,9 +693,10 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       // Employer fields only if Yes
       if (isEmployerInsurance === "Yes") {
         if (employerRelation) fd.set("employerRelation", employerRelation);
-        if (employerPhone) fd.set("employerPhone", employerPhone);
-        if (employerContact) fd.set("employerContact", employerContact);
         if (employmentStatus) fd.set("employmentStatus", employmentStatus);
+        if (employerContact) fd.set("employerContact", employerContact);
+        if (employerPhone) fd.set("employerPhone", employerPhone);
+        if (employerEmail) fd.set("employerEmail", employerEmail); // NEW
       }
 
       const policyNumbers = bundles.map(b => b.policyNumber.trim()).filter(Boolean);
@@ -714,6 +714,9 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       fd.set("policies", JSON.stringify(
         bundles.map(b => ({ policyNumber: b.policyNumber.trim(), faceAmount: b.faceAmount }))
       ));
+
+      // Additional notes (NEW section)
+      if (notes) fd.set("notes", notes);
 
       const total = parseMoneyNumber(totalServiceAmount);
       const adv   = parseMoneyNumber(familyAdvancementAmount);
@@ -1043,17 +1046,20 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                 </select>
               </label>
               <label>Employment Status
-                <input
+                <select
                   name="employmentStatus"
-                  type="text"
                   value={employmentStatus}
                   onChange={(e)=>setEmploymentStatus(e.target.value)}
-                  placeholder="e.g., Active, Retired"
-                />
+                >
+                  <option value="">— Select —</option>
+                  <option value="Active">Active</option>
+                  <option value="Retired">Retired</option>
+                  <option value="On Leave">On Leave</option>
+                </select>
               </label>
             </div>
             <div className="fr-grid-2" style={{ marginTop: 8 }}>
-              <label>Employer Contact
+              <label>Employer Contact Name
                 <input
                   name="employerContact"
                   type="text"
@@ -1071,6 +1077,17 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                   onChange={(e)=>setEmployerPhone(formatPhone(e.target.value))}
                   placeholder="(555) 555-5555"
                   title="Please enter a valid 10-digit phone number"
+                />
+              </label>
+            </div>
+            <div className="fr-grid-2" style={{ marginTop: 8 }}>
+              <label>Employer Email
+                <input
+                  name="employerEmail"
+                  type="email"
+                  value={employerEmail}
+                  onChange={(e)=>setEmployerEmail(e.target.value)}
+                  placeholder="name@example.com"
                 />
               </label>
             </div>
@@ -1262,7 +1279,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           <div>
             <strong>Drag & drop the assignment file(s) here</strong>
             <div style={{ marginTop: 6 }}>
-              {/* FIX: stop bubbling so parent onClick doesn't re-open the picker */}
+              {/* stop bubbling so parent doesn't re-open the picker */}
               <button
                 type="button"
                 className="btn-link"
@@ -1290,7 +1307,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         )}
       </fieldset>
 
-      {/* Upload Other Documents (drag & drop + multiple Browse) */}
+      {/* Upload Other Documents (multi) */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Upload Other Documents</legend>
         <h3 className="fr-section-title">Upload Other Documents</h3>
@@ -1334,7 +1351,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
           <div>
             <strong>Drag & drop documents here</strong>
             <div style={{ marginTop: 6 }}>
-              {/* FIX: stop bubbling so parent onClick doesn't re-open the picker */}
+              {/* stop bubbling so parent doesn't re-open the picker */}
               <button
                 type="button"
                 className="btn-link"
@@ -1360,6 +1377,18 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
             <small>{otherFiles.length} / {MAX_OTHER_UPLOADS} selected</small>
           </div>
         )}
+      </fieldset>
+
+      {/* NEW: Additional Notes */}
+      <fieldset className="fr-card">
+        <legend className="fr-legend">Additional Notes</legend>
+        <h3 className="fr-section-title">Additional Notes</h3>
+        <textarea
+          rows={4}
+          value={notes}
+          onChange={(e)=>setNotes(e.target.value)}
+          placeholder="Add any helpful notes about this funding request (optional)"
+        />
       </fieldset>
 
       <button disabled={saving} className="fr-gold fr-submit" type="submit">
@@ -1400,14 +1429,32 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                     type="text"
                     value={beneDraft.suffixRaw || ""}
                     onChange={(e) => setBeneDraft({ ...beneDraft, suffixRaw: e.target.value })}
-                    placeholder="e.g., Esq., PhD"
+                    placeholder="e.g. VII, VIII"
                   />
                 </label>
               )}
 
               <label>Relationship to DEC *
-                <input type="text" value={beneDraft.relationship || ""} onChange={(e) => setBeneDraft({ ...beneDraft, relationship: e.target.value })} placeholder="e.g., Spouse, Child" required />
+                <select
+                  value={beneDraft.relationship || ""}
+                  onChange={(e) => setBeneDraft({ ...beneDraft, relationship: e.target.value })}
+                >
+                  <option value="">— Select —</option>
+                  {RELN_OPTS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                </select>
               </label>
+
+              {beneDraft.relationship === "Other" && (
+                <label>Specify Relationship to DEC *
+                  <input
+                    type="text"
+                    value={beneDraft.relationshipOther || ""}
+                    onChange={(e)=>setBeneDraft({ ...beneDraft, relationshipOther: e.target.value })}
+                    placeholder="e.g., Partner, Son-in-Law, etc."
+                    required
+                  />
+                </label>
+              )}
 
               <label>Beneficiary Address *
                 <input type="text" value={beneDraft.address || ""} onChange={(e) => setBeneDraft({ ...beneDraft, address: e.target.value })} placeholder="Street Address" required />
