@@ -86,7 +86,7 @@ async function streamToFile(file: File): Promise<{ relative: string; absolute: s
   return { relative, absolute };
 }
 
-/* --------- base permissions --------- */
+/* --------- permissions --------- */
 function canView(me: any, doc: any): boolean {
   if (!me) return false;
   if (me.role === "ADMIN") return true;
@@ -108,8 +108,6 @@ function canDelete(me: any, doc: any): boolean {
   const meId = String(me.sub);
   return (doc.status === "Submitted") && (String(doc.ownerId || doc.userId) === meId);
 }
-
-/* ---- FH/CEM org allow ---- */
 async function fhcemExtraAllow(me: any, doc: any): Promise<boolean> {
   if (!me || me.role !== "FH_CEM") return false;
   const meUser = await User.findById(me.sub).select("fhCemId fhName").lean();
@@ -122,7 +120,101 @@ async function fhcemExtraAllow(me: any, doc: any): Promise<boolean> {
   return !!(a && b && a === b);
 }
 
+/* --------- response formatter (shared by GET/PUT) --------- */
+function buildResponse(doc: any) {
+  const companyName =
+    (doc.insuranceCompanyId && (doc.insuranceCompanyId as any).name) ||
+    doc.insuranceCompany ||
+    (doc.otherInsuranceCompany?.name || "");
+
+  let faceAmount = doc.faceAmount || "";
+  if (!faceAmount && Array.isArray(doc.policies) && doc.policies.length) {
+    const sum = doc.policies.reduce((acc: number, p: any) => acc + moneyToNumber(p?.faceAmount || ""), 0);
+    if (sum > 0) {
+      faceAmount = sum.toLocaleString("en-US", { style: "currency", currency: "USD" });
+    }
+  }
+
+  return {
+    id: String(doc._id),
+    userId: String(doc.ownerId || doc.userId || ""),
+
+    // FH/CEM snapshot
+    fhName: doc.fhName || "",
+    fhRep: doc.fhRep || "",
+    contactPhone: doc.contactPhone || "",
+    contactEmail: doc.contactEmail || "",
+
+    // Decedent
+    decFirstName: doc.decFirstName || doc.decedentFirstName || "",
+    decLastName:  doc.decLastName  || doc.decedentLastName  || "",
+    decSSN: doc.decSSN || "",
+    decDOB: doc.decDOB || null,
+    decDOD: doc.decDOD || null,
+    decMaritalStatus: doc.decMaritalStatus || "",
+
+    // Address
+    decAddress: doc.decAddress || "",
+    decCity: doc.decCity || "",
+    decState: doc.decState || "",
+    decZip: doc.decZip || "",
+
+    // Place of death
+    decPODCity: doc.decPODCity || "",
+    decPODState: doc.decPODState || "",
+    decPODCountry: doc.decPODCountry || "",
+    deathInUS: typeof doc.deathInUS === "boolean" ? !!doc.deathInUS : undefined,
+
+    // COD flags
+    codNatural:  !!doc.codNatural,
+    codAccident: !!doc.codAccident,
+    codHomicide: !!doc.codHomicide,
+    codPending:  !!doc.codPending,
+    codSuicide:  !!doc.codSuicide,
+
+    hasFinalDC: !!doc.hasFinalDC,
+
+    // Employer
+    employerPhone:   doc.employerPhone || "",
+    employerContact: doc.employerContact || "",
+    employerEmail:   doc.employerEmail || "",
+    employmentStatus:doc.employmentStatus || "",
+    employerRelation:doc.employerRelation || "",
+
+    // Insurance
+    insuranceCompanyId: doc.insuranceCompanyId || null,
+    otherInsuranceCompany: doc.otherInsuranceCompany || null,
+    insuranceCompany: companyName,
+
+    policyNumbers: Array.isArray(doc.policyNumbers) ? doc.policyNumbers.join(", ") : (doc.policyNumbers || ""),
+    faceAmount,
+    beneficiaries: Array.isArray(doc.beneficiaries) ? doc.beneficiaries.join(", ") : (doc.beneficiaries || ""),
+
+    // Structured
+    policyBeneficiaries: Array.isArray(doc.policyBeneficiaries) ? doc.policyBeneficiaries : [],
+    policies: Array.isArray(doc.policies) ? doc.policies : [],
+
+    // Financials (formatted)
+    totalServiceAmount: (typeof doc.totalServiceAmount === "number" ? doc.totalServiceAmount.toLocaleString("en-US", { style: "currency", currency: "USD" }) : (doc.totalServiceAmount || "")),
+    familyAdvancementAmount: (typeof doc.familyAdvancementAmount === "number" ? doc.familyAdvancementAmount.toLocaleString("en-US", { style: "currency", currency: "USD" }) : (doc.familyAdvancementAmount || "")),
+    vipFee: (typeof doc.vipFee === "number" ? doc.vipFee.toLocaleString("en-US", { style: "currency", currency: "USD" }) : (doc.vipFee || "")),
+    assignmentAmount: (typeof doc.assignmentAmount === "number" ? doc.assignmentAmount.toLocaleString("en-US", { style: "currency", currency: "USD" }) : (doc.assignmentAmount || "")),
+
+    notes: doc.notes || "",
+
+    // Uploads
+    assignmentUploadPath: doc.assignmentUploadPath || "",
+    assignmentUploadPaths: Array.isArray(doc.assignmentUploadPaths) ? doc.assignmentUploadPaths : [],
+    otherUploadPaths: Array.isArray(doc.otherUploadPaths) ? doc.otherUploadPaths : [],
+
+    status: doc.status || "Submitted",
+    createdAt: doc.createdAt || null,
+    updatedAt: doc.updatedAt || null,
+  };
+}
+
 /* -------------------- GET -------------------- */
+// NOTE: no strict typing on 2nd arg to appease Next 15 worker
 export async function GET(_req: Request, context: any) {
   try {
     const me = await getUserFromCookie();
@@ -143,96 +235,7 @@ export async function GET(_req: Request, context: any) {
     }
     if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    const companyName =
-      (doc.insuranceCompanyId && (doc.insuranceCompanyId as any).name) ||
-      doc.insuranceCompany ||
-      (doc.otherInsuranceCompany?.name || "");
-
-    let faceAmount = doc.faceAmount || "";
-    if (!faceAmount && Array.isArray(doc.policies) && doc.policies.length) {
-      const sum = doc.policies.reduce((acc: number, p: any) => acc + moneyToNumber(p?.faceAmount || ""), 0);
-      if (sum > 0) {
-        faceAmount = sum.toLocaleString("en-US", { style: "currency", currency: "USD" });
-      }
-    }
-
-    const response = {
-      id: String(doc._id),
-      userId: String(doc.ownerId || doc.userId || ""),
-
-      // FH/CEM snapshot
-      fhName: doc.fhName || "",
-      fhRep: doc.fhRep || "",
-      contactPhone: doc.contactPhone || "",
-      contactEmail: doc.contactEmail || "",
-
-      // Decedent
-      decFirstName: doc.decFirstName || doc.decedentFirstName || "",
-      decLastName:  doc.decLastName  || doc.decedentLastName  || "",
-      decSSN: doc.decSSN || "",
-      decDOB: doc.decDOB || null,
-      decDOD: doc.decDOD || null,
-      decMaritalStatus: doc.decMaritalStatus || "",
-
-      // Address
-      decAddress: doc.decAddress || "",
-      decCity: doc.decCity || "",
-      decState: doc.decState || "",
-      decZip: doc.decZip || "",
-
-      // Place of death
-      decPODCity: doc.decPODCity || "",
-      decPODState: doc.decPODState || "",
-      decPODCountry: doc.decPODCountry || "",
-      deathInUS: typeof doc.deathInUS === "boolean" ? !!doc.deathInUS : undefined,
-
-      // COD flags
-      codNatural:  !!doc.codNatural,
-      codAccident: !!doc.codAccident,
-      codHomicide: !!doc.codHomicide,
-      codPending:  !!doc.codPending,
-      codSuicide:  !!doc.codSuicide,
-
-      hasFinalDC: !!doc.hasFinalDC,
-
-      // Employer
-      employerPhone:   doc.employerPhone || "",
-      employerContact: doc.employerContact || "",
-      employerEmail:   doc.employerEmail || "",     // NEW
-      employmentStatus:doc.employmentStatus || "",
-      employerRelation:doc.employerRelation || "",
-
-      // Insurance
-      insuranceCompanyId: doc.insuranceCompanyId || null,
-      otherInsuranceCompany: doc.otherInsuranceCompany || null,
-      insuranceCompany: companyName,
-
-      policyNumbers: Array.isArray(doc.policyNumbers) ? doc.policyNumbers.join(", ") : (doc.policyNumbers || ""),
-      faceAmount,
-      beneficiaries: Array.isArray(doc.beneficiaries) ? doc.beneficiaries.join(", ") : (doc.beneficiaries || ""),
-
-      // Structured
-      policyBeneficiaries: Array.isArray(doc.policyBeneficiaries) ? doc.policyBeneficiaries : [],
-      policies: Array.isArray(doc.policies) ? doc.policies : [],
-
-      // Financials (formatted)
-      totalServiceAmount: (typeof doc.totalServiceAmount === "number" ? doc.totalServiceAmount.toLocaleString("en-US", { style: "currency", currency: "USD" }) : (doc.totalServiceAmount || "")),
-      familyAdvancementAmount: (typeof doc.familyAdvancementAmount === "number" ? doc.familyAdvancementAmount.toLocaleString("en-US", { style: "currency", currency: "USD" }) : (doc.familyAdvancementAmount || "")),
-      vipFee: (typeof doc.vipFee === "number" ? doc.vipFee.toLocaleString("en-US", { style: "currency", currency: "USD" }) : (doc.vipFee || "")),
-      assignmentAmount: (typeof doc.assignmentAmount === "number" ? doc.assignmentAmount.toLocaleString("en-US", { style: "currency", currency: "USD" }) : (doc.assignmentAmount || "")),
-
-      notes: doc.notes || "",
-
-      // Uploads
-      assignmentUploadPath: doc.assignmentUploadPath || "",
-      assignmentUploadPaths: Array.isArray(doc.assignmentUploadPaths) ? doc.assignmentUploadPaths : [],
-      otherUploadPaths: Array.isArray(doc.otherUploadPaths) ? doc.otherUploadPaths : [],
-
-      status: doc.status || "Submitted",
-      createdAt: doc.createdAt || null,
-      updatedAt: doc.updatedAt || null,
-    };
-
+    const response = buildResponse(doc);
     return NextResponse.json({ request: response }, { status: 200 });
   } catch (err) {
     console.error(err);
@@ -240,7 +243,7 @@ export async function GET(_req: Request, context: any) {
   }
 }
 
-/* -------------------- PUT (multipart/json), gated -------------------- */
+/* -------------------- PUT -------------------- */
 export async function PUT(req: Request, context: any) {
   try {
     const me = await getUserFromCookie();
@@ -260,7 +263,6 @@ export async function PUT(req: Request, context: any) {
     if (!allowedEdit) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const ctype = req.headers.get("content-type") || "";
-    let body: Record<string, any> = {};
     let addedAssignments: string[] = [];
     let addedOthers: string[] = [];
 
@@ -325,7 +327,8 @@ export async function PUT(req: Request, context: any) {
       if (er) doc.employerRelation = er;
       doc.employerPhone   = text("employerPhone");
       doc.employerContact = text("employerContact");
-      doc.employerEmail   = text("employerEmail") || doc.employerEmail;   // NEW
+      const empEmail      = text("employerEmail");
+      if (empEmail) doc.employerEmail = empEmail;
       doc.employmentStatus= text("employmentStatus");
 
       const pnums = text("policyNumbers"); if (pnums) doc.policyNumbers = splitList(pnums);
@@ -350,11 +353,13 @@ export async function PUT(req: Request, context: any) {
       if (typeof notes === "string") doc.notes = notes;
 
     } else {
+      // JSON fallback
       const json = await req.json().catch(() => ({}));
-      body = json || {};
+      const body = json || {};
       for (const [k, v] of Object.entries(body)) (doc as any)[k] = v;
     }
 
+    // append uploads
     if (addedAssignments.length) {
       if (!Array.isArray(doc.assignmentUploadPaths)) doc.assignmentUploadPaths = [];
       doc.assignmentUploadPaths.push(...addedAssignments);
@@ -369,9 +374,12 @@ export async function PUT(req: Request, context: any) {
 
     await doc.save();
 
-    const res = await GET(new Request(""), { params: { id } } as any);
-    const json = await (res as any).json();
-    return NextResponse.json(json, { status: 200 });
+    // Re-fetch with populate and return formatted
+    const fresh: any = await FundingRequest.findById(id)
+      .populate({ path: "insuranceCompanyId", select: "name" })
+      .lean();
+    const response = buildResponse(fresh);
+    return NextResponse.json({ request: response }, { status: 200 });
   } catch (err: any) {
     console.error("[request PUT] error", err);
     const msg = typeof err?.message === "string" ? err.message : "Server error";
