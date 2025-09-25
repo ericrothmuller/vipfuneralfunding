@@ -74,7 +74,8 @@ type RequestDetail = {
 
   // Employer
   employerPhone?: string;
-  employerContact?: string;
+  employerContact?: string;   // “Employer Contact Name”
+  employerEmail?: string;     // NEW: display
   employmentStatus?: string;
   employerRelation?: "Employee" | "Dependent" | "";
 
@@ -86,9 +87,8 @@ type RequestDetail = {
   faceAmount?: string;          // aggregated formatted (fallback)
   beneficiaries?: string;       // aggregated CSV fallback
 
-  // Structured beneficiaries per policy (optional)
+  // Structured
   policyBeneficiaries?: BeneficiaryDetail[][];
-  // Structured policies (optional)
   policies?: PolicyItem[];
 
   // Financials (formatted)
@@ -205,6 +205,7 @@ export default function RequestDetailModal({
   const [employerPhone, setEmployerPhone] = useState("");
   const [employerContact, setEmployerContact] = useState("");
   const [employmentStatus, setEmploymentStatus] = useState("");
+  const [employerEmail, setEmployerEmail] = useState(""); // NEW (edit not exposed but we read/keep)
 
   const [policyNumbers, setPolicyNumbers] = useState("");
   const [faceAmount, setFaceAmount] = useState("");
@@ -246,7 +247,7 @@ export default function RequestDetailModal({
     const map = new Map<string, BeneficiaryDetail>();
     const nameNorm = (s?: string) => (s || "").trim().toLowerCase();
 
-    // structured
+    // structured list from policies
     if (Array.isArray(r.policyBeneficiaries)) {
       for (const row of r.policyBeneficiaries) {
         for (const ben of (row || [])) {
@@ -262,24 +263,15 @@ export default function RequestDetailModal({
     }
 
     // CSV fallback
-    const names = (r.beneficiaries || "")
-      .split(",")
-      .map(s => s.trim())
-      .filter(Boolean);
-
+    const names = (r.beneficiaries || "").split(",").map(s => s.trim()).filter(Boolean);
     for (const nm of names) {
       const key = nameNorm(nm);
       if (!map.has(key)) map.set(key, { name: nm });
-      else {
-        const d = map.get(key)!;
-        if (!d.name) d.name = nm;
-      }
+      else { const d = map.get(key)!; if (!d.name) d.name = nm; }
     }
 
     const arr: Array<{ name: string; detail?: BeneficiaryDetail }> = [];
-    for (const [, detail] of map.entries()) {
-      arr.push({ name: (detail.name || "").trim(), detail });
-    }
+    for (const [, detail] of map.entries()) arr.push({ name: (detail.name || "").trim(), detail });
     arr.sort((a, b) => a.name.localeCompare(b.name));
     setBeneList(arr);
   }
@@ -330,6 +322,7 @@ export default function RequestDetailModal({
         setEmployerPhone(r.employerPhone || "");
         setEmployerContact(r.employerContact || "");
         setEmploymentStatus(r.employmentStatus || "");
+        setEmployerEmail(r.employerEmail || ""); // NEW
 
         setPolicyNumbers(r.policyNumbers || "");
         setFaceAmount(r.faceAmount || "");
@@ -407,6 +400,7 @@ export default function RequestDetailModal({
       if (employerPhone) fd.set("employerPhone", employerPhone);
       if (employerContact) fd.set("employerContact", employerContact);
       if (employmentStatus) fd.set("employmentStatus", employmentStatus);
+      if (employerEmail) fd.set("employerEmail", employerEmail); // keep if provided
 
       if (policyNumbers) fd.set("policyNumbers", policyNumbers);
       if (faceAmount) fd.set("faceAmount", faceAmount);
@@ -444,7 +438,7 @@ export default function RequestDetailModal({
 
   // Derived booleans for display
   const employerYes =
-    !!(data?.employerRelation || data?.employerPhone || data?.employerContact || data?.employmentStatus);
+    !!(data?.employerRelation || data?.employerPhone || data?.employerContact || data?.employmentStatus || data?.employerEmail);
 
   // Build per-policy display data
   const policyRows: Array<{
@@ -479,7 +473,6 @@ export default function RequestDetailModal({
       const beneDetails: BeneficiaryDetail[] = Array.isArray(pb[i]) ? pb[i] : [];
       const beneNames = beneDetails.map(b => (b?.name || "").trim()).filter(Boolean);
 
-      // If no structured details, try to map from global CSV (best effort)
       const fallbacks: Array<{ name: string; detail?: BeneficiaryDetail }> = [];
       if (!beneNames.length && (data.beneficiaries || "")) {
         (data.beneficiaries || "")
@@ -502,7 +495,6 @@ export default function RequestDetailModal({
       });
     }
 
-    // If no policyNums but we still have a combined CSV, build a single row as fallback
     if (!policyNums.length && (data.beneficiaries || "")) {
       rows.push({
         index: 0,
@@ -546,38 +538,44 @@ export default function RequestDetailModal({
               {/* 1) FH/CEM */}
               <section>
                 <h4>Funeral Home / Cemetery</h4>
-                <div><span>FH/CEM Name</span><strong>{data.fhName || "—"}</strong></div>
-                <div><span>FH/CEM REP</span><strong>{data.fhRep || "—"}</strong></div>
-                <div><span>Contact Phone</span><strong>{data.contactPhone || "—"}</strong></div>
-                <div><span>Contact Email</span><strong>{data.contactEmail || "—"}</strong></div>
+                <div className="kv"><span>FH/CEM Name</span><strong>{data.fhName || "—"}</strong></div>
+                <div className="kv"><span>FH/CEM REP</span><strong>{data.fhRep || "—"}</strong></div>
+                <div className="kv"><span>Contact Phone</span><strong>{data.contactPhone || "—"}</strong></div>
+                <div className="kv"><span>Contact Email</span><strong>{data.contactEmail || "—"}</strong></div>
               </section>
 
               {/* 2) Decedent */}
               <section>
                 <h4>Decedent</h4>
-                <div><span>DEC Name</span><strong>{[data.decFirstName, data.decLastName].filter(Boolean).join(" ") || "—"}</strong></div>
-                <div><span>SSN</span><strong>{data.decSSN || "—"}</strong></div>
-                <div><span>Date of Birth</span><strong>{fmtDate(data.decDOB) || "—"}</strong></div>
-                <div><span>Date of Death</span><strong>{fmtDate(data.decDOD) || "—"}</strong></div>
-                <div><span>Marital Status</span><strong>{data.decMaritalStatus || "—"}</strong></div>
+                <div className="kv"><span>DEC Name</span><strong>{[data.decFirstName, data.decLastName].filter(Boolean).join(" ") || "—"}</strong></div>
+                <div className="kv"><span>SSN</span><strong>{data.decSSN || "—"}</strong></div>
+                <div className="kv"><span>Date of Birth</span><strong>{fmtDate(data.decDOB) || "—"}</strong></div>
+                <div className="kv"><span>Date of Death</span><strong>{fmtDate(data.decDOD) || "—"}</strong></div>
+                <div className="kv"><span>Marital Status</span><strong>{data.decMaritalStatus || "—"}</strong></div>
               </section>
 
-              {/* 2b) Address */}
+              {/* Address */}
               <section>
                 <h4>Address</h4>
-                <div><span>Street</span><strong>{data.decAddress || "—"}</strong></div>
-                <div><span>City</span><strong>{data.decCity || "—"}</strong></div>
-                <div><span>State</span><strong>{data.decState || "—"}</strong></div>
-                <div><span>Zip</span><strong>{data.decZip || "—"}</strong></div>
+                <div className="kv"><span>Street</span><strong>{data.decAddress || "—"}</strong></div>
+                <div className="kv"><span>City</span><strong>{data.decCity || "—"}</strong></div>
+                <div className="kv"><span>State</span><strong>{data.decState || "—"}</strong></div>
+                <div className="kv"><span>Zip</span><strong>{data.decZip || "—"}</strong></div>
               </section>
 
-              {/* 3) Place of Death */}
+              {/* Place of Death */}
               <section>
                 <h4>Place of Death</h4>
-                <div><span>City</span><strong>{data.decPODCity || "—"}</strong></div>
-                <div><span>State</span><strong>{data.decPODState || "—"}</strong></div>
-                <div><span>Country</span><strong>{data.deathInUS === false ? (data.decPODCountry || "—") : (data.deathInUS === true ? "United States" : (data.decPODCountry || "—"))}</strong></div>
-                <div><span>Cause of Death</span>
+                <div className="kv"><span>City</span><strong>{data.decPODCity || "—"}</strong></div>
+                <div className="kv"><span>State</span><strong>{data.decPODState || "—"}</strong></div>
+                <div className="kv">
+                  <span>Country</span>
+                  <strong>
+                    {data.deathInUS === false ? (data.decPODCountry || "—")
+                      : (data.deathInUS === true ? "United States" : (data.decPODCountry || "—"))}
+                  </strong>
+                </div>
+                <div className="kv"><span>Cause of Death</span>
                   <strong>
                     {[
                       data.codNatural && "Natural",
@@ -588,31 +586,32 @@ export default function RequestDetailModal({
                     ].filter(Boolean).join(", ") || "—"}
                   </strong>
                 </div>
-                <div><span>Final Death Certificate?</span><strong>{fmtBool(data.hasFinalDC)}</strong></div>
+                <div className="kv"><span>Final Death Certificate?</span><strong>{fmtBool(data.hasFinalDC)}</strong></div>
               </section>
 
-              {/* 4) Insurance */}
+              {/* Insurance */}
               <section>
                 <h4>Insurance</h4>
-                <div><span>Company</span><strong>{companyDisplay(data) || "—"}</strong></div>
-                <div><span>Total Face Amount</span><strong>{data.faceAmount || "—"}</strong></div>
-                <div><span>Is the insurance through the deceased&apos;s employer?</span>
+                <div className="kv"><span>Company</span><strong>{companyDisplay(data) || "—"}</strong></div>
+                <div className="kv"><span>Total Face Amount</span><strong>{data.faceAmount || "—"}</strong></div>
+                <div className="kv"><span>Is the insurance through the deceased&apos;s employer?</span>
                   <strong>{employerYes ? "Yes" : "No"}</strong>
                 </div>
               </section>
 
-              {/* Employer visible? */}
+              {/* Employer */}
               {employerYes && (
                 <section>
                   <h4>Employer</h4>
-                  <div><span>Relation</span><strong>{data.employerRelation || "—"}</strong></div>
-                  <div><span>Employer Phone</span><strong>{data.employerPhone || "—"}</strong></div>
-                  <div><span>Employer Contact</span><strong>{data.employerContact || "—"}</strong></div>
-                  <div><span>Status</span><strong>{data.employmentStatus || "—"}</strong></div>
+                  <div className="kv"><span>Relation</span><strong>{data.employerRelation || "—"}</strong></div>
+                  <div className="kv"><span>Employer Contact Name</span><strong>{data.employerContact || "—"}</strong></div>
+                  <div className="kv"><span>Employer Phone</span><strong>{data.employerPhone || "—"}</strong></div>
+                  <div className="kv"><span>Employer Email</span><strong>{data.employerEmail || "—"}</strong></div>
+                  <div className="kv"><span>Status</span><strong>{data.employmentStatus || "—"}</strong></div>
                 </section>
               )}
 
-              {/* 5) POLICIES (per-policy breakdown) */}
+              {/* Policies */}
               <section style={{ gridColumn: "1 / -1" }}>
                 <h4>Policies</h4>
                 {policyRows.length ? (
@@ -620,11 +619,11 @@ export default function RequestDetailModal({
                     {policyRows.map(row => (
                       <div key={row.index} className="policy-card">
                         <div className="policy-head">
-                          <strong>{row.policyNumber ? `Policy #${row.index + 1}` : `Policy #${row.index + 1}`}</strong>
+                          <strong>{`Policy #${row.index + 1}`}</strong>
                         </div>
                         <div className="policy-grid">
-                          <div><span>Policy Number</span><strong>{row.policyNumber || "—"}</strong></div>
-                          <div><span>Face Amount</span><strong>{row.faceAmount || "—"}</strong></div>
+                          <div className="kv"><span>Policy Number</span><strong>{row.policyNumber || "—"}</strong></div>
+                          <div className="kv"><span>Face Amount</span><strong>{row.faceAmount || "—"}</strong></div>
                         </div>
                         <div style={{ marginTop: 8 }}>
                           <span style={{ display: "block", marginBottom: 6 }}>Beneficiaries</span>
@@ -653,31 +652,32 @@ export default function RequestDetailModal({
                 )}
               </section>
 
-              {/* 6) Financials */}
+              {/* Financials */}
               <section>
                 <h4>Financials</h4>
-                <div><span>Total Service Amount</span><strong>{data.totalServiceAmount || "—"}</strong></div>
-                <div><span>Family Advancement Amount</span><strong>{data.familyAdvancementAmount || "—"}</strong></div>
-                <div><span>VIP Fee</span><strong>{data.vipFee || "—"}</strong></div>
-                <div><span>Assignment Amount</span><strong>{data.assignmentAmount || "—"}</strong></div>
+                <div className="kv"><span>Total Service Amount</span><strong>{data.totalServiceAmount || "—"}</strong></div>
+                <div className="kv"><span>Family Advancement Amount</span><strong>{data.familyAdvancementAmount || "—"}</strong></div>
+                <div className="kv"><span>VIP Fee</span><strong>{data.vipFee || "—"}</strong></div>
+                <div className="kv"><span>Assignment Amount</span><strong>{data.assignmentAmount || "—"}</strong></div>
               </section>
 
-              {/* 7) Additional */}
+              {/* Additional */}
               <section style={{ gridColumn: "1 / -1" }}>
                 <h4>Additional</h4>
-                <div><span>Notes</span>
+                <div className="kv">
+                  <span>Notes</span>
                   <div style={{ whiteSpace: "pre-wrap" }}>
                     <strong>{data.notes || "—"}</strong>
                   </div>
                 </div>
               </section>
 
-              {/* 8) Attachments */}
+              {/* Attachments */}
               <section style={{ gridColumn: "1 / -1" }}>
                 <h4>Attachments</h4>
 
                 {/* Assignments */}
-                <div><span>Assignment Files</span>
+                <div className="kv"><span>Assignment Files</span>
                   {data.assignmentUploadPaths?.length ? (
                     <div style={{ display: "grid", gap: 6, marginTop: 6 }}>
                       {data.assignmentUploadPaths.map((_, idx) => (
@@ -696,7 +696,7 @@ export default function RequestDetailModal({
                 </div>
 
                 {/* Other Documents */}
-                <div style={{ marginTop: 8 }}><span>Other Documents</span>
+                <div className="kv" style={{ marginTop: 8 }}><span>Other Documents</span>
                   {Array.isArray(data.otherUploadPaths) && data.otherUploadPaths.length > 0 ? (
                     <div style={{ display: "grid", gap: 6, marginTop: 6 }}>
                       {data.otherUploadPaths.map((_, idx) => (
@@ -1041,32 +1041,33 @@ export default function RequestDetailModal({
       {/* Beneficiary detail modal */}
       {beneOpen && beneSelected && (
         <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="bene-title">
-          <div className="modal" style={{ maxWidth: "min(640px, 94vw)" }}>
+          <div className="modal" style={{ maxWidth: "min(760px, 94vw)" }}>
             <div className="modal-header">
               <h3 id="bene-title">Beneficiary Info</h3>
               <button className="btn btn-ghost modal-close" onClick={() => setBeneOpen(false)} aria-label="Close">✕</button>
             </div>
             <div className="modal-body">
-              <div className="detail-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
+              {/* Stack sections vertically for breathing room */}
+              <div className="detail-grid" style={{ gridTemplateColumns: "1fr" }}>
                 <section>
                   <h4>Basic</h4>
-                  <div><span>Name</span><strong>{beneSelected.name || "—"}</strong></div>
-                  <div><span>Relationship</span><strong>{beneSelected.detail?.relationship || "—"}</strong></div>
-                  <div><span>DOB</span><strong>{beneSelected.detail?.dob || "—"}</strong></div>
-                  <div><span>SSN</span><strong>{beneSelected.detail?.ssn || "—"}</strong></div>
+                  <div className="kv"><span>Name</span><strong>{beneSelected.name || "—"}</strong></div>
+                  <div className="kv"><span>Relationship</span><strong>{beneSelected.detail?.relationship || "—"}</strong></div>
+                  <div className="kv"><span>DOB</span><strong>{beneSelected.detail?.dob || "—"}</strong></div>
+                  <div className="kv"><span>SSN</span><strong>{beneSelected.detail?.ssn || "—"}</strong></div>
                 </section>
                 <section>
                   <h4>Contact</h4>
-                  <div><span>Phone</span><strong>{beneSelected.detail?.phone || "—"}</strong></div>
-                  <div><span>Email</span><strong>{beneSelected.detail?.email || "—"}</strong></div>
+                  <div className="kv"><span>Phone</span><strong>{beneSelected.detail?.phone || "—"}</strong></div>
+                  <div className="kv"><span>Email</span><strong>{beneSelected.detail?.email || "—"}</strong></div>
                 </section>
-                <section style={{ gridColumn: "1 / -1" }}>
+                <section>
                   <h4>Address</h4>
-                  <div><span>Street</span><strong>{beneSelected.detail?.address || "—"}</strong></div>
+                  <div className="kv"><span>Street</span><strong>{beneSelected.detail?.address || "—"}</strong></div>
                   <div className="grid3">
-                    <div><span>City</span><strong>{beneSelected.detail?.city || "—"}</strong></div>
-                    <div><span>State</span><strong>{beneSelected.detail?.state || "—"}</strong></div>
-                    <div><span>Zip</span><strong>{beneSelected.detail?.zip || "—"}</strong></div>
+                    <div className="kv"><span>City</span><strong>{beneSelected.detail?.city || "—"}</strong></div>
+                    <div className="kv"><span>State</span><strong>{beneSelected.detail?.state || "—"}</strong></div>
+                    <div className="kv"><span>Zip</span><strong>{beneSelected.detail?.zip || "—"}</strong></div>
                   </div>
                 </section>
               </div>
@@ -1131,11 +1132,17 @@ export default function RequestDetailModal({
         .bene-row { display:flex; align-items:center; justify-content:space-between; gap:8px; border: 1px solid var(--border, #1a1c1f); padding: 6px 8px; }
         .bene-name { font-weight: 700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
-        .policies { display: grid; gap: 10px; }
-        .policy-card { border: 1px solid var(--border, #1a1c1f); background: var(--card-bg, #0b0d0f); padding: 10px; }
+        /* Policies list: each card full row, never overlaps */
+        .policies { display: grid; grid-template-columns: 1fr; gap: 12px; }
+        .policy-card { border: 1px solid var(--border, #1a1c1f); background: var(--card-bg, #0b0d0f); padding: 10px; width: 100%; }
         .policy-head { display: flex; align-items: center; justify-content: space-between; }
         .policy-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         @media (max-width: 700px) { .policy-grid { grid-template-columns: 1fr; } }
+        .policy-card * { word-break: break-word; min-width: 0; }
+
+        /* Consistent label→value spacing everywhere */
+        .kv > span { margin-right: 6px; display: inline-block; }
+        .grid3 .kv > span { margin-right: 6px; }
 
         /* -------- Light theme overrides -------- */
         @media (prefers-color-scheme: light) {
