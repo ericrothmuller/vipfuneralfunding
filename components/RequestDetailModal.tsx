@@ -176,7 +176,7 @@ export default function RequestDetailModal({
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // editable fields
+  // editable fields (non-beneficiary)
   const [fhRep, setFhRep] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [contactEmail, setContactEmail] = useState("");
@@ -205,10 +205,12 @@ export default function RequestDetailModal({
   const [employerPhone, setEmployerPhone] = useState("");
   const [employerContact, setEmployerContact] = useState("");
   const [employmentStatus, setEmploymentStatus] = useState("");
-  const [employerEmail, setEmployerEmail] = useState(""); // NEW
+  const [employerEmail, setEmployerEmail] = useState("");
 
   const [policyNumbers, setPolicyNumbers] = useState("");
   const [faceAmount, setFaceAmount] = useState("");
+
+  // CSV fallback (read-only in edit mode)
   const [beneficiariesCsv, setBeneficiariesCsv] = useState("");
 
   const [totalServiceAmount, setTotalServiceAmount] = useState("");
@@ -238,10 +240,15 @@ export default function RequestDetailModal({
     ? data.assignmentUploadPaths.length
     : (data?.assignmentUploadPath ? 1 : 0);
 
-  // Beneficiaries (global list) + modal
+  // Beneficiaries (global list) + modal (view)
   const [beneList, setBeneList] = useState<Array<{ name: string; detail?: BeneficiaryDetail }>>([]);
   const [beneOpen, setBeneOpen] = useState(false);
   const [beneSelected, setBeneSelected] = useState<{ name: string; detail?: BeneficiaryDetail } | null>(null);
+
+  // Beneficiary Edit modal state
+  const [beneEditOpen, setBeneEditOpen] = useState(false);
+  const [beneEditDraft, setBeneEditDraft] = useState<BeneficiaryDetail>({});
+  const [beneEditRef, setBeneEditRef] = useState<{ pIdx: number; bIdx: number } | null>(null);
 
   function buildBeneficiaries(r: RequestDetail) {
     const map = new Map<string, BeneficiaryDetail>();
@@ -261,7 +268,7 @@ export default function RequestDetailModal({
       }
     }
 
-    const names = (r.beneficiaries || "").split(",").map(s => s.trim()).filter(Boolean);
+    const names = (r.beneficiaries ?? "").split(",").map(s => s.trim()).filter(Boolean);
     for (const nm of names) {
       const key = nameNorm(nm);
       if (!map.has(key)) map.set(key, { name: nm });
@@ -356,6 +363,75 @@ export default function RequestDetailModal({
 
   const canEdit = !!data && (isAdmin || (data.status === "Submitted"));
 
+  // -------- Beneficiary Edit handling ----------
+  function openBeneficiaryEdit(pIdx: number, bIdx: number, ben: BeneficiaryDetail) {
+    setBeneEditRef({ pIdx, bIdx });
+    setBeneEditDraft({
+      name: ben?.name || "",
+      relationship: ben?.relationship || "",
+      dob: ben?.dob || "",
+      ssn: ben?.ssn || "",
+      phone: ben?.phone || "",
+      email: ben?.email || "",
+      address: ben?.address || "",
+      city: ben?.city || "",
+      state: ben?.state || "",
+      zip: ben?.zip || "",
+    });
+    setBeneEditOpen(true);
+  }
+
+  function updateLocalPolicyBeneficiaries(
+    list: BeneficiaryDetail[][],
+    ref: { pIdx: number; bIdx: number },
+    draft: BeneficiaryDetail
+  ): BeneficiaryDetail[][] {
+    const copy = list.map(row => row ? row.map(b => ({ ...b })) : []);
+    if (!copy[ref.pIdx]) copy[ref.pIdx] = [];
+    copy[ref.pIdx][ref.bIdx] = { ...draft };
+    return copy;
+  }
+
+  function rebuildBeneficiariesCSV(list: BeneficiaryDetail[][], fallbackCsv: string): string {
+    const names: string[] = [];
+    if (Array.isArray(list)) {
+      for (const row of list) {
+        for (const ben of (row || [])) {
+          const nm = (ben?.name || "").trim();
+          if (nm) names.push(nm);
+        }
+      }
+    }
+    if (names.length) return names.join(", ");
+    return fallbackCsv || "";
+  }
+
+  async function saveBeneficiaryEdit() {
+    if (!data || !beneEditRef) { setBeneEditOpen(false); return; }
+    try {
+      const current = Array.isArray(data.policyBeneficiaries) ? data.policyBeneficiaries : [];
+      const updated = updateLocalPolicyBeneficiaries(current, beneEditRef, beneEditDraft);
+      const newCsv = rebuildBeneficiariesCSV(updated, beneficiariesCsv);
+
+      const fd = new FormData();
+      fd.set("policyBeneficiaries", JSON.stringify(updated));
+      if (newCsv) fd.set("beneficiaries", newCsv);
+
+      const res = await fetch(`/api/requests/${id}`, { method: "PUT", body: fd });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || "Save failed");
+
+      const r: RequestDetail = json.request;
+      setData(r);
+      setBeneEditOpen(false);
+      setBeneEditRef(null);
+      buildBeneficiaries(r);
+      onUpdated?.(r);
+    } catch (e: any) {
+      alert(e?.message || "Could not save beneficiary");
+    }
+  }
+
   async function onSave(e: React.FormEvent) {
     e.preventDefault();
     if (!data) return;
@@ -399,6 +475,8 @@ export default function RequestDetailModal({
 
       if (policyNumbers) fd.set("policyNumbers", policyNumbers);
       if (faceAmount) fd.set("faceAmount", faceAmount);
+
+      // keep CSV as-is (read-only here)
       if (beneficiariesCsv) fd.set("beneficiaries", beneficiariesCsv);
 
       if (totalServiceAmount) fd.set("totalServiceAmount", totalServiceAmount);
@@ -421,7 +499,6 @@ export default function RequestDetailModal({
       setAssignAdds([]);
       setOtherAdds([]);
       buildBeneficiaries(r);
-
       onUpdated?.(r);
     } catch (e: any) {
       setMsg(e?.message || "Save failed");
@@ -433,71 +510,49 @@ export default function RequestDetailModal({
   const employerYes =
     !!(data?.employerRelation || data?.employerPhone || data?.employerContact || data?.employmentStatus || data?.employerEmail);
 
+  // Build per-policy display rows
   const policyRows: Array<{
     index: number;
     policyNumber: string;
     faceAmount?: string;
-    beneficiaries: Array<{ name: string; detail?: BeneficiaryDetail }>;
+    beneficiaries: Array<{ name: string; detail?: BeneficiaryDetail; pIdx?: number; bIdx?: number }>;
   }> = useMemo(() => {
     const rows: Array<{
       index: number;
       policyNumber: string;
       faceAmount?: string;
-      beneficiaries: Array<{ name: string; detail?: BeneficiaryDetail }>;
+      beneficiaries: Array<{ name: string; detail?: BeneficiaryDetail; pIdx?: number; bIdx?: number }>;
     }> = [];
-
     if (!data) return rows;
 
-    const structured = Array.isArray(data.policies) && data.policies.length > 0;
+    const structured = Array.isArray(data.policyBeneficiaries) && data.policyBeneficiaries.length > 0;
     const policyNums = structured
-      ? data.policies!.map(p => (p?.policyNumber || "").trim())
-      : (data.policyNumbers || "")
-          .split(",")
-          .map(s => s.trim())
-          .filter(Boolean);
+      ? (data.policies || []).map(p => (p?.policyNumber || "").trim())
+      : (data.policyNumbers ?? "").split(",").map(s => s.trim()).filter(Boolean);
 
     const pb = Array.isArray(data.policyBeneficiaries) ? data.policyBeneficiaries : [];
 
     for (let i = 0; i < policyNums.length; i++) {
       const num = policyNums[i] || "";
-      const face = structured ? (data.policies?.[i]?.faceAmount || "") : undefined;
+      const face = (data.policies && data.policies[i]?.faceAmount) || undefined;
 
-      const beneDetails: BeneficiaryDetail[] = Array.isArray(pb[i]) ? pb[i] : [];
-      const beneNames = beneDetails.map(b => (b?.name || "").trim()).filter(Boolean);
-
-      const fallbacks: Array<{ name: string; detail?: BeneficiaryDetail }> = [];
-      if (!beneNames.length && (data.beneficiaries || "")) {
-        (data.beneficiaries || "")
-          .split(",")
-          .map(s => s.trim())
-          .filter(Boolean)
-          .forEach(n => fallbacks.push({ name: n }));
+      const rowBenes: Array<{ name: string; detail?: BeneficiaryDetail; pIdx?: number; bIdx?: number }> = [];
+      const details: BeneficiaryDetail[] = Array.isArray(pb[i]) ? pb[i] : [];
+      if (details.length) {
+        for (let j = 0; j < details.length; j++) {
+          const ben = details[j];
+          rowBenes.push({ name: (ben?.name || "").trim(), detail: ben, pIdx: i, bIdx: j });
+        }
+      } else if (data.beneficiaries) {
+        (data.beneficiaries ?? "").split(",").map(s => s.trim()).filter(Boolean).forEach(n => rowBenes.push({ name: n }));
       }
 
-      const rowBeneficiaries: Array<{ name: string; detail?: BeneficiaryDetail }> =
-        beneDetails.length
-          ? beneDetails.map(b => ({ name: (b?.name || "").trim(), detail: b }))
-          : fallbacks;
-
-      rows.push({
-        index: i,
-        policyNumber: num,
-        faceAmount: face,
-        beneficiaries: rowBeneficiaries,
-      });
+      rows.push({ index: i, policyNumber: num, faceAmount: face, beneficiaries: rowBenes });
     }
 
     if (!policyNums.length && (data.beneficiaries || "")) {
-      rows.push({
-        index: 0,
-        policyNumber: "",
-        faceAmount: data.faceAmount || "",
-        beneficiaries: (data.beneficiaries || "")
-          .split(",")
-          .map(s => s.trim())
-          .filter(Boolean)
-          .map(n => ({ name: n })),
-      });
+      const rowBenes = (data.beneficiaries ?? "").split(",").map(s => s.trim()).filter(Boolean).map(n => ({ name: n }));
+      rows.push({ index: 0, policyNumber: "", faceAmount: data.faceAmount || "", beneficiaries: rowBenes });
     }
 
     return rows;
@@ -525,6 +580,7 @@ export default function RequestDetailModal({
           {loading && <p>Loading…</p>}
           {msg && <p className="error">{msg}</p>}
 
+          {/* -------- VIEW MODE -------- */}
           {data && !loading && !msg && !editing && (
             <div className="detail-grid">
               {/* FH/CEM */}
@@ -709,7 +765,7 @@ export default function RequestDetailModal({
             </div>
           )}
 
-          {/* EDIT MODE */}
+          {/* -------- EDIT MODE -------- */}
           {data && !loading && !msg && editing && (
             <form onSubmit={onSave} className="edit-grid">
               {/* FH/CEM */}
@@ -825,7 +881,7 @@ export default function RequestDetailModal({
                 </label>
               </section>
 
-              {/* Insurance (lightweight editing) */}
+              {/* Insurance */}
               <section>
                 <h4>Insurance</h4>
                 <label>Company (read-only)</label>
@@ -836,9 +892,40 @@ export default function RequestDetailModal({
                 <label>Policy Number(s)
                   <input type="text" value={policyNumbers} onChange={(e)=>setPolicyNumbers(e.target.value)} placeholder="Comma-separated if multiple" />
                 </label>
-                <label>Beneficiaries (CSV)
-                  <input type="text" value={beneficiariesCsv} onChange={(e)=>setBeneficiariesCsv(e.target.value)} placeholder="Comma-separated names" />
-                </label>
+
+                {/* Beneficiaries read-only list with per-item Edit */}
+                <div style={{ marginTop: 6 }}>
+                  <div style={{ fontWeight: 600, marginBottom: 6 }}>Beneficiaries</div>
+                  {Array.isArray(data.policyBeneficiaries) && data.policyBeneficiaries.length > 0 ? (
+                    <div className="list">
+                      {data.policyBeneficiaries.map((row, pIdx) => (
+                        <div key={pIdx} style={{ display: "grid", gap: 6 }}>
+                          {row.map((ben, bIdx) => (
+                            <div key={bIdx} className="bene-row">
+                              <div className="bene-name">{(ben?.name || "").trim() || "—"}</div>
+                              <button
+                                type="button"
+                                className="btn"
+                                onClick={() => openBeneficiaryEdit(pIdx, bIdx, ben)}
+                              >
+                                Edit
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="readline" style={{ marginTop: 4 }}>
+                        {(data.beneficiaries ?? "—")}
+                      </div>
+                      <small className="muted">
+                        Beneficiaries are not yet structured; editing requires structured beneficiary details.
+                      </small>
+                    </>
+                  )}
+                </div>
               </section>
 
               {/* Financials */}
@@ -1028,7 +1115,7 @@ export default function RequestDetailModal({
         )}
       </div>
 
-      {/* Beneficiary detail modal */}
+      {/* Beneficiary view modal */}
       {beneOpen && beneSelected && (
         <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="bene-title">
           <div className="modal" style={{ maxWidth: "min(760px, 94vw)" }}>
@@ -1068,6 +1155,119 @@ export default function RequestDetailModal({
             </div>
             <div className="modal-footer">
               <button className="btn" onClick={() => setBeneOpen(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Beneficiary edit modal */}
+      {beneEditOpen && beneEditRef && (
+        <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="bene-edit-title">
+          <div className="modal" style={{ maxWidth: "min(760px, 94vw)" }}>
+            <div className="modal-header">
+              <h3 id="bene-edit-title" className="modal-title">Edit Beneficiary</h3>
+              <button className="btn btn-ghost modal-close" onClick={() => setBeneEditOpen(false)} aria-label="Close">✕</button>
+            </div>
+            <div className="modal-body">
+              <div className="detail-grid" style={{ gridTemplateColumns: "1fr" }}>
+                <section>
+                  <h4>Basic</h4>
+                  <label>Name
+                    <input
+                      type="text"
+                      value={beneEditDraft.name || ""}
+                      onChange={(e)=>setBeneEditDraft({ ...beneEditDraft, name: e.target.value })}
+                      placeholder="Full name"
+                    />
+                  </label>
+                  <label>Relationship
+                    <input
+                      type="text"
+                      value={beneEditDraft.relationship || ""}
+                      onChange={(e)=>setBeneEditDraft({ ...beneEditDraft, relationship: e.target.value })}
+                      placeholder="e.g., Spouse, Child"
+                    />
+                  </label>
+                  <div className="grid3">
+                    <label>DOB
+                      <input
+                        type="date"
+                        value={beneEditDraft.dob || ""}
+                        onChange={(e)=>setBeneEditDraft({ ...beneEditDraft, dob: e.target.value })}
+                      />
+                    </label>
+                    <label>SSN
+                      <input
+                        type="text"
+                        value={beneEditDraft.ssn || ""}
+                        onChange={(e)=>setBeneEditDraft({ ...beneEditDraft, ssn: e.target.value })}
+                        placeholder="###-##-####"
+                        maxLength={11}
+                      />
+                    </label>
+                  </div>
+                </section>
+
+                <section>
+                  <h4>Contact</h4>
+                  <div className="grid2">
+                    <label>Phone
+                      <input
+                        type="tel"
+                        value={beneEditDraft.phone || ""}
+                        onChange={(e)=>setBeneEditDraft({ ...beneEditDraft, phone: e.target.value })}
+                        placeholder="(555) 555-5555"
+                      />
+                    </label>
+                    <label>Email
+                      <input
+                        type="email"
+                        value={beneEditDraft.email || ""}
+                        onChange={(e)=>setBeneEditDraft({ ...beneEditDraft, email: e.target.value })}
+                        placeholder="name@example.com"
+                      />
+                    </label>
+                  </div>
+                </section>
+
+                <section>
+                  <h4>Address</h4>
+                  <label>Street
+                    <input
+                      type="text"
+                      value={beneEditDraft.address || ""}
+                      onChange={(e)=>setBeneEditDraft({ ...beneEditDraft, address: e.target.value })}
+                    />
+                  </label>
+                  <div className="grid3">
+                    <label>City
+                      <input
+                        type="text"
+                        value={beneEditDraft.city || ""}
+                        onChange={(e)=>setBeneEditDraft({ ...beneEditDraft, city: e.target.value })}
+                      />
+                    </label>
+                    <label>State
+                      <input
+                        type="text"
+                        value={beneEditDraft.state || ""}
+                        onChange={(e)=>setBeneEditDraft({ ...beneEditDraft, state: e.target.value })}
+                      />
+                    </label>
+                    <label>Zip
+                      <input
+                        type="text"
+                        value={beneEditDraft.zip || ""}
+                        onChange={(e)=>setBeneEditDraft({ ...beneEditDraft, zip: e.target.value })}
+                      />
+                    </label>
+                  </div>
+                </section>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn" onClick={() => setBeneEditOpen(false)}>Cancel</button>
+              <button className="btn btn-gold" onClick={saveBeneficiaryEdit}>Save</button>
             </div>
           </div>
         </div>
