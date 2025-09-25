@@ -13,8 +13,9 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { Readable, Transform } from "node:stream";
 
+/* -------------------- constants -------------------- */
 const UPLOAD_DIR = process.env.UPLOAD_DIR || "/home/deploy/uploads/vipfuneralfunding";
-const MAX_UPLOAD_BYTES = 500 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 500 * 1024 * 1024; // 500 MB
 const MAX_OTHER_UPLOADS = 50;
 const MAX_ASSIGNMENT_UPLOADS = 10;
 
@@ -159,7 +160,7 @@ function buildResponse(doc: any) {
     decState: doc.decState || "",
     decZip: doc.decZip || "",
 
-    // Place of death
+    // Death
     decPODCity: doc.decPODCity || "",
     decPODState: doc.decPODState || "",
     decPODCountry: doc.decPODCountry || "",
@@ -214,7 +215,6 @@ function buildResponse(doc: any) {
 }
 
 /* -------------------- GET -------------------- */
-// NOTE: no strict typing on 2nd arg to appease Next 15 worker
 export async function GET(_req: Request, context: any) {
   try {
     const me = await getUserFromCookie();
@@ -291,11 +291,13 @@ export async function PUT(req: Request, context: any) {
         addedOthers.push(saved.relative);
       }
 
-      // editable fields
+      // ---------- Editable fields ----------
+      // FH/CEM
       doc.fhRep = text("fhRep");
       doc.contactPhone = text("contactPhone");
       doc.contactEmail = text("contactEmail");
 
+      // Decedent + address
       doc.decFirstName = text("decFirstName");
       doc.decLastName  = text("decLastName");
       const dob = text("decDOB");
@@ -304,18 +306,17 @@ export async function PUT(req: Request, context: any) {
       if (dod) doc.decDOD = parseDate(dod);
       doc.decSSN = text("decSSN");
       doc.decMaritalStatus = text("decMaritalStatus");
-
       doc.decAddress = text("decAddress");
       doc.decCity = text("decCity");
       doc.decState = text("decState");
       doc.decZip = text("decZip");
 
+      // Death
       doc.decPODCity = text("decPODCity");
       doc.decPODState = text("decPODState");
       doc.decPODCountry = text("decPODCountry");
       const deathInUS = text("deathInUS");
       if (deathInUS) doc.deathInUS = deathInUS === "Yes";
-
       doc.codNatural  = text("codNatural") === "Yes";
       doc.codAccident = text("codAccident") === "Yes";
       doc.codHomicide = text("codHomicide") === "Yes";
@@ -323,23 +324,53 @@ export async function PUT(req: Request, context: any) {
       const hasFinalDC = text("hasFinalDC");
       if (hasFinalDC) doc.hasFinalDC = hasFinalDC === "Yes";
 
-      const er = text("employerRelation");
-      if (er) doc.employerRelation = er;
-      doc.employerPhone   = text("employerPhone");
-      doc.employerContact = text("employerContact");
-      const empEmail      = text("employerEmail");
-      if (empEmail) doc.employerEmail = empEmail;
-      doc.employmentStatus= text("employmentStatus");
+      // ---------- Insurance Company update (NEW) ----------
+      const icMode = text("insuranceCompanyMode");          // "id" | "other" | ""
+      const icId   = text("insuranceCompanyId");            // when mode = id
+      const otherName = text("otherIC_name");               // when mode = other
+      const otherPhone = text("otherIC_phone");
+      const otherFax   = text("otherIC_fax");
+      const otherNotes = text("otherIC_notes");
 
+      if (icMode === "id" && icId) {
+        // Set managed IC and clear 'other'
+        doc.insuranceCompanyId = icId;
+        doc.otherInsuranceCompany = { name: "", phone: "", fax: "", notes: "" };
+        // Clear legacy display since we have a managed ref
+        doc.insuranceCompany = "";
+      } else if (icMode === "other" && otherName) {
+        // Clear managed ref, set 'other'
+        doc.insuranceCompanyId = null;
+        doc.otherInsuranceCompany = {
+          name: otherName,
+          phone: otherPhone || "",
+          fax: otherFax || "",
+          notes: otherNotes || "",
+        };
+        // Keep a legacy display for convenience (used by lists)
+        doc.insuranceCompany = otherName;
+      }
+      // If neither provided, leave current IC fields unchanged
+
+      // Employer (only applied if provided; UI gates via Yes/No)
+      const er = text("employerRelation"); if (er) doc.employerRelation = er;
+      const es = text("employmentStatus"); if (es) doc.employmentStatus = es;
+      const ec = text("employerContact");  if (ec) doc.employerContact = ec;
+      const ep = text("employerPhone");    if (ep) doc.employerPhone = ep;
+      const ee = text("employerEmail");    if (ee) doc.employerEmail = ee;
+
+      // Basic CSV fallbacks (optional)
       const pnums = text("policyNumbers"); if (pnums) doc.policyNumbers = splitList(pnums);
-      doc.faceAmount = text("faceAmount");
-      const bens = text("beneficiaries"); if (bens) doc.beneficiaries = splitList(bens);
+      const bens  = text("beneficiaries"); if (bens)  doc.beneficiaries = splitList(bens);
+      const face  = text("faceAmount");    if (face)  doc.faceAmount    = face;
 
+      // Structured policy arrays (optional)
       const pbJSON = text("policyBeneficiaries");
       if (pbJSON) { try { doc.policyBeneficiaries = JSON.parse(pbJSON); } catch {} }
       const policiesJSON = text("policies");
       if (policiesJSON) { try { doc.policies = JSON.parse(policiesJSON); } catch {} }
 
+      // Financials
       const nTotal  = moneyToNumber(text("totalServiceAmount"));
       const nFamily = moneyToNumber(text("familyAdvancementAmount"));
       const nVip    = moneyToNumber(text("vipFee"));
@@ -353,10 +384,26 @@ export async function PUT(req: Request, context: any) {
       if (typeof notes === "string") doc.notes = notes;
 
     } else {
-      // JSON fallback
-      const json = await req.json().catch(() => ({}));
-      const body = json || {};
+      // JSON fallback (not typically used from your UI)
+      const body = await req.json().catch(() => ({})) || {};
       for (const [k, v] of Object.entries(body)) (doc as any)[k] = v;
+
+      // Optional: apply IC mode for JSON callers as well
+      const icMode = body.insuranceCompanyMode;
+      if (icMode === "id" && body.insuranceCompanyId) {
+        doc.insuranceCompanyId = body.insuranceCompanyId;
+        doc.otherInsuranceCompany = { name: "", phone: "", fax: "", notes: "" };
+        doc.insuranceCompany = "";
+      } else if (icMode === "other" && body.otherIC_name) {
+        doc.insuranceCompanyId = null;
+        doc.otherInsuranceCompany = {
+          name: body.otherIC_name || "",
+          phone: body.otherIC_phone || "",
+          fax:   body.otherIC_fax   || "",
+          notes: body.otherIC_notes || "",
+        };
+        doc.insuranceCompany = body.otherIC_name || "";
+      }
     }
 
     // append uploads
