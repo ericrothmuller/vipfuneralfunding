@@ -107,11 +107,7 @@ type RequestDetail = {
 
 /* ---------------- Utils ---------------- */
 function fmtBool(b: any) { return b ? "Yes" : "No"; }
-function fmtDate(d?: string | Date | null) {
-  if (!d) return "";
-  const dt = new Date(d);
-  return isNaN(dt.getTime()) ? "" : dt.toLocaleDateString();
-}
+function fmtDate(d?: string | Date | null) { if (!d) return ""; const dt = new Date(d); return isNaN(dt.getTime()) ? "" : dt.toLocaleDateString(); }
 function onlyDigits(s: string) { return String(s || "").replace(/\D+/g, ""); }
 function formatPhone(s: string) {
   const d = onlyDigits(s).slice(0, 10);
@@ -126,13 +122,8 @@ function formatSSN(v: string) {
   if (d.length <= 5) return `${d.slice(0,3)}-${d.slice(3)}`;
   return `${d.slice(0,3)}-${d.slice(3,5)}-${d.slice(5)}`;
 }
-function parseMoneyNumber(s?: string): number {
-  const n = Number(String(s ?? "").replace(/[^0-9.]+/g, ""));
-  return Number.isFinite(n) ? n : 0;
-}
-function formatMoney(n: number) {
-  return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
-}
+function parseMoneyNumber(s?: string): number { const n = Number(String(s ?? "").replace(/[^0-9.]+/g, "")); return Number.isFinite(n) ? n : 0; }
+function formatMoney(n: number) { return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }); }
 function codFromFlags(d: RequestDetail): "" | "Natural" | "Accident" | "Homicide" | "Pending" {
   if (d.codNatural) return "Natural";
   if (d.codAccident) return "Accident";
@@ -187,7 +178,7 @@ export default function RequestDetailModal({
   const [decDOD, setDecDOD] = useState(""); // yyyy-mm-dd
   const [decMaritalStatus, setDecMaritalStatus] = useState("");
 
-  // Address (moved into Decedent)
+  // Address (in Decedent)
   const [decAddress, setDecAddress] = useState("");
   const [decCity, setDecCity] = useState("");
   const [decState, setDecState] = useState("");
@@ -253,7 +244,7 @@ export default function RequestDetailModal({
   const [beneEditDraft, setBeneEditDraft] = useState<BeneficiaryDetail>({});
   const [beneEditRef, setBeneEditRef] = useState<{ pIdx: number; bIdx: number } | null>(null);
 
-  /* ------- Suggestions (IC) ------- */
+  /* ------- IC suggestions ------- */
   const icMatches = useMemo(() => {
     const q = icInput.trim().toLowerCase();
     if (!q) return [];
@@ -274,7 +265,6 @@ export default function RequestDetailModal({
     let mounted = true;
     (async () => {
       try {
-        // Load request
         const res = await fetch(`/api/requests/${id}`, { cache: "no-store" });
         const json = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(json?.error || "Failed to load request");
@@ -287,7 +277,7 @@ export default function RequestDetailModal({
         setContactPhone(r.contactPhone || "");
         setContactEmail(r.contactEmail || "");
 
-        // Decedent (+ address moved here)
+        // Decedent (+ address)
         setDecFirstName(r.decFirstName || "");
         setDecLastName(r.decLastName || "");
         setDecSSN(r.decSSN || "");
@@ -307,12 +297,12 @@ export default function RequestDetailModal({
         setCod(codFromFlags(r));
         setHasFinalDC(r.hasFinalDC === true ? "Yes" : r.hasFinalDC === false ? "No" : "");
 
-        // Insurance Company (editable in edit mode)
+        // Insurance Company display; editable in edit mode
         const displayIC = companyDisplay(r);
         setIcInput(displayIC || "");
         setSelectedIC(null);
 
-        // Employer “is insurance through employer?”
+        // Employer gating + fields
         const employerAny = !!(r.employerRelation || r.employmentStatus || r.employerContact || r.employerPhone || r.employerEmail);
         setIsEmployerInsurance(employerAny ? "Yes" : "No");
         setEmployerRelation((r.employerRelation as any) || "");
@@ -321,7 +311,7 @@ export default function RequestDetailModal({
         setEmployerPhone(r.employerPhone || "");
         setEmployerEmail(r.employerEmail || "");
 
-        // Policies for separated edit
+        // Policies
         if (Array.isArray(r.policies) && r.policies.length) {
           setEditPolicies(r.policies.map(p => ({ policyNumber: p.policyNumber || "", faceAmount: p.faceAmount || "" })));
         } else {
@@ -337,7 +327,7 @@ export default function RequestDetailModal({
         // Notes
         setNotes(r.notes || "");
 
-        // load companies
+        // Companies
         const c = await fetch("/api/insurance-companies", { cache: "no-store" }).catch(() => null);
         if (c && c.ok) {
           const list = await c.json().catch(() => ({}));
@@ -352,9 +342,8 @@ export default function RequestDetailModal({
     return () => { mounted = false; };
   }, [id]);
 
-  /* ------- Delete ------- */
+  /* ------- Delete request ------- */
   async function handleDelete() {
-    if (!confirm("Delete this funding request? This cannot be undone.")) return;
     setDeleting(true);
     try {
       const res = await fetch(`/api/requests/${id}`, { method: "DELETE" });
@@ -490,6 +479,27 @@ export default function RequestDetailModal({
     }
   }
 
+  /* ------- Delete attachments (edit) ------- */
+  async function deleteAttachment(kind: "assignment" | "other", index: number) {
+    if (!confirm("Remove this file?")) return;
+    try {
+      // Placeholder endpoint; implement server route to actually delete.
+      const fd = new FormData();
+      fd.set("action", "delete");
+      fd.set("kind", kind);
+      fd.set("index", String(index));
+      const res = await fetch(`/api/requests/${id}/attachments`, { method: "POST", body: fd });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || "Delete failed");
+      // Reload request
+      const ref = await fetch(`/api/requests/${id}`, { cache: "no-store" });
+      const out = await ref.json();
+      setData(out.request);
+    } catch (e: any) {
+      alert(e?.message || "Server does not support attachment deletion yet.");
+    }
+  }
+
   /* ------- Save whole EDIT modal ------- */
   async function onSave(e: React.FormEvent) {
     e.preventDefault();
@@ -504,7 +514,7 @@ export default function RequestDetailModal({
       fd.set("contactPhone", contactPhone || "");
       fd.set("contactEmail", contactEmail || "");
 
-      // Decedent (with Address merged)
+      // Decedent (with Address)
       fd.set("decFirstName", decFirstName || "");
       fd.set("decLastName", decLastName || "");
       if (decSSN) fd.set("decSSN", decSSN);
@@ -516,7 +526,7 @@ export default function RequestDetailModal({
       fd.set("decState", decState || "");
       fd.set("decZip", decZip || "");
 
-      // Death (moved DOD here visually; value already sent above)
+      // Death
       fd.set("decPODCity", decPODCity || "");
       fd.set("decPODState", decPODState || "");
       fd.set("decPODCountry", decPODCountry || "");
@@ -527,7 +537,7 @@ export default function RequestDetailModal({
       fd.set("codPending",  cod === "Pending"  ? "Yes" : "No");
       if (hasFinalDC) fd.set("hasFinalDC", hasFinalDC);
 
-      // Insurance Company (typeahead): send both id or other like the new request form
+      // Insurance Company (typeahead): send id or other
       const pickedName = selectedIC?.name?.trim();
       const typedName  = icInput.trim();
       if (pickedName && selectedIC) {
@@ -540,19 +550,16 @@ export default function RequestDetailModal({
         fd.set("otherIC_name", typedName);
       }
 
-      // Employer question + fields (edit only)
+      // Employer gating + fields
       if (isEmployerInsurance === "Yes") {
         if (employerRelation)   fd.set("employerRelation", employerRelation);
         if (employmentStatus)   fd.set("employmentStatus", employmentStatus);
         if (employerContact)    fd.set("employerContact", employerContact);
         if (employerPhone)      fd.set("employerPhone", employerPhone);
         if (employerEmail)      fd.set("employerEmail", employerEmail);
-      } else {
-        // Optional: clear employer fields if switched to No
-        // fd.set("employerRelation",""); fd.set("employmentStatus",""); fd.set("employerContact",""); fd.set("employerPhone",""); fd.set("employerEmail","");
       }
 
-      // Policies (structured per-policy)
+      // Policies structured
       fd.set("policies", JSON.stringify(editPolicies));
 
       // Financials
@@ -592,14 +599,15 @@ export default function RequestDetailModal({
 
   const canEdit = !!data && (isAdmin || (data.status === "Submitted"));
 
-  /* ------- Render ------- */
   return (
     <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="request-modal-title">
       <div className="modal" style={{ maxWidth: "min(980px, 96vw)" }}>
         <div className="modal-header">
           <h3 id="request-modal-title">Funding Request {editing ? "— Edit" : "Details"}</h3>
           <div style={{ display: "flex", gap: 8 }}>
-            {!editing && canEdit && <button className="btn btn-gold" onClick={() => setEditing(true)}>Edit</button>}
+            {!editing && canEdit && (
+              <button className="btn btn-gold" onClick={() => setEditing(true)}>Edit</button>
+            )}
             {canDelete && !editing && (
               <button className="btn" onClick={() => {
                 if (!confirm("Delete this funding request? This cannot be undone.")) return;
@@ -608,7 +616,12 @@ export default function RequestDetailModal({
                 {deleting ? "Deleting…" : "Delete"}
               </button>
             )}
-            <button className="btn btn-ghost modal-close" onClick={onClose} aria-label="Close">✕</button>
+            {/* X behavior: if editing, just cancel edit; else close entire modal */}
+            <button
+              className="btn btn-ghost modal-close"
+              onClick={() => { if (editing) setEditing(false); else onClose(); }}
+              aria-label="Close"
+            >✕</button>
           </div>
         </div>
 
@@ -616,11 +629,11 @@ export default function RequestDetailModal({
           {loading && <p>Loading…</p>}
           {msg && <p className="error">{msg}</p>}
 
-          {/* ============= VIEW MODE (reordered per your form) ============= */}
+          {/* ================= VIEW MODE ================= */}
           {data && !loading && !msg && !editing && (
             <div className="detail-grid">
-              {/* Funeral Home / Cemetery */}
-              <section>
+              {/* FH/CEM full row */}
+              <section style={{ gridColumn: "1 / -1" }}>
                 <h4>Funeral Home / Cemetery</h4>
                 <div className="kv"><span>FH/CEM Name</span><strong>{data.fhName || "—"}</strong></div>
                 <div className="kv"><span>FH/CEM REP</span><strong>{data.fhRep || "—"}</strong></div>
@@ -636,14 +649,13 @@ export default function RequestDetailModal({
                 <div className="kv"><span>DEC Social Security Number</span><strong>{data.decSSN || "—"}</strong></div>
                 <div className="kv"><span>DEC Date of Birth</span><strong>{fmtDate(data.decDOB) || "—"}</strong></div>
                 <div className="kv"><span>DEC Marital Status</span><strong>{data.decMaritalStatus || "—"}</strong></div>
-
                 <div className="kv"><span>DEC Address</span><strong>{data.decAddress || "—"}</strong></div>
                 <div className="kv"><span>DEC City</span><strong>{data.decCity || "—"}</strong></div>
                 <div className="kv"><span>DEC State</span><strong>{data.decState || "—"}</strong></div>
                 <div className="kv"><span>DEC Zip</span><strong>{data.decZip || "—"}</strong></div>
               </section>
 
-              {/* Death (includes DOD + POD) */}
+              {/* Death */}
               <section>
                 <h4>Death</h4>
                 <div className="kv"><span>DEC Date of Death</span><strong>{fmtDate(data.decDOD) || "—"}</strong></div>
@@ -665,7 +677,7 @@ export default function RequestDetailModal({
                 <div className="kv"><span>Do you have the Final Death Certificate?</span><strong>{fmtBool(data.hasFinalDC)}</strong></div>
               </section>
 
-              {/* Insurance (view) */}
+              {/* Insurance */}
               <section>
                 <h4>Insurance</h4>
                 <div className="kv"><span>Insurance Company</span><strong>{companyDisplay(data) || "—"}</strong></div>
@@ -675,7 +687,7 @@ export default function RequestDetailModal({
                 </div>
               </section>
 
-              {/* Employer (view) reordered: Relation → Status → Contact → Phone → Email */}
+              {/* Employer (Relation -> Status -> Contact -> Phone -> Email) */}
               {employerYes && (
                 <section>
                   <h4>Employer</h4>
@@ -687,7 +699,7 @@ export default function RequestDetailModal({
                 </section>
               )}
 
-              {/* Policies */}
+              {/* Policies (policy cards colors fixed to match sections) */}
               <section style={{ gridColumn: "1 / -1" }}>
                 <h4>Policies</h4>
                 {viewPolicies.length ? (
@@ -720,8 +732,8 @@ export default function RequestDetailModal({
                 ) : <em>No policy information.</em>}
               </section>
 
-              {/* Financials */}
-              <section>
+              {/* Financials full row */}
+              <section style={{ gridColumn: "1 / -1" }}>
                 <h4>Financials</h4>
                 <div className="kv"><span>Total Service Amount</span><strong>{data.totalServiceAmount || "—"}</strong></div>
                 <div className="kv"><span>Family Advancement Amount</span><strong>{data.familyAdvancementAmount || "—"}</strong></div>
@@ -729,7 +741,7 @@ export default function RequestDetailModal({
                 <div className="kv"><span>Total Assignment Amount</span><strong>{data.assignmentAmount || "—"}</strong></div>
               </section>
 
-              {/* Additional Notes */}
+              {/* Additional Notes full row */}
               <section style={{ gridColumn: "1 / -1" }}>
                 <h4>Additional Notes</h4>
                 <div className="kv"><span>Notes</span>
@@ -737,7 +749,7 @@ export default function RequestDetailModal({
                 </div>
               </section>
 
-              {/* Attachments */}
+              {/* Attachments full row */}
               <section style={{ gridColumn: "1 / -1" }}>
                 <h4>Attachments</h4>
                 <div className="kv"><span>Assignment Files</span>
@@ -771,11 +783,11 @@ export default function RequestDetailModal({
             </div>
           )}
 
-          {/* ============= EDIT MODE (reordered per your form) ============= */}
+          {/* ================= EDIT MODE ================= */}
           {data && !loading && !msg && editing && (
             <form onSubmit={onSave} className="edit-grid">
-              {/* Funeral Home / Cemetery */}
-              <section>
+              {/* FH/CEM full row */}
+              <section style={{ gridColumn: "1 / -1" }}>
                 <h4>Funeral Home / Cemetery</h4>
                 <label>FH/CEM Name (read-only)
                   <input type="text" value={data.fhName || ""} readOnly />
@@ -820,7 +832,6 @@ export default function RequestDetailModal({
                     </select>
                   </label>
                 </div>
-
                 <label>DEC Address
                   <input type="text" value={decAddress} onChange={(e)=>setDecAddress(e.target.value)} />
                 </label>
@@ -883,21 +894,16 @@ export default function RequestDetailModal({
                 </label>
               </section>
 
-              {/* Insurance (with editable IC + employer question & fields) */}
+              {/* Insurance (IC editable + employer question & fields) */}
               <section style={{ gridColumn: "1 / -1" }}>
                 <h4>Insurance</h4>
-
-                {/* Insurance Company (typeahead like the form) */}
+                {/* Editable IC like form */}
                 <div className="ic-box" ref={icBoxRef} style={{ marginTop: 6 }}>
                   <label>Insurance Company (type to search)
                     <input
                       type="text"
                       value={icInput}
-                      onChange={(e) => {
-                        setIcInput(e.target.value);
-                        setSelectedIC(null);
-                        setIcOpen(true);
-                      }}
+                      onChange={(e) => { setIcInput(e.target.value); setSelectedIC(null); setIcOpen(true); }}
                       onFocus={() => setIcOpen(true)}
                       autoComplete="off"
                       spellCheck={false}
@@ -910,12 +916,7 @@ export default function RequestDetailModal({
                           key={ic.id}
                           className="ic-item"
                           role="option"
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            setSelectedIC(ic);
-                            setIcInput(ic.name);
-                            setIcOpen(false);
-                          }}
+                          onMouseDown={(e) => { e.preventDefault(); setSelectedIC(ic); setIcInput(ic.name); setIcOpen(false); }}
                         >
                           <div>{ic.name}</div>
                         </div>
@@ -924,12 +925,8 @@ export default function RequestDetailModal({
                   )}
                 </div>
 
-                {/* Is insurance through employer? (edit-only gate like the form) */}
                 <label style={{ marginTop: 8 }}>Is the insurance through the deceased&apos;s employer?
-                  <select
-                    value={isEmployerInsurance}
-                    onChange={(e) => setIsEmployerInsurance(e.currentTarget.value as "" | "Yes" | "No")}
-                  >
+                  <select value={isEmployerInsurance} onChange={(e)=>setIsEmployerInsurance(e.currentTarget.value as "" | "Yes" | "No")}>
                     <option value="">— Select —</option>
                     <option value="No">No</option>
                     <option value="Yes">Yes</option>
@@ -940,20 +937,14 @@ export default function RequestDetailModal({
                   <div className="nested" style={{ marginTop: 8 }}>
                     <div className="grid2">
                       <label>Relation
-                        <select
-                          value={employerRelation}
-                          onChange={(e)=>setEmployerRelation(e.currentTarget.value as "" | "Employee" | "Dependent")}
-                        >
+                        <select value={employerRelation} onChange={(e)=>setEmployerRelation(e.currentTarget.value as "" | "Employee" | "Dependent")}>
                           <option value="">— Select —</option>
                           <option value="Employee">Employee</option>
                           <option value="Dependent">Dependent</option>
                         </select>
                       </label>
                       <label>Status
-                        <select
-                          value={employmentStatus}
-                          onChange={(e)=>setEmploymentStatus(e.currentTarget.value as "" | "Active" | "Retired" | "On Leave")}
-                        >
+                        <select value={employmentStatus} onChange={(e)=>setEmploymentStatus(e.currentTarget.value as "" | "Active" | "Retired" | "On Leave")}>
                           <option value="">— Select —</option>
                           <option value="Active">Active</option>
                           <option value="Retired">Retired</option>
@@ -978,7 +969,7 @@ export default function RequestDetailModal({
                 )}
               </section>
 
-              {/* Policies (separate per policy, with bene edit) */}
+              {/* Policies (same colors as other sections) */}
               <section style={{ gridColumn: "1 / -1" }}>
                 <h4>Policies</h4>
                 <div className="policies">
@@ -1026,8 +1017,8 @@ export default function RequestDetailModal({
                 </div>
               </section>
 
-              {/* Financials */}
-              <section>
+              {/* Financials full row */}
+              <section style={{ gridColumn: "1 / -1" }}>
                 <h4>Financials</h4>
                 <div className="grid3">
                   <label>Total Service Amount
@@ -1043,6 +1034,48 @@ export default function RequestDetailModal({
                 <label>Total Assignment (auto)
                   <input type="text" value={formatMoney(assignmentAmountCalc)} readOnly className="readonly" />
                 </label>
+              </section>
+
+              {/* Attachments (now ABOVE the upload sections) */}
+              <section style={{ gridColumn: "1 / -1" }}>
+                <h4>Attachments</h4>
+
+                <div className="list">
+                  <div className="kv"><span>Assignments</span></div>
+                  {data.assignmentUploadPaths?.length ? (
+                    <div className="list">
+                      {data.assignmentUploadPaths.map((_, idx) => (
+                        <div key={idx} className="file-row">
+                          <a className="btn" href={`/api/requests/${id}/assignment?i=${idx}`} target="_blank" rel="noopener">
+                            Download Assignment #{idx + 1}
+                          </a>
+                          <button className="btn-link" type="button" onClick={() => deleteAttachment("assignment", idx)}>Delete</button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : data.assignmentUploadPath ? (
+                    <div className="file-row">
+                      <a className="btn" href={`/api/requests/${id}/assignment`} target="_blank" rel="noopener">Download Assignment</a>
+                      <button className="btn-link" type="button" onClick={() => deleteAttachment("assignment", 0)}>Delete</button>
+                    </div>
+                  ) : <em>None</em>}
+                </div>
+
+                <div className="list" style={{ marginTop: 8 }}>
+                  <div className="kv"><span>Other Documents</span></div>
+                  {Array.isArray(data.otherUploadPaths) && data.otherUploadPaths.length ? (
+                    <div className="list">
+                      {data.otherUploadPaths.map((_, idx) => (
+                        <div key={idx} className="file-row">
+                          <a className="btn" href={`/api/requests/${id}/other-docs/${idx}`} target="_blank" rel="noopener">
+                            Download Document #{idx + 1}
+                          </a>
+                          <button className="btn-link" type="button" onClick={() => deleteAttachment("other", idx)}>Delete</button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : <em>None</em>}
+                </div>
               </section>
 
               {/* Upload Assignment (add) */}
@@ -1092,9 +1125,7 @@ export default function RequestDetailModal({
                     {assignAdds.map((f, idx) => (
                       <div key={idx} className="file-row">
                         <span className="file-name">{idx + 1}. {f.name}</span>
-                        <button type="button" className="btn-link" onClick={() => setAssignAdds(prev => prev.filter((_, i) => i !== idx))}>
-                          Remove
-                        </button>
+                        <button type="button" className="btn-link" onClick={() => setAssignAdds(prev => prev.filter((_, i) => i !== idx))}>Remove</button>
                       </div>
                     ))}
                     <small>{assignAdds.length} pending upload(s)</small>
@@ -1151,9 +1182,7 @@ export default function RequestDetailModal({
                     {otherAdds.map((f, idx) => (
                       <div key={idx} className="file-row">
                         <span className="file-name">{idx + 1}. {f.name}</span>
-                        <button type="button" className="btn-link" onClick={() => setOtherAdds(prev => prev.filter((_, i) => i !== idx))}>
-                          Remove
-                        </button>
+                        <button type="button" className="btn-link" onClick={() => setOtherAdds(prev => prev.filter((_, i) => i !== idx))}>Remove</button>
                       </div>
                     ))}
                     <small>{otherAdds.length} pending upload(s)</small>
@@ -1161,13 +1190,7 @@ export default function RequestDetailModal({
                 )}
               </section>
 
-              {/* Additional Notes */}
-              <section style={{ gridColumn: "1 / -1" }}>
-                <h4>Additional Notes</h4>
-                <textarea rows={3} value={notes} onChange={(e)=>setNotes(e.target.value)} />
-              </section>
-
-              <div className="form-actions">
+              <div className="form-actions" style={{ gridColumn: "1 / -1" }}>
                 <button className="btn" type="button" onClick={() => { setEditing(false); setAssignAdds([]); setOtherAdds([]); }}>Cancel</button>
                 <button className="btn btn-gold" type="submit" disabled={saving}>{saving ? "Saving…" : "Save Changes"}</button>
               </div>
@@ -1291,7 +1314,6 @@ export default function RequestDetailModal({
       <style jsx>{`
         .detail-grid, .edit-grid { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(260px, 1fr)); }
         @media (max-width: 900px) { .detail-grid, .edit-grid { grid-template-columns: 1fr; } }
-
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: grid; place-items: center; z-index: 50; }
         .modal { background: var(--modal-bg, #0b0d0f); border: 1px solid var(--border, #1a1c1f); width: min(980px, 96vw); max-height: 92vh; overflow: auto; }
         .modal-header { display:flex; align-items:center; justify-content:space-between; padding: 12px; border-bottom: 1px solid var(--border, #1a1c1f); }
@@ -1315,21 +1337,27 @@ export default function RequestDetailModal({
         .bene-list { display: grid; gap: 8px; margin-top: 6px; }
         .bene-row { display:flex; align-items:center; justify-content:space-between; gap:8px; border: 1px solid var(--border, #1a1c1f); padding: 6px 8px; }
         .bene-name { font-weight: 700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+        /* Policies styled like sections (no dark mismatch) */
         .policies { display: grid; grid-template-columns: 1fr; gap: 12px; }
         .policy-card { border: 1px solid var(--border, #1a1c1f); background: var(--card-bg, #0b0d0f); padding: 10px; width: 100%; }
         .policy-head { display: flex; align-items: center; justify-content: space-between; }
         .policy-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        @media (max-width: 700px) { .policy-grid { grid-template-columns: 1fr; } }
         .kv > span { margin-right: 6px; display: inline-block; }
+
         .ic-box { position: relative; }
-        .ic-list { position:absolute; z-index:30; top:calc(100% + 4px); left:0; right:0; background:var(--card-bg); border:1px solid var(--border); max-height:240px; overflow:auto; }
+        .ic-list { position:absolute; z-index:30; top:calc(100% + 4px); left:0; right:0; background: var(--card-bg, #0b0d0f); border:1px solid var(--border, #1a1c1f); max-height:240px; overflow:auto; }
         .ic-item { padding:8px 10px; cursor:pointer; }
+
         @media (prefers-color-scheme: light) {
           .modal { background: #F7F7FB; border-color: #d0d5dd; }
-          section { background: #ffffff; border-color: #d0d5dd; }
+          section, .policy-card { background: #ffffff; border-color: #d0d5dd; }
           h4 { color: #000000; }
           input, select, textarea { background: #ffffff; color:#000; border-color:#d0d5dd; }
           .dz { background: #ffffff; border-color: #d0d5dd; }
           .btn, .btn-ghost, .btn-link { background: #F2F4F6; color: #000; border-color: #d0d5dd; }
+          .ic-list { background: #ffffff; border-color: #d0d5dd; }
         }
       `}</style>
     </div>
