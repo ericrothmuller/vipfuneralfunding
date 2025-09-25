@@ -75,7 +75,7 @@ type RequestDetail = {
   // Employer
   employerPhone?: string;
   employerContact?: string;   // Contact Name
-  employerEmail?: string;     // NEW
+  employerEmail?: string;
   employmentStatus?: string;
   employerRelation?: "Employee" | "Dependent" | "";
 
@@ -83,9 +83,9 @@ type RequestDetail = {
   insuranceCompanyId?: string | { _id?: string; name?: string };
   otherInsuranceCompany?: OtherIC;
   insuranceCompany?: string;
-  policyNumbers?: string;
-  faceAmount?: string;
-  beneficiaries?: string;
+  policyNumbers?: string;       // CSV fallback
+  faceAmount?: string;          // aggregated fallback
+  beneficiaries?: string;       // CSV fallback
 
   // Structured
   policyBeneficiaries?: BeneficiaryDetail[][];
@@ -176,7 +176,7 @@ export default function RequestDetailModal({
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // editable fields (non-beneficiary)
+  // editable (non-policy) fields
   const [fhRep, setFhRep] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [contactEmail, setContactEmail] = useState("");
@@ -207,10 +207,10 @@ export default function RequestDetailModal({
   const [employmentStatus, setEmploymentStatus] = useState("");
   const [employerEmail, setEmployerEmail] = useState("");
 
-  const [policyNumbers, setPolicyNumbers] = useState("");
-  const [faceAmount, setFaceAmount] = useState("");
+  // policies edit state (separate sections)
+  const [editPolicies, setEditPolicies] = useState<PolicyItem[]>([]);
 
-  // CSV fallback (read-only in edit mode)
+  // CSV fallback for legacy display (still kept for compatibility but not editable now)
   const [beneficiariesCsv, setBeneficiariesCsv] = useState("");
 
   const [totalServiceAmount, setTotalServiceAmount] = useState("");
@@ -240,12 +240,12 @@ export default function RequestDetailModal({
     ? data.assignmentUploadPaths.length
     : (data?.assignmentUploadPath ? 1 : 0);
 
-  // Beneficiaries (global list) + modal (view)
+  // Beneficiaries (view) modal
   const [beneList, setBeneList] = useState<Array<{ name: string; detail?: BeneficiaryDetail }>>([]);
   const [beneOpen, setBeneOpen] = useState(false);
   const [beneSelected, setBeneSelected] = useState<{ name: string; detail?: BeneficiaryDetail } | null>(null);
 
-  // Beneficiary Edit modal state
+  // Beneficiary Edit modal
   const [beneEditOpen, setBeneEditOpen] = useState(false);
   const [beneEditDraft, setBeneEditDraft] = useState<BeneficiaryDetail>({});
   const [beneEditRef, setBeneEditRef] = useState<{ pIdx: number; bIdx: number } | null>(null);
@@ -268,6 +268,7 @@ export default function RequestDetailModal({
       }
     }
 
+    // CSV fallback
     const names = (r.beneficiaries ?? "").split(",").map(s => s.trim()).filter(Boolean);
     for (const nm of names) {
       const key = nameNorm(nm);
@@ -298,6 +299,7 @@ export default function RequestDetailModal({
         const r: RequestDetail = json.request;
         setData(r);
 
+        // seed simple fields
         setFhRep(r.fhRep || "");
         setContactPhone(r.contactPhone || "");
         setContactEmail(r.contactEmail || "");
@@ -328,10 +330,20 @@ export default function RequestDetailModal({
         setEmploymentStatus(r.employmentStatus || "");
         setEmployerEmail(r.employerEmail || "");
 
-        setPolicyNumbers(r.policyNumbers || "");
-        setFaceAmount(r.faceAmount || "");
-        setBeneficiariesCsv(r.beneficiaries || "");
+        // policies state for edit sections
+        if (Array.isArray(r.policies) && r.policies.length) {
+          setEditPolicies(r.policies.map(p => ({ policyNumber: p.policyNumber || "", faceAmount: p.faceAmount || "" })));
+        } else {
+          // legacy fallback: derive one policy from CSV/aggregated
+          const nums = (r.policyNumbers ?? "").split(",").map(s => s.trim()).filter(Boolean);
+          if (nums.length) {
+            setEditPolicies(nums.map(n => ({ policyNumber: n, faceAmount: "" })));
+          } else {
+            setEditPolicies([{ policyNumber: "", faceAmount: r.faceAmount || "" }]);
+          }
+        }
 
+        setBeneficiariesCsv(r.beneficiaries || "");
         setTotalServiceAmount(r.totalServiceAmount || "");
         setFamilyAdvancementAmount(r.familyAdvancementAmount || "");
         setNotes(r.notes || "");
@@ -363,11 +375,12 @@ export default function RequestDetailModal({
 
   const canEdit = !!data && (isAdmin || (data.status === "Submitted"));
 
-  // -------- Beneficiary Edit handling ----------
+  // ---------- Beneficiary View/Edit helpers ----------
   function openBeneficiaryEdit(pIdx: number, bIdx: number, ben: BeneficiaryDetail) {
+    const nm = (ben?.name || "").trim();
     setBeneEditRef({ pIdx, bIdx });
     setBeneEditDraft({
-      name: ben?.name || "",
+      name: nm,
       relationship: ben?.relationship || "",
       dob: ben?.dob || "",
       ssn: ben?.ssn || "",
@@ -432,6 +445,22 @@ export default function RequestDetailModal({
     }
   }
 
+  // ---------- Edit Policies handlers ----------
+  function setPolicyNumber(idx: number, v: string) {
+    setEditPolicies(prev => prev.map((p, i) => i === idx ? { ...p, policyNumber: v } : p));
+  }
+  function onFaceInput(idx: number, v: string) {
+    const clean = v.replace(/[^0-9.]/g, "");
+    const parts = clean.split(".");
+    const normalized = parts.length <= 2 ? clean : `${parts[0]}.${parts.slice(1).join("")}`.replace(/\./g, (m, i) => (i === 0 ? "." : ""));
+    setEditPolicies(prev => prev.map((p, i) => i === idx ? { ...p, faceAmount: normalized } : p));
+  }
+  function onFaceBlur(idx: number, v: string) {
+    const n = Number(String(v).replace(/[^0-9.]+/g, ""));
+    const out = Number.isFinite(n) ? n : 0;
+    setEditPolicies(prev => prev.map((p, i) => i === idx ? { ...p, faceAmount: out.toLocaleString("en-US", { style: "currency", currency: "USD" }) } : p));
+  }
+
   async function onSave(e: React.FormEvent) {
     e.preventDefault();
     if (!data) return;
@@ -440,6 +469,7 @@ export default function RequestDetailModal({
     try {
       const fd = new FormData();
 
+      // simple fields
       fd.set("fhRep", fhRep || "");
       fd.set("contactPhone", contactPhone || "");
       fd.set("contactEmail", contactEmail || "");
@@ -473,10 +503,10 @@ export default function RequestDetailModal({
       if (employerEmail) fd.set("employerEmail", employerEmail);
       if (employmentStatus) fd.set("employmentStatus", employmentStatus);
 
-      if (policyNumbers) fd.set("policyNumbers", policyNumbers);
-      if (faceAmount) fd.set("faceAmount", faceAmount);
+      // send structured policies (per-policy)
+      fd.set("policies", JSON.stringify(editPolicies));
 
-      // keep CSV as-is (read-only here)
+      // keep legacy CSVs as-is (read-only in this UI)
       if (beneficiariesCsv) fd.set("beneficiaries", beneficiariesCsv);
 
       if (totalServiceAmount) fd.set("totalServiceAmount", totalServiceAmount);
@@ -486,6 +516,7 @@ export default function RequestDetailModal({
 
       if (notes) fd.set("notes", notes);
 
+      // uploads (append) — fix browse by stopping propagation on button below
       assignAdds.forEach(f => fd.append("assignmentUploads", f));
       otherAdds.forEach(f => fd.append("otherUploads", f));
 
@@ -510,13 +541,8 @@ export default function RequestDetailModal({
   const employerYes =
     !!(data?.employerRelation || data?.employerPhone || data?.employerContact || data?.employmentStatus || data?.employerEmail);
 
-  // Build per-policy display rows
-  const policyRows: Array<{
-    index: number;
-    policyNumber: string;
-    faceAmount?: string;
-    beneficiaries: Array<{ name: string; detail?: BeneficiaryDetail; pIdx?: number; bIdx?: number }>;
-  }> = useMemo(() => {
+  // ---------- Build per-policy rows (VIEW) — filter blank beneficiary names ----------
+  const policyRows = useMemo(() => {
     const rows: Array<{
       index: number;
       policyNumber: string;
@@ -536,15 +562,18 @@ export default function RequestDetailModal({
       const num = policyNums[i] || "";
       const face = (data.policies && data.policies[i]?.faceAmount) || undefined;
 
+      // Only include beneficiaries with non-empty names
       const rowBenes: Array<{ name: string; detail?: BeneficiaryDetail; pIdx?: number; bIdx?: number }> = [];
       const details: BeneficiaryDetail[] = Array.isArray(pb[i]) ? pb[i] : [];
-      if (details.length) {
-        for (let j = 0; j < details.length; j++) {
-          const ben = details[j];
+      const validDetails = details.filter(b => (b?.name || "").trim());
+      if (validDetails.length) {
+        for (let j = 0; j < validDetails.length; j++) {
+          const ben = validDetails[j];
           rowBenes.push({ name: (ben?.name || "").trim(), detail: ben, pIdx: i, bIdx: j });
         }
       } else if (data.beneficiaries) {
-        (data.beneficiaries ?? "").split(",").map(s => s.trim()).filter(Boolean).forEach(n => rowBenes.push({ name: n }));
+        (data.beneficiaries ?? "").split(",").map(s => s.trim()).filter(Boolean)
+          .forEach(n => rowBenes.push({ name: n }));
       }
 
       rows.push({ index: i, policyNumber: num, faceAmount: face, beneficiaries: rowBenes });
@@ -677,18 +706,20 @@ export default function RequestDetailModal({
                           <span style={{ display: "block", marginBottom: 6 }}>Beneficiaries</span>
                           {row.beneficiaries.length ? (
                             <div className="bene-list">
-                              {row.beneficiaries.map((b, i) => (
-                                <div key={i} className="bene-row">
-                                  <div className="bene-name">{b.name || "—"}</div>
-                                  <button
-                                    type="button"
-                                    className="btn"
-                                    onClick={() => { setBeneSelected(b); setBeneOpen(true); }}
-                                  >
-                                    View
-                                  </button>
-                                </div>
-                              ))}
+                              {row.beneficiaries
+                                .filter(b => (b.name || "").trim()) /* safeguard */
+                                .map((b, i) => (
+                                  <div key={i} className="bene-row">
+                                    <div className="bene-name">{b.name}</div>
+                                    <button
+                                      type="button"
+                                      className="btn"
+                                      onClick={() => { setBeneSelected(b); setBeneOpen(true); }}
+                                    >
+                                      View
+                                    </button>
+                                  </div>
+                                ))}
                             </div>
                           ) : <strong>—</strong>}
                         </div>
@@ -881,50 +912,64 @@ export default function RequestDetailModal({
                 </label>
               </section>
 
-              {/* Insurance */}
-              <section>
+              {/* Insurance (separate policy sections) */}
+              <section style={{ gridColumn: "1 / -1" }}>
                 <h4>Insurance</h4>
-                <label>Company (read-only)</label>
-                <div className="readline">{companyDisplay(data)}</div>
-                <label>Total Face Amount (formatted)
-                  <input type="text" value={faceAmount} onChange={(e)=>setFaceAmount(e.target.value)} placeholder="$0.00" />
-                </label>
-                <label>Policy Number(s)
-                  <input type="text" value={policyNumbers} onChange={(e)=>setPolicyNumbers(e.target.value)} placeholder="Comma-separated if multiple" />
-                </label>
+                <div className="kv"><span>Company</span><strong>{companyDisplay(data)}</strong></div>
 
-                {/* Beneficiaries read-only list with per-item Edit */}
-                <div style={{ marginTop: 6 }}>
-                  <div style={{ fontWeight: 600, marginBottom: 6 }}>Beneficiaries</div>
-                  {Array.isArray(data.policyBeneficiaries) && data.policyBeneficiaries.length > 0 ? (
-                    <div className="list">
-                      {data.policyBeneficiaries.map((row, pIdx) => (
-                        <div key={pIdx} style={{ display: "grid", gap: 6 }}>
-                          {row.map((ben, bIdx) => (
-                            <div key={bIdx} className="bene-row">
-                              <div className="bene-name">{(ben?.name || "").trim() || "—"}</div>
-                              <button
-                                type="button"
-                                className="btn"
-                                onClick={() => openBeneficiaryEdit(pIdx, bIdx, ben)}
-                              >
-                                Edit
-                              </button>
-                            </div>
-                          ))}
+                <div className="policies">
+                  {editPolicies.map((p, i) => {
+                    const beneForPolicy = Array.isArray(data?.policyBeneficiaries?.[i])
+                      ? (data!.policyBeneficiaries![i] as BeneficiaryDetail[]).filter(b => (b?.name || "").trim())
+                      : [];
+
+                    return (
+                      <div key={i} className="policy-card">
+                        <div className="policy-head">
+                          <strong>{`Policy #${i + 1}`}</strong>
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <>
-                      <div className="readline" style={{ marginTop: 4 }}>
-                        {(data.beneficiaries ?? "—")}
+                        <div className="policy-grid">
+                          <label>Policy Number
+                            <input
+                              type="text"
+                              value={p.policyNumber || ""}
+                              onChange={(e)=>setPolicyNumber(i, e.target.value)}
+                            />
+                          </label>
+                          <label>Face Amount
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={p.faceAmount || ""}
+                              onChange={(e)=>onFaceInput(i, e.target.value)}
+                              onBlur={(e)=>onFaceBlur(i, e.target.value)}
+                              placeholder="$0.00"
+                            />
+                          </label>
+                        </div>
+
+                        <div style={{ marginTop: 8 }}>
+                          <div style={{ fontWeight: 600, marginBottom: 6 }}>Beneficiaries</div>
+                          {beneForPolicy.length ? (
+                            <div className="bene-list">
+                              {beneForPolicy.map((ben, bIdx) => (
+                                <div key={bIdx} className="bene-row">
+                                  <div className="bene-name">{(ben.name || "").trim()}</div>
+                                  <button
+                                    type="button"
+                                    className="btn"
+                                    onClick={() => openBeneficiaryEdit(i, bIdx, ben)}
+                                  >
+                                    Edit
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          ) : <strong>—</strong>}
+                        </div>
                       </div>
-                      <small className="muted">
-                        Beneficiaries are not yet structured; editing requires structured beneficiary details.
-                      </small>
-                    </>
-                  )}
+                    );
+                  })}
                 </div>
               </section>
 
@@ -982,7 +1027,7 @@ export default function RequestDetailModal({
                 </div>
               </section>
 
-              {/* Add New Assignment Files */}
+              {/* Add New Assignment Files (add) — fixed Browse propagation */}
               <section>
                 <h4>Upload Assignments (add)</h4>
                 <input
@@ -993,7 +1038,7 @@ export default function RequestDetailModal({
                   onChange={(e) => {
                     const incoming = Array.from(e.currentTarget.files || []);
                     const space = Math.max(0, MAX_ASSIGNMENT_UPLOADS - normalizedAssignCount - assignAdds.length);
-                    if (space > 0) setAssignAdds(prev => [...prev, ...incoming.slice(0, space)]);
+                    if (space > 0 && incoming.length) setAssignAdds(prev => [...prev, ...incoming.slice(0, space)]);
                     (e.currentTarget as HTMLInputElement).value = "";
                   }}
                   style={{ display: "none" }}
@@ -1008,7 +1053,7 @@ export default function RequestDetailModal({
                     setAssignOver(false);
                     const incoming = Array.from(e.dataTransfer.files || []);
                     const space = Math.max(0, MAX_ASSIGNMENT_UPLOADS - normalizedAssignCount - assignAdds.length);
-                    if (space > 0) setAssignAdds(prev => [...prev, ...incoming.slice(0, space)]);
+                    if (space > 0 && incoming.length) setAssignAdds(prev => [...prev, ...incoming.slice(0, space)]);
                   }}
                   onClick={() => assignInputRef.current?.click()}
                   role="button"
@@ -1017,7 +1062,11 @@ export default function RequestDetailModal({
                   <div>
                     <strong>Drag & drop assignment file(s) or click to browse</strong>
                     <div style={{ marginTop: 6 }}>
-                      <button type="button" className="btn-link" onClick={() => assignInputRef.current?.click()}>
+                      <button
+                        type="button"
+                        className="btn-link"
+                        onClick={(e) => { e.stopPropagation(); assignInputRef.current?.click(); }}
+                      >
                         Browse files
                       </button>
                     </div>
@@ -1039,7 +1088,7 @@ export default function RequestDetailModal({
                 )}
               </section>
 
-              {/* Add New Other Documents */}
+              {/* Add New Other Documents (add) — fixed Browse propagation */}
               <section>
                 <h4>Upload Other Documents (add)</h4>
                 <input
@@ -1051,7 +1100,7 @@ export default function RequestDetailModal({
                     const incoming = Array.from(e.currentTarget.files || []);
                     const existing = data.otherUploadPaths?.length || 0;
                     const space = Math.max(0, MAX_OTHER_UPLOADS - existing - otherAdds.length);
-                    if (space > 0) setOtherAdds(prev => [...prev, ...incoming.slice(0, space)]);
+                    if (space > 0 && incoming.length) setOtherAdds(prev => [...prev, ...incoming.slice(0, space)]);
                     (e.currentTarget as HTMLInputElement).value = "";
                   }}
                   style={{ display: "none" }}
@@ -1067,7 +1116,7 @@ export default function RequestDetailModal({
                     const incoming = Array.from(e.dataTransfer.files || []);
                     const existing = data.otherUploadPaths?.length || 0;
                     const space = Math.max(0, MAX_OTHER_UPLOADS - existing - otherAdds.length);
-                    if (space > 0) setOtherAdds(prev => [...prev, ...incoming.slice(0, space)]);
+                    if (space > 0 && incoming.length) setOtherAdds(prev => [...prev, ...incoming.slice(0, space)]);
                   }}
                   onClick={() => otherInputRef.current?.click()}
                   role="button"
@@ -1076,7 +1125,11 @@ export default function RequestDetailModal({
                   <div>
                     <strong>Drag & drop other document(s) or click to browse</strong>
                     <div style={{ marginTop: 6 }}>
-                      <button type="button" className="btn-link" onClick={() => otherInputRef.current?.click()}>
+                      <button
+                        type="button"
+                        className="btn-link"
+                        onClick={(e) => { e.stopPropagation(); otherInputRef.current?.click(); }}
+                      >
                         Browse files
                       </button>
                     </div>
@@ -1321,6 +1374,7 @@ export default function RequestDetailModal({
         .bene-row { display:flex; align-items:center; justify-content:space-between; gap:8px; border: 1px solid var(--border, #1a1c1f); padding: 6px 8px; }
         .bene-name { font-weight: 700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
+        /* Policies layout – single column rows */
         .policies { display: grid; grid-template-columns: 1fr; gap: 12px; }
         .policy-card { border: 1px solid var(--border, #1a1c1f); background: var(--card-bg, #0b0d0f); padding: 10px; width: 100%; }
         .policy-head { display: flex; align-items: center; justify-content: space-between; }
@@ -1328,6 +1382,7 @@ export default function RequestDetailModal({
         @media (max-width: 700px) { .policy-grid { grid-template-columns: 1fr; } }
         .policy-card * { word-break: break-word; min-width: 0; }
 
+        /* consistent label/value spacing */
         .kv > span { margin-right: 6px; display: inline-block; }
         .grid3 .kv > span { margin-right: 6px; }
 
