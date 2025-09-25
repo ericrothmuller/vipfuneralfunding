@@ -250,6 +250,7 @@ export async function POST(req: Request) {
 
         employerPhone: text("employerPhone"),
         employerContact: text("employerContact"),
+        employerEmail: text("employerEmail"),        // NEW
         employmentStatus: text("employmentStatus"),
         employerRelation: text("employerRelation"),
 
@@ -289,13 +290,13 @@ export async function POST(req: Request) {
         body.otherInsuranceCompany = { name: "", phone: "", fax: "", notes: "" };
       }
 
-      // NEW: structured per-policy beneficiaries (array-of-arrays of details)
+      // structured per-policy beneficiaries (array-of-arrays of details)
       const policyBeneficiariesJSON = text("policyBeneficiaries");
       if (policyBeneficiariesJSON) {
         try { body.policyBeneficiaries = JSON.parse(policyBeneficiariesJSON); } catch {}
       }
 
-      // NEW: per-policy face amounts (optional)
+      // per-policy face amounts (optional)
       const policiesJSON = text("policies");
       if (policiesJSON) {
         try { body.policies = JSON.parse(policiesJSON); } catch {}
@@ -356,31 +357,40 @@ export async function POST(req: Request) {
       contactPhone: body.contactPhone,
       contactEmail: body.contactEmail,
 
+      // Decedent & address
       decSSN: body.decSSN,
       decMaritalStatus: body.decMaritalStatus,
       decAddress: body.decAddress,
       decCity: body.decCity,
       decState: body.decState,
       decZip: body.decZip,
+      decDOB: body.decDOB || null,            // NEW: persist DOB
+      decDOD: body.decDOD || null,            // NEW: persist DOD
 
+      // Place of death
       decPODCity: body.decPODCity,
       decPODState: body.decPODState,
       decPODCountry: body.decPODCountry,
       deathInUS: body.deathInUS === "Yes",
 
+      // Cause flags
       codNatural:  body.codNatural  === "Yes",
       codAccident: body.codAccident === "Yes",
       codHomicide: body.codHomicide === "Yes",
       codPending:  body.codPending  === "Yes",
       hasFinalDC:  body.hasFinalDC  === "Yes",
 
+      // Employer
       employerPhone: body.employerPhone,
       employerContact: body.employerContact,
+      employerEmail: body.employerEmail || "",     // NEW: persist Employer Email
       employmentStatus: body.employmentStatus,
       employerRelation: body.employerRelation,
 
+      // Misc
       notes: body.notes,
 
+      // Uploads
       ...(assignmentRelative ? { assignmentUploadPath: assignmentRelative } : {}),
       ...(assignmentRelatives.length ? { assignmentUploadPaths: assignmentRelatives } : {}),
       ...(otherRelatives.length ? { otherUploadPaths: otherRelatives } : {}),

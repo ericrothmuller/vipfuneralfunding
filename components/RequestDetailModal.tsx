@@ -74,24 +74,24 @@ type RequestDetail = {
 
   // Employer
   employerPhone?: string;
-  employerContact?: string;   // “Employer Contact Name”
-  employerEmail?: string;     // NEW: display
+  employerContact?: string;   // Contact Name
+  employerEmail?: string;     // NEW
   employmentStatus?: string;
   employerRelation?: "Employee" | "Dependent" | "";
 
   // Insurance linkage
   insuranceCompanyId?: string | { _id?: string; name?: string };
   otherInsuranceCompany?: OtherIC;
-  insuranceCompany?: string;    // legacy
-  policyNumbers?: string;       // aggregated string (fallback)
-  faceAmount?: string;          // aggregated formatted (fallback)
-  beneficiaries?: string;       // aggregated CSV fallback
+  insuranceCompany?: string;
+  policyNumbers?: string;
+  faceAmount?: string;
+  beneficiaries?: string;
 
   // Structured
   policyBeneficiaries?: BeneficiaryDetail[][];
   policies?: PolicyItem[];
 
-  // Financials (formatted)
+  // Financials
   totalServiceAmount?: string;
   familyAdvancementAmount?: string;
   vipFee?: string;
@@ -205,7 +205,7 @@ export default function RequestDetailModal({
   const [employerPhone, setEmployerPhone] = useState("");
   const [employerContact, setEmployerContact] = useState("");
   const [employmentStatus, setEmploymentStatus] = useState("");
-  const [employerEmail, setEmployerEmail] = useState(""); // NEW (edit not exposed but we read/keep)
+  const [employerEmail, setEmployerEmail] = useState(""); // NEW
 
   const [policyNumbers, setPolicyNumbers] = useState("");
   const [faceAmount, setFaceAmount] = useState("");
@@ -247,7 +247,6 @@ export default function RequestDetailModal({
     const map = new Map<string, BeneficiaryDetail>();
     const nameNorm = (s?: string) => (s || "").trim().toLowerCase();
 
-    // structured list from policies
     if (Array.isArray(r.policyBeneficiaries)) {
       for (const row of r.policyBeneficiaries) {
         for (const ben of (row || [])) {
@@ -262,7 +261,6 @@ export default function RequestDetailModal({
       }
     }
 
-    // CSV fallback
     const names = (r.beneficiaries || "").split(",").map(s => s.trim()).filter(Boolean);
     for (const nm of names) {
       const key = nameNorm(nm);
@@ -293,7 +291,6 @@ export default function RequestDetailModal({
         const r: RequestDetail = json.request;
         setData(r);
 
-        // seed edit fields
         setFhRep(r.fhRep || "");
         setContactPhone(r.contactPhone || "");
         setContactEmail(r.contactEmail || "");
@@ -322,7 +319,7 @@ export default function RequestDetailModal({
         setEmployerPhone(r.employerPhone || "");
         setEmployerContact(r.employerContact || "");
         setEmploymentStatus(r.employmentStatus || "");
-        setEmployerEmail(r.employerEmail || ""); // NEW
+        setEmployerEmail(r.employerEmail || "");
 
         setPolicyNumbers(r.policyNumbers || "");
         setFaceAmount(r.faceAmount || "");
@@ -367,7 +364,6 @@ export default function RequestDetailModal({
     try {
       const fd = new FormData();
 
-      // basic fields
       fd.set("fhRep", fhRep || "");
       fd.set("contactPhone", contactPhone || "");
       fd.set("contactEmail", contactEmail || "");
@@ -389,7 +385,6 @@ export default function RequestDetailModal({
       fd.set("decPODCountry", decPODCountry || "");
       if (deathInUS) fd.set("deathInUS", deathInUS);
 
-      // COD flags from single select
       fd.set("codNatural",  cod === "Natural"  ? "Yes" : "No");
       fd.set("codAccident", cod === "Accident" ? "Yes" : "No");
       fd.set("codHomicide", cod === "Homicide" ? "Yes" : "No");
@@ -399,8 +394,8 @@ export default function RequestDetailModal({
       if (employerRelation) fd.set("employerRelation", employerRelation);
       if (employerPhone) fd.set("employerPhone", employerPhone);
       if (employerContact) fd.set("employerContact", employerContact);
+      if (employerEmail) fd.set("employerEmail", employerEmail);
       if (employmentStatus) fd.set("employmentStatus", employmentStatus);
-      if (employerEmail) fd.set("employerEmail", employerEmail); // keep if provided
 
       if (policyNumbers) fd.set("policyNumbers", policyNumbers);
       if (faceAmount) fd.set("faceAmount", faceAmount);
@@ -413,7 +408,6 @@ export default function RequestDetailModal({
 
       if (notes) fd.set("notes", notes);
 
-      // new uploads (append)
       assignAdds.forEach(f => fd.append("assignmentUploads", f));
       otherAdds.forEach(f => fd.append("otherUploads", f));
 
@@ -436,11 +430,9 @@ export default function RequestDetailModal({
     }
   }
 
-  // Derived booleans for display
   const employerYes =
     !!(data?.employerRelation || data?.employerPhone || data?.employerContact || data?.employmentStatus || data?.employerEmail);
 
-  // Build per-policy display data
   const policyRows: Array<{
     index: number;
     policyNumber: string;
@@ -535,7 +527,7 @@ export default function RequestDetailModal({
 
           {data && !loading && !msg && !editing && (
             <div className="detail-grid">
-              {/* 1) FH/CEM */}
+              {/* FH/CEM */}
               <section>
                 <h4>Funeral Home / Cemetery</h4>
                 <div className="kv"><span>FH/CEM Name</span><strong>{data.fhName || "—"}</strong></div>
@@ -544,7 +536,7 @@ export default function RequestDetailModal({
                 <div className="kv"><span>Contact Email</span><strong>{data.contactEmail || "—"}</strong></div>
               </section>
 
-              {/* 2) Decedent */}
+              {/* Decedent */}
               <section>
                 <h4>Decedent</h4>
                 <div className="kv"><span>DEC Name</span><strong>{[data.decFirstName, data.decLastName].filter(Boolean).join(" ") || "—"}</strong></div>
@@ -676,7 +668,6 @@ export default function RequestDetailModal({
               <section style={{ gridColumn: "1 / -1" }}>
                 <h4>Attachments</h4>
 
-                {/* Assignments */}
                 <div className="kv"><span>Assignment Files</span>
                   {data.assignmentUploadPaths?.length ? (
                     <div style={{ display: "grid", gap: 6, marginTop: 6 }}>
@@ -695,7 +686,6 @@ export default function RequestDetailModal({
                   )}
                 </div>
 
-                {/* Other Documents */}
                 <div className="kv" style={{ marginTop: 8 }}><span>Other Documents</span>
                   {Array.isArray(data.otherUploadPaths) && data.otherUploadPaths.length > 0 ? (
                     <div style={{ display: "grid", gap: 6, marginTop: 6 }}>
@@ -719,7 +709,7 @@ export default function RequestDetailModal({
             </div>
           )}
 
-          {/* EDIT MODE (kept; order aligned with create form) */}
+          {/* EDIT MODE */}
           {data && !loading && !msg && editing && (
             <form onSubmit={onSave} className="edit-grid">
               {/* FH/CEM */}
@@ -1047,7 +1037,6 @@ export default function RequestDetailModal({
               <button className="btn btn-ghost modal-close" onClick={() => setBeneOpen(false)} aria-label="Close">✕</button>
             </div>
             <div className="modal-body">
-              {/* Stack sections vertically for breathing room */}
               <div className="detail-grid" style={{ gridTemplateColumns: "1fr" }}>
                 <section>
                   <h4>Basic</h4>
@@ -1132,7 +1121,6 @@ export default function RequestDetailModal({
         .bene-row { display:flex; align-items:center; justify-content:space-between; gap:8px; border: 1px solid var(--border, #1a1c1f); padding: 6px 8px; }
         .bene-name { font-weight: 700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
-        /* Policies list: each card full row, never overlaps */
         .policies { display: grid; grid-template-columns: 1fr; gap: 12px; }
         .policy-card { border: 1px solid var(--border, #1a1c1f); background: var(--card-bg, #0b0d0f); padding: 10px; width: 100%; }
         .policy-head { display: flex; align-items: center; justify-content: space-between; }
@@ -1140,11 +1128,9 @@ export default function RequestDetailModal({
         @media (max-width: 700px) { .policy-grid { grid-template-columns: 1fr; } }
         .policy-card * { word-break: break-word; min-width: 0; }
 
-        /* Consistent label→value spacing everywhere */
         .kv > span { margin-right: 6px; display: inline-block; }
         .grid3 .kv > span { margin-right: 6px; }
 
-        /* -------- Light theme overrides -------- */
         @media (prefers-color-scheme: light) {
           .modal { background: #F7F7FB; border-color: #d0d5dd; }
           section { background: #ffffff; border-color: #d0d5dd; }

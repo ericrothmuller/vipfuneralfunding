@@ -50,7 +50,8 @@ export interface IFundingRequest {
 
   // employer
   employerPhone?: string;
-  employerContact?: string;
+  employerContact?: string;     // Contact Name
+  employerEmail?: string;       // NEW
   employmentStatus?: string;
   employerRelation?: "Employee" | "Dependent" | string;
 
@@ -65,7 +66,7 @@ export interface IFundingRequest {
   policyNumbers?: string[];                // aggregated
   beneficiaries?: string[];                // aggregated
   faceAmount?: string;                     // aggregated formatted
-  policyBeneficiaries?: any;               // BeneficiaryDetail[][] (kept flexible)
+  policyBeneficiaries?: any;               // array-of-arrays of bene details
   policies?: Array<{
     policyNumber?: string;
     faceAmount?: string;                   // formatted per-policy
@@ -84,6 +85,9 @@ export interface IFundingRequest {
 
   // workflow
   status: FundingStatus;
+
+  // misc
+  notes?: string;
 
   // timestamps
   createdAt?: Date;
@@ -129,6 +133,7 @@ const FundingRequestSchema = new Schema<IFundingRequest>(
 
     employerPhone:   { type: String, trim: true },
     employerContact: { type: String, trim: true },
+    employerEmail:   { type: String, trim: true },     // NEW
     employmentStatus:{ type: String, trim: true },
     employerRelation:{ type: String, trim: true },
 
@@ -159,6 +164,8 @@ const FundingRequestSchema = new Schema<IFundingRequest>(
     assignmentUploadPath: { type: String, trim: true },
     assignmentUploadPaths: { type: [String], default: [] },
     otherUploadPaths: { type: [String], default: [] },
+
+    notes: { type: String, trim: true },
 
     status: {
       type: String,

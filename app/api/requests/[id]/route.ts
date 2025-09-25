@@ -14,7 +14,7 @@ import { randomUUID } from "node:crypto";
 import { Readable, Transform } from "node:stream";
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR || "/home/deploy/uploads/vipfuneralfunding";
-const MAX_UPLOAD_BYTES = 500 * 1024 * 1024; // 500 MB
+const MAX_UPLOAD_BYTES = 500 * 1024 * 1024;
 const MAX_OTHER_UPLOADS = 50;
 const MAX_ASSIGNMENT_UPLOADS = 10;
 
@@ -52,7 +52,7 @@ async function streamToFile(file: File): Promise<{ relative: string; absolute: s
   const now = new Date();
   const yyyy = String(now.getFullYear());
   const mm = String(now.getMonth() + 1).padStart(2, "0");
-  const subdir = path.join(yyyy, mm); // "YYYY/MM"
+  const subdir = path.join(yyyy, mm);
 
   const root = path.resolve(UPLOAD_DIR);
   const dir = path.join(root, subdir);
@@ -86,7 +86,7 @@ async function streamToFile(file: File): Promise<{ relative: string; absolute: s
   return { relative, absolute };
 }
 
-/* --------- base permissions (owner/admin) --------- */
+/* --------- base permissions --------- */
 function canView(me: any, doc: any): boolean {
   if (!me) return false;
   if (me.role === "ADMIN") return true;
@@ -109,7 +109,7 @@ function canDelete(me: any, doc: any): boolean {
   return (doc.status === "Submitted") && (String(doc.ownerId || doc.userId) === meId);
 }
 
-/* ---- FH/CEM org allow: same fhCemId or legacy fhName match (view/edit) ---- */
+/* ---- FH/CEM org allow ---- */
 async function fhcemExtraAllow(me: any, doc: any): Promise<boolean> {
   if (!me || me.role !== "FH_CEM") return false;
   const meUser = await User.findById(me.sub).select("fhCemId fhName").lean();
@@ -143,13 +143,11 @@ export async function GET(_req: Request, context: any) {
     }
     if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    // Company display
     const companyName =
       (doc.insuranceCompanyId && (doc.insuranceCompanyId as any).name) ||
       doc.insuranceCompany ||
       (doc.otherInsuranceCompany?.name || "");
 
-    // Total face amount fallback (sum per-policy)
     let faceAmount = doc.faceAmount || "";
     if (!faceAmount && Array.isArray(doc.policies) && doc.policies.length) {
       const sum = doc.policies.reduce((acc: number, p: any) => acc + moneyToNumber(p?.faceAmount || ""), 0);
@@ -200,11 +198,12 @@ export async function GET(_req: Request, context: any) {
       // Employer
       employerPhone:   doc.employerPhone || "",
       employerContact: doc.employerContact || "",
+      employerEmail:   doc.employerEmail || "",     // NEW
       employmentStatus:doc.employmentStatus || "",
       employerRelation:doc.employerRelation || "",
 
       // Insurance
-      insuranceCompanyId: doc.insuranceCompanyId || null,   // populated {_id,name} if present
+      insuranceCompanyId: doc.insuranceCompanyId || null,
       otherInsuranceCompany: doc.otherInsuranceCompany || null,
       insuranceCompany: companyName,
 
@@ -212,7 +211,7 @@ export async function GET(_req: Request, context: any) {
       faceAmount,
       beneficiaries: Array.isArray(doc.beneficiaries) ? doc.beneficiaries.join(", ") : (doc.beneficiaries || ""),
 
-      // Per-policy structured data
+      // Structured
       policyBeneficiaries: Array.isArray(doc.policyBeneficiaries) ? doc.policyBeneficiaries : [],
       policies: Array.isArray(doc.policies) ? doc.policies : [],
 
@@ -254,7 +253,6 @@ export async function PUT(req: Request, context: any) {
     const doc: any = await FundingRequest.findById(id);
     if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    // owner/admin; FH/CEM can edit while Submitted if same org
     let allowedEdit = canEdit(me, doc);
     if (!allowedEdit && me.role === "FH_CEM" && doc.status === "Submitted") {
       allowedEdit = await fhcemExtraAllow(me, doc);
@@ -291,32 +289,31 @@ export async function PUT(req: Request, context: any) {
         addedOthers.push(saved.relative);
       }
 
-      // editable fields (match your form keys)
-      body.fhRep = text("fhRep");
-      body.contactPhone = text("contactPhone");
-      body.contactEmail = text("contactEmail");
+      // editable fields
+      doc.fhRep = text("fhRep");
+      doc.contactPhone = text("contactPhone");
+      doc.contactEmail = text("contactEmail");
 
-      body.decFirstName = text("decFirstName");
-      body.decLastName  = text("decLastName");
+      doc.decFirstName = text("decFirstName");
+      doc.decLastName  = text("decLastName");
       const dob = text("decDOB");
       const dod = text("decDOD");
       if (dob) doc.decDOB = parseDate(dob);
       if (dod) doc.decDOD = parseDate(dod);
-      body.decSSN = text("decSSN");
-      body.decMaritalStatus = text("decMaritalStatus");
+      doc.decSSN = text("decSSN");
+      doc.decMaritalStatus = text("decMaritalStatus");
 
-      body.decAddress = text("decAddress");
-      body.decCity = text("decCity");
-      body.decState = text("decState");
-      body.decZip = text("decZip");
+      doc.decAddress = text("decAddress");
+      doc.decCity = text("decCity");
+      doc.decState = text("decState");
+      doc.decZip = text("decZip");
 
-      body.decPODCity = text("decPODCity");
-      body.decPODState = text("decPODState");
-      body.decPODCountry = text("decPODCountry");
+      doc.decPODCity = text("decPODCity");
+      doc.decPODState = text("decPODState");
+      doc.decPODCountry = text("decPODCountry");
       const deathInUS = text("deathInUS");
       if (deathInUS) doc.deathInUS = deathInUS === "Yes";
 
-      // COD flags (single -> flags)
       doc.codNatural  = text("codNatural") === "Yes";
       doc.codAccident = text("codAccident") === "Yes";
       doc.codHomicide = text("codHomicide") === "Yes";
@@ -324,25 +321,22 @@ export async function PUT(req: Request, context: any) {
       const hasFinalDC = text("hasFinalDC");
       if (hasFinalDC) doc.hasFinalDC = hasFinalDC === "Yes";
 
-      // employer
       const er = text("employerRelation");
       if (er) doc.employerRelation = er;
-      doc.employerPhone = text("employerPhone");
+      doc.employerPhone   = text("employerPhone");
       doc.employerContact = text("employerContact");
-      doc.employmentStatus = text("employmentStatus");
+      doc.employerEmail   = text("employerEmail") || doc.employerEmail;   // NEW
+      doc.employmentStatus= text("employmentStatus");
 
-      // policy/basic strings
       const pnums = text("policyNumbers"); if (pnums) doc.policyNumbers = splitList(pnums);
       doc.faceAmount = text("faceAmount");
       const bens = text("beneficiaries"); if (bens) doc.beneficiaries = splitList(bens);
 
-      // optional structured per-policy fields (when you send them on edit)
       const pbJSON = text("policyBeneficiaries");
       if (pbJSON) { try { doc.policyBeneficiaries = JSON.parse(pbJSON); } catch {} }
       const policiesJSON = text("policies");
       if (policiesJSON) { try { doc.policies = JSON.parse(policiesJSON); } catch {} }
 
-      // financials (normalized)
       const nTotal  = moneyToNumber(text("totalServiceAmount"));
       const nFamily = moneyToNumber(text("familyAdvancementAmount"));
       const nVip    = moneyToNumber(text("vipFee"));
@@ -352,18 +346,15 @@ export async function PUT(req: Request, context: any) {
       if (!isNaN(nVip))    doc.vipFee = nVip;
       if (!isNaN(nAssign)) doc.assignmentAmount = nAssign;
 
-      doc.notes = text("notes");
+      const notes = text("notes");
+      if (typeof notes === "string") doc.notes = notes;
+
     } else {
       const json = await req.json().catch(() => ({}));
       body = json || {};
+      for (const [k, v] of Object.entries(body)) (doc as any)[k] = v;
     }
 
-    // apply simple text fields
-    for (const [k, v] of Object.entries(body)) {
-      (doc as any)[k] = v;
-    }
-
-    // append uploads
     if (addedAssignments.length) {
       if (!Array.isArray(doc.assignmentUploadPaths)) doc.assignmentUploadPaths = [];
       doc.assignmentUploadPaths.push(...addedAssignments);
@@ -378,7 +369,6 @@ export async function PUT(req: Request, context: any) {
 
     await doc.save();
 
-    // respond using GET’s shape
     const res = await GET(new Request(""), { params: { id } } as any);
     const json = await (res as any).json();
     return NextResponse.json(json, { status: 200 });
