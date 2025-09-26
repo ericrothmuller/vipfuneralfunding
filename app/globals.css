@@ -440,3 +440,121 @@ textarea {
 .theme-toggle input {
   accent-color: var(--accent);
 }
+
+/* =========================
+   VIP Funeral Funding Theme
+   (Light/Dark via [data-theme])
+   ========================= */
+
+/* Base brand/status tokens (shared) */
+:root {
+  --primary: #d6b16d;         /* VIP gold */
+  --primary-contrast: #0b0d10;
+
+  --success: #1fa971;
+  --warning: #b7791f;
+  --danger:  #d92d20;
+  --focus:   #2b6ef7;
+
+  --shadow-color: 0deg 0% 0%;
+  --shadow-1: 0 1px 2px hsl(var(--shadow-color) / 0.15);
+  --shadow-2: 0 4px 10px hsl(var(--shadow-color) / 0.12);
+}
+
+/* ---------- LIGHT THEME ---------- */
+html[data-theme="light"] {
+  /* App surfaces & text */
+  --bg:           #f7f7fb;
+  --text:         #121418;
+  --muted:        #5c6677;
+
+  --surface-1:    #ffffff;     /* cards / sections */
+  --surface-2:    #f2f4f7;     /* inputs / fields */
+  --border:       #d4d8e1;
+
+  /* Bridge to component-local variables */
+  --gold:         var(--primary);
+  --title:        #000000;
+  --title-color:  #000000;
+
+  --card-bg:      var(--surface-1);
+  --modal-bg:     #f7f7fb;
+  --field-bg:     var(--surface-2);
+  --field:        var(--surface-2);
+  --field-border: var(--border);
+  --btn-bg:       #f2f4f6;
+
+  --link:         #175cd3;
+  --link-visited: #6e59a5;
+}
+
+/* ---------- DARK THEME ---------- */
+html[data-theme="dark"] {
+  /* App surfaces & text */
+  --bg:           #0b0d10;
+  --text:         #e7ebf0;
+  --muted:        #9aa4b2;
+
+  --surface-1:    #101317;     /* cards / sections */
+  --surface-2:    #151a20;     /* inputs / fields */
+  --border:       #222832;
+
+  /* Bridge to component-local variables */
+  --gold:         var(--primary);
+  --title:        var(--gold);
+  --title-color:  var(--gold);
+
+  --card-bg:      var(--surface-1);
+  --modal-bg:     #0b0d10;
+  --field-bg:     var(--surface-2);
+  --field:        var(--surface-2);
+  --field-border: var(--border);
+  --btn-bg:       var(--surface-2);
+
+  --link:         #7aa2ff;
+  --link-visited: #9f86ff;
+}
+
+/* Global surfaces */
+html, body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* Common primitives used across the app */
+.card,
+.pf-card,
+.fr-card,
+section {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-1);
+}
+
+input, select, textarea, .ro {
+  background: var(--field-bg);
+  color: var(--text);
+  border: 1px solid var(--field-border);
+}
+
+.btn {
+  background: var(--btn-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.btn-gold,
+.fr-gold {
+  background: var(--gold);
+  color: var(--primary-contrast);
+  border: 1px solid var(--gold);
+}
+
+a { color: var(--link); }
+a:visited { color: var(--link-visited); }
+
+/* Focus ring (a11y) */
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}

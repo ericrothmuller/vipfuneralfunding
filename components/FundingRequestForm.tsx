@@ -763,32 +763,38 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
   return (
     <form onSubmit={onSubmit} className="fr-form">
       <style jsx>{`
-        :root { --gold: #d6b16d; }
-        .fr-form { --title-color:#d6b16d; --card-bg:#0b0d0f; --border:#1a1c1f; --field-bg:#121416; --muted:#e0e0e0; font-size:18px; line-height:1.45; display:grid; gap:16px; }
-        @media (prefers-color-scheme: light) { .fr-form { --title-color:#000; --card-bg:#fff; --border:#d0d5dd; --field-bg:#f2f4f6; --muted:#333; } }
+        .fr-form {
+          /* Pull from global tokens */
+          --gold: var(--gold);
+          --title-color: var(--title-color);
+          --card-bg: var(--card-bg);
+          --border: var(--border);
+          --field-bg: var(--field-bg);
+          --muted: var(--muted);
 
-        .fr-card { background:var(--card-bg); border:1px solid var(--border); border-radius:0; padding:14px; }
+          font-size:18px; line-height:1.45; display:grid; gap:16px;
+          color: var(--text);
+        }
+
+        .fr-card { background: var(--card-bg); border:1px solid var(--border); border-radius:0; padding:14px; }
         .fr-legend { position:absolute !important; height:1px; width:1px; overflow:hidden; clip:rect(1px,1px,1px,1px); white-space:nowrap; }
-        .fr-section-title { color:var(--title-color); font-weight:800; margin:0 0 12px 0; font-size:20px; }
-        .fr-readonly { background:rgba(255,255,255,.08); color:inherit; opacity:.9; cursor:not-allowed; }
+        .fr-section-title { color: var(--title-color); font-weight:800; margin:0 0 12px 0; font-size:20px; }
+        .fr-readonly { background: rgba(255,255,255,.05); color:inherit; opacity:.9; cursor:not-allowed; }
 
         .fr-grid-2 { display:grid; gap:10px; grid-template-columns:1fr 1fr; }
         .fr-grid-3 { display:grid; gap:10px; grid-template-columns:repeat(3, minmax(220px, 1fr)); }
         .fr-grid-3-tight { display:grid; gap:8px; grid-template-columns:repeat(3, minmax(220px, 1fr)); }
 
         .fr-inline-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-        .fr-del { background:transparent; border:1px solid var(--border); border-radius:0; padding:6px 10px; cursor:pointer; color:var(--muted); }
+        .fr-del { background:transparent; border:1px solid var(--border); border-radius:0; padding:6px 10px; cursor:pointer; color:var(--text); opacity:.85; }
         .fr-del:hover { background:rgba(255,255,255,.06); border-color:rgba(255,255,255,.25); }
 
-        .fr-muted { color:var(--muted); font-size:.95em; }
-        .fr-gold { background:var(--gold); border:1px solid var(--gold); color:#0a0d11; padding:10px 14px; border-radius:0; cursor:pointer; }
+        .fr-muted { color: var(--muted); font-size:.95em; }
+        .fr-gold { background: var(--gold); border:1px solid var(--gold); color: var(--primary-contrast); padding:10px 14px; border-radius:0; cursor:pointer; }
         .fr-submit { border:1px solid var(--border); }
 
         input[type="text"], input[type="email"], input[type="tel"], input[type="date"], input[type="file"], select, textarea {
-          width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:0; background:var(--field-bg); color:#fff;
-        }
-        @media (prefers-color-scheme: light) {
-          input[type="text"], input[type="email"], input[type="tel"], input[type="date"], input[type="file"], select, textarea { color:#000; }
+          width:100%; padding:10px 12px; border:1px solid var(--field-border); border-radius:0; background: var(--field-bg); color: var(--text);
         }
 
         @media (max-width:900px) { .fr-grid-2, .fr-grid-3, .fr-grid-3-tight { grid-template-columns:1fr; } .fr-form { font-size:17px; } }
@@ -805,17 +811,17 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         /* Dropzones */
         .dz { border:1px dashed var(--border); background:var(--field-bg); padding:14px; display:grid; place-items:center; text-align:center; cursor:pointer; }
         .dz.over { outline: 2px dashed var(--gold); outline-offset: 2px; }
-        .dz small { color:var(--muted); }
+        .dz small { color: var(--muted); }
 
         .file-list { display:grid; gap:6px; margin-top:8px; }
         .file-row { display:flex; align-items:center; justify-content:space-between; gap:8px; }
         .file-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-        .btn-link { background:transparent; border:1px solid var(--border); padding:4px 8px; cursor:pointer; }
+        .btn-link { background:transparent; border:1px solid var(--border); padding:4px 8px; cursor:pointer; color: var(--text); }
 
         .btn-ghost, .btn.btn-ghost {
           border:1px solid var(--border);
-          background:var(--field-bg);
-          color:inherit;
+          background: var(--btn-bg);
+          color: inherit;
           border-radius:0;
           padding:8px 10px;
           cursor:pointer;

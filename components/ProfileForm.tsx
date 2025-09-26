@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 
 type Profile = {
-  fhCemName?: string | null; // derived on client from either user.fhName or populated FH
+  fhCemName?: string | null;
   contactName: string;
   contactPhone: string;
   contactEmail: string;
@@ -31,7 +31,7 @@ export default function ProfileForm() {
         if (!res.ok) throw new Error("Failed to load profile");
         const data = await res.json();
         if (mounted && data?.user) {
-          const fhCemName = data.user.fhName || data.user.fhCem?.name || ""; // support either server shape
+          const fhCemName = data.user.fhName || data.user.fhCem?.name || "";
           const next: Profile = {
             fhCemName,
             contactName: data.user.contactName || "",
@@ -64,7 +64,6 @@ export default function ProfileForm() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          // only allow these fields to update
           contactName: profile.contactName,
           contactPhone: profile.contactPhone,
           contactEmail: profile.contactEmail,
@@ -106,28 +105,35 @@ export default function ProfileForm() {
   return (
     <form onSubmit={onSubmit} className="pf-form">
       <style jsx>{`
-        :root { --gold: #d6b16d; }
         .pf-form {
-          --title: #d6b16d; --card-bg: #0b0d0f; --border: #1a1c1f; --field: #121416; --muted: #e0e0e0;
+          /* use global tokens */
+          --gold: var(--gold);
+          --title: var(--title);
+          --card-bg: var(--card-bg);
+          --border: var(--border);
+          --field: var(--field-bg);
+          --muted: var(--muted);
+
           display: grid; gap: 14px; font-size: 18px; line-height: 1.45;
-        }
-        @media (prefers-color-scheme: light) {
-          .pf-form { --title: #000; --card-bg: #fff; --border: #d0d5dd; --field: #f2f4f6; --muted: #333; }
+          color: var(--text);
         }
         .pf-head { display:flex; align-items:center; justify-content:space-between; gap:10px; }
         .pf-actions { display:flex; gap:8px; }
         .pf-card { background: var(--card-bg); border:1px solid var(--border); border-radius:0; padding:14px; }
         .pf-title { color: var(--title); font-weight:800; margin:0 0 12px 0; font-size:20px; }
-        label { display:grid; gap:6px; color:#fff; }
-        @media (prefers-color-scheme: light) { label { color:#000; } }
+        label { display:grid; gap:6px; }
+        .muted { color: var(--muted); }
+
         input, textarea, .ro {
-          width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:0; background: var(--field); color:#fff;
+          width:100%; padding:10px 12px; border:1px solid var(--field-border); border-radius:0;
+          background: var(--field); color: var(--text);
         }
-        @media (prefers-color-scheme: light) { input, textarea, .ro { color:#000; background:#f6f6f6; border-color:#d0d0d0; } }
-        input[disabled], textarea[disabled] { opacity:.8; cursor:not-allowed; }
-        .btn { border:1px solid var(--border); background:var(--field); color:#fff; padding:10px 12px; border-radius:0; cursor:pointer; }
-        .btn-gold { background:var(--gold); border-color:var(--gold); color:#000; }
+        input[disabled], textarea[disabled] { opacity:.85; cursor:not-allowed; }
+
+        .btn { border:1px solid var(--border); background: var(--btn-bg); color: var(--text); padding:10px 12px; border-radius:0; cursor:pointer; }
+        .btn-gold { background: var(--gold); border-color: var(--gold); color: var(--primary-contrast); }
       `}</style>
+
 
       <div className="pf-head">
         <h3 className="pf-title" style={{ margin: 0 }}>Your Business</h3>
@@ -169,7 +175,7 @@ export default function ProfileForm() {
       </div>
 
       {msg && (
-        <p role="alert" style={{ color: msg === "Saved." ? "limegreen" : "crimson", marginTop: 8 }}>
+        <p role="alert" style={{ color: msg === "Saved." ? "var(--success)" : "var(--danger)", marginTop: 8 }}>
           {msg}
         </p>
       )}
