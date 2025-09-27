@@ -446,7 +446,7 @@ textarea {
    (Light/Dark via [data-theme])
    ========================= */
 
-/* Base brand/status tokens (shared) */
+/* Brand & Status (shared) */
 :root {
   --primary: #d6b16d;         /* VIP gold */
   --primary-contrast: #0b0d10;
@@ -463,7 +463,6 @@ textarea {
 
 /* ---------- LIGHT THEME ---------- */
 html[data-theme="light"] {
-  /* App surfaces & text */
   --bg:           #f7f7fb;
   --text:         #121418;
   --muted:        #5c6677;
@@ -472,7 +471,6 @@ html[data-theme="light"] {
   --surface-2:    #f2f4f7;     /* inputs / fields */
   --border:       #d4d8e1;
 
-  /* Bridge to component-local variables */
   --gold:         var(--primary);
   --title:        #000000;
   --title-color:  #000000;
@@ -490,7 +488,6 @@ html[data-theme="light"] {
 
 /* ---------- DARK THEME ---------- */
 html[data-theme="dark"] {
-  /* App surfaces & text */
   --bg:           #0b0d10;
   --text:         #e7ebf0;
   --muted:        #9aa4b2;
@@ -499,7 +496,6 @@ html[data-theme="dark"] {
   --surface-2:    #151a20;     /* inputs / fields */
   --border:       #222832;
 
-  /* Bridge to component-local variables */
   --gold:         var(--primary);
   --title:        var(--gold);
   --title-color:  var(--gold);
@@ -515,13 +511,13 @@ html[data-theme="dark"] {
   --link-visited: #9f86ff;
 }
 
-/* Global surfaces */
+/* App background & text */
 html, body {
   background: var(--bg);
   color: var(--text);
 }
 
-/* Common primitives used across the app */
+/* Common surfaces */
 .card,
 .pf-card,
 .fr-card,
@@ -531,30 +527,57 @@ section {
   box-shadow: var(--shadow-1);
 }
 
+/* Controls */
 input, select, textarea, .ro {
   background: var(--field-bg);
   color: var(--text);
   border: 1px solid var(--field-border);
 }
 
+/* Buttons (base) */
 .btn {
   background: var(--btn-bg);
   color: var(--text);
   border: 1px solid var(--border);
 }
-
 .btn-gold,
 .fr-gold {
   background: var(--gold);
   color: var(--primary-contrast);
   border: 1px solid var(--gold);
 }
+.btn-link {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
 
+/* Dark theme button fixes (readability: use #151A20 everywhere requested) */
+html[data-theme="dark"] .btn,
+html[data-theme="dark"] .btn-link,
+html[data-theme="dark"] .btn-gold,
+html[data-theme="dark"] .fr-gold {
+  background: #151a20;       /* requested tone */
+  color: #e7ebf0;            /* high contrast */
+  border-color: var(--border);
+}
+
+/* Date picker icon (dark) – brighten the indicator */
+html[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.9) brightness(1.2) contrast(1.1);
+  opacity: 0.95;
+}
+
+/* Links & focus */
 a { color: var(--link); }
 a:visited { color: var(--link-visited); }
-
-/* Focus ring (a11y) */
 :focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
+}
+
+/* Modal surface (ensure dark modal looks dark) */
+.modal {
+  background: var(--modal-bg);
+  border: 1px solid var(--border);
 }
