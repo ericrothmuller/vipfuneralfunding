@@ -461,30 +461,85 @@ textarea {
   --shadow-2: 0 4px 10px hsl(var(--shadow-color) / 0.12);
 }
 
-/* ---------- LIGHT THEME ---------- */
+/* ---------- LIGHT THEME (contrast-tuned) ---------- */
 html[data-theme="light"] {
-  --bg:           #f7f7fb;
+  /* App surfaces & text */
+  --bg:           #f7f7fb;   /* page background */
   --text:         #121418;
   --muted:        #5c6677;
 
-  --surface-1:    #ffffff;     /* cards / sections */
-  --surface-2:    #f2f4f7;     /* inputs / fields */
-  --border:       #d4d8e1;
+  --surface-1:    #ffffff;   /* cards / sections */
+  /* Inputs / fields: slightly darker than page bg for contrast */
+  --surface-2:    #eef2f7;   
 
+  /* Border: a step darker for clearer separation */
+  --border:       #c9cfdb;
+
+  /* Brand bridge */
   --gold:         var(--primary);
   --title:        #000000;
   --title-color:  #000000;
 
   --card-bg:      var(--surface-1);
-  --modal-bg:     #f7f7fb;
+  --modal-bg:     #f7f7fb;   /* page-like modal shell */
   --field-bg:     var(--surface-2);
   --field:        var(--surface-2);
   --field-border: var(--border);
-  --btn-bg:       #f2f4f6;
+
+  /* Buttons: more distinct than fields/page */
+  --btn-bg:       #e7ebf3;
 
   --link:         #175cd3;
   --link-visited: #6e59a5;
 }
+
+/* Light-only emphasis: inputs & buttons stand out more */
+html[data-theme="light"] input,
+html[data-theme="light"] select,
+html[data-theme="light"] textarea,
+html[data-theme="light"] .ro {
+  background: var(--field-bg);
+  border: 1px solid var(--field-border);
+  box-shadow: var(--shadow-1);                 /* subtle lift */
+}
+
+/* Buttons in light mode: clearer fill + hover/active feedback */
+html[data-theme="light"] .btn,
+html[data-theme="light"] .btn-link {
+  background: var(--btn-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-1);
+}
+
+html[data-theme="light"] .btn:hover,
+html[data-theme="light"] .btn-link:hover {
+  background: #dfe6f0;                        /* a step darker */
+}
+
+html[data-theme="light"] .btn:active,
+html[data-theme="light"] .btn-link:active {
+  background: #d6dee9;                        /* pressed */
+  box-shadow: var(--shadow-2);
+}
+
+/* Gold buttons keep brand, but add light-mode shadow for visibility */
+html[data-theme="light"] .btn-gold,
+html[data-theme="light"] .fr-gold {
+  background: var(--gold);
+  color: var(--primary-contrast);
+  border: 1px solid var(--gold);
+  box-shadow: var(--shadow-1);
+}
+
+/* (Optional but nice): make cards/sections read crisply on the page */
+html[data-theme="light"] .card,
+html[data-theme="light"] .pf-card,
+html[data-theme="light"] .fr-card,
+html[data-theme="light"] section {
+  box-shadow: var(--shadow-1);
+}
+
 
 /* ---------- DARK THEME ---------- */
 html[data-theme="dark"] {
