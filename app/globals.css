@@ -637,18 +637,21 @@ a:visited { color: var(--link-visited); }
   border: 1px solid var(--border);
 }
 
-/* Typeahead dropdown (IC lists) — themed backgrounds */
+/* Force a solid, themed background on Insurance Company typeahead lists */
 .ic-list {
-  background: var(--modal-bg);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-2);
+  background: var(--card-bg) !important;      /* fixes transparency */
+  border: 1px solid var(--border) !important;
+  box-shadow: var(--shadow-2) !important;
+  backdrop-filter: none !important;           /* ensure no glassiness */
+  -webkit-backdrop-filter: none !important;
+  z-index: 50 !important;                     /* stay above cards/forms */
 }
 
 .ic-item {
-  background: transparent;
+  background: transparent;                    /* inherits text color */
   color: var(--text);
 }
 
 .ic-item:hover {
-  background: var(--field-bg);
+  background: var(--field-bg) !important;     /* clear hover in both themes */
 }
