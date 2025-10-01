@@ -636,3 +636,19 @@ a:visited { color: var(--link-visited); }
   background: var(--modal-bg);
   border: 1px solid var(--border);
 }
+
+/* Typeahead dropdown (IC lists) — themed backgrounds */
+.ic-list {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-2);
+}
+
+.ic-item {
+  background: transparent;
+  color: var(--text);
+}
+
+.ic-item:hover {
+  background: var(--field-bg);
+}
