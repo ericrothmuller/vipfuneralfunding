@@ -637,21 +637,36 @@ a:visited { color: var(--link-visited); }
   border: 1px solid var(--border);
 }
 
-/* Force a solid, themed background on Insurance Company typeahead lists */
+/* === Insurance Company typeahead: force solid themed background === */
+
+/* Ensure the dropdown’s stacking context isn’t polluted by parent blur/backdrop */
+.ic-box {
+  position: relative;
+  isolation: isolate; /* prevents backdrop/filter from ancestors from affecting children */
+}
+
+/* Solid background with fallback: use --card-bg if present, else --card */
 .ic-list {
-  background: var(--card-bg) !important;      /* fixes transparency */
+  background-color: var(--card-bg, var(--card)) !important;
   border: 1px solid var(--border) !important;
   box-shadow: var(--shadow-2) !important;
-  backdrop-filter: none !important;           /* ensure no glassiness */
+  backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  z-index: 50 !important;                     /* stay above cards/forms */
+  border-radius: 10px;
+  z-index: 9999 !important; /* float above inputs/cards */
 }
 
+/* Items inherit text color; draw a hairline between rows for clarity */
 .ic-item {
-  background: transparent;                    /* inherits text color */
   color: var(--text);
+  background: transparent;
 }
 
+.ic-item + .ic-item {
+  border-top: 1px solid var(--border);
+}
+
+/* Hover state should be clearly visible in both themes */
 .ic-item:hover {
-  background: var(--field-bg) !important;     /* clear hover in both themes */
+  background-color: var(--field-bg) !important;
 }
