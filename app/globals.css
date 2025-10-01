@@ -5,10 +5,10 @@
 
 /* Slight universal font-size bump */
 html {
-  font-size: 17px;
+  font-size: 18px;
 }
 @media (min-width: 1440px) {
-  html { font-size: 17.5px; }
+  html { font-size: 19px; }
 }
 
 /* ------------- Centered Class ------------- */
@@ -30,7 +30,7 @@ html {
 }
 
 .modal {
-  width: min(1040px, 100%); /* widened from 960px */
+  width: min(1120px, 100%); /* widened from 1040px */
   max-height: min(85vh, 1200px);
   overflow: hidden;
   background: var(--card);                 /* <- theme-aware */
@@ -146,7 +146,7 @@ body {
 
 /* ------------- Layout ------------- */
 .wrap {
-  max-width: 1280px; /* widened from 1100px */
+  max-width: 1360px; /* widened from 1280px */
   margin: 32px auto 64px;
   padding: 0 20px;
 }
