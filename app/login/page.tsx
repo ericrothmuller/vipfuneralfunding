@@ -20,7 +20,7 @@ export default async function LoginPage() {
           {/* Dark theme logo (gold) */}
           <img
             src="/VIP-Funeral-Funding-Logo-Gold.png"
-            alt="VIP Funeral Funding LLC Logo"
+            alt="VIP Funeral Funding LLC Gold Logo"
             className="brand-logo theme-logo-dark"
             width={220}
             height={60}
@@ -28,7 +28,7 @@ export default async function LoginPage() {
           {/* Light theme logo (black) */}
           <img
             src="/VIP-Funeral-Funding-Logo-Black.png"
-            alt="VIP Funeral Funding LLC Logo"
+            alt="VIP Funeral Funding LLC Black Logo"
             className="brand-logo theme-logo-light"
             width={220}
             height={60}
