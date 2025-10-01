@@ -78,6 +78,10 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [isAdmin, query]);
 
   async function onDelete(id: string) {
+    // NEW: confirmation prompt before delete
+    const confirmed = window.confirm("Delete this funding request? This cannot be undone.");
+    if (!confirmed) return;
+
     setMsg(null);
     try {
       const data = await fetchJSON(`/api/requests/${id}`, { method: "DELETE" });
@@ -234,7 +238,7 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
             setSelectedId(null);
           }}
           onUpdated={(updated) => {
-            // optimistic UI refresh for status/rep/amount in table
+            // optimistic UI refresh (status/rep/amount/name)
             setRows(prev => prev.map(r => r.id === updated.id ? {
               ...r,
               decName: [updated.decFirstName, updated.decLastName].filter(Boolean).join(" ") || r.decName,
