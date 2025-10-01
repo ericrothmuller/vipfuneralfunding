@@ -639,7 +639,7 @@ a:visited { color: var(--link-visited); }
 
 /* Typeahead dropdown (IC lists) — themed backgrounds */
 .ic-list {
-  background: var(--card-bg);
+  background: var(--modal-bg);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-2);
 }
