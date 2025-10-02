@@ -915,3 +915,55 @@ a:visited { color: var(--link-visited); }
 
 /* Space helpers reused here */
 .mt-8 { margin-top: 8px; }
+
+/* ===== ProfileForm — extracted styles & tiny utils ===== */
+.pf-form {
+  display: grid;
+  gap: 14px;
+  font-size: 18px;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.pf-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.pf-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Title styling for sections in ProfileForm */
+.pf-title {
+  color: var(--title-color, var(--title, var(--text)));
+  font-weight: 800;
+  margin: 0 0 12px 0;
+  font-size: 20px;
+}
+
+/* Read-only surface for FH/CEM name (non-input) */
+.ro {
+  background: var(--field-bg);
+  color: var(--text);
+  border: 1px solid var(--field-border, var(--border));
+  padding: 10px 12px;
+  border-radius: 0;
+}
+
+/* Disabled inputs feel inactive */
+input[disabled],
+textarea[disabled] {
+  opacity: 0.85;
+  cursor: not-allowed;
+}
+
+/* Tiny utilities used in this component */
+.mt-0 { margin-top: 0; }
+.mt-8 { margin-top: 8px; }
+.fs-18 { font-size: 18px; }
+.text-success { color: var(--success); }
+.text-danger  { color: var(--danger); }

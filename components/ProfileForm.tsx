@@ -104,39 +104,8 @@ export default function ProfileForm() {
 
   return (
     <form onSubmit={onSubmit} className="pf-form">
-      <style jsx>{`
-        .pf-form {
-          /* use global tokens */
-          --gold: var(--gold);
-          --title: var(--title);
-          --card-bg: var(--card-bg);
-          --border: var(--border);
-          --field: var(--field-bg);
-          --muted: var(--muted);
-
-          display: grid; gap: 14px; font-size: 18px; line-height: 1.45;
-          color: var(--text);
-        }
-        .pf-head { display:flex; align-items:center; justify-content:space-between; gap:10px; }
-        .pf-actions { display:flex; gap:8px; }
-        .pf-card { background: var(--card-bg); border:1px solid var(--border); border-radius:0; padding:14px; }
-        .pf-title { color: var(--title); font-weight:800; margin:0 0 12px 0; font-size:20px; }
-        label { display:grid; gap:6px; }
-        .muted { color: var(--muted); }
-
-        input, textarea, .ro {
-          width:100%; padding:10px 12px; border:1px solid var(--field-border); border-radius:0;
-          background: var(--field); color: var(--text);
-        }
-        input[disabled], textarea[disabled] { opacity:.85; cursor:not-allowed; }
-
-        .btn { border:1px solid var(--border); background: var(--btn-bg); color: var(--text); padding:10px 12px; border-radius:0; cursor:pointer; }
-        .btn-gold { background: var(--gold); border-color: var(--gold); color: var(--primary-contrast); }
-      `}</style>
-
-
       <div className="pf-head">
-        <h3 className="pf-title" style={{ margin: 0 }}>Your Business</h3>
+        <h3 className="pf-title mt-0">Your Business</h3>
         <div className="pf-actions">
           {!editing ? (
             <button type="button" className="btn btn-gold" onClick={() => setEditing(true)}>Edit Profile</button>
@@ -150,32 +119,53 @@ export default function ProfileForm() {
       </div>
 
       <div className="pf-card">
-        <h3 className="pf-title" style={{ fontSize: 18, marginTop: 0 }}>FH/CEM</h3>
+        <h3 className="pf-title fs-18 mt-0">FH/CEM</h3>
         <label>FH/CEM Name (read-only)
           <div className="ro" aria-readonly>{profile.fhCemName || "Not connected"}</div>
         </label>
         {!hasFHCem && (
-          <button type="button" className="btn" onClick={onConnectFHCem} style={{ marginTop: 8 }}>
+          <button type="button" className="btn mt-8" onClick={onConnectFHCem}>
             Connect my Account to FH/CEM
           </button>
         )}
       </div>
 
       <div className="pf-card">
-        <h3 className="pf-title" style={{ fontSize: 18, marginTop: 0 }}>Primary Contact</h3>
+        <h3 className="pf-title fs-18 mt-0">Primary Contact</h3>
         <label>Contact Name
-          <input type="text" value={profile.contactName} onChange={(e) => set("contactName", e.target.value)} readOnly={!editing} disabled={ro} />
+          <input
+            type="text"
+            value={profile.contactName}
+            onChange={(e) => set("contactName", e.target.value)}
+            readOnly={!editing}
+            disabled={ro}
+          />
         </label>
         <label>Contact Phone
-          <input type="tel" value={profile.contactPhone} onChange={(e) => set("contactPhone", e.target.value)} readOnly={!editing} disabled={ro} />
+          <input
+            type="tel"
+            value={profile.contactPhone}
+            onChange={(e) => set("contactPhone", e.target.value)}
+            readOnly={!editing}
+            disabled={ro}
+          />
         </label>
         <label>Contact Email
-          <input type="email" value={profile.contactEmail} onChange={(e) => set("contactEmail", e.target.value)} readOnly={!editing} disabled={ro} />
+          <input
+            type="email"
+            value={profile.contactEmail}
+            onChange={(e) => set("contactEmail", e.target.value)}
+            readOnly={!editing}
+            disabled={ro}
+          />
         </label>
       </div>
 
       {msg && (
-        <p role="alert" style={{ color: msg === "Saved." ? "var(--success)" : "var(--danger)", marginTop: 8 }}>
+        <p
+          role="alert"
+          className={`mt-8 ${msg === "Saved." ? "text-success" : "text-danger"}`}
+        >
           {msg}
         </p>
       )}
