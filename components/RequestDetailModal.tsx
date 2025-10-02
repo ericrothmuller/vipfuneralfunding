@@ -601,10 +601,10 @@ export default function RequestDetailModal({
 
   return (
     <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="request-modal-title">
-      <div className="modal" style={{ maxWidth: "min(980px, 96vw)" }}>
+      <div className="modal modal-wide">
         <div className="modal-header">
           <h3 id="request-modal-title">Funding Request {editing ? "— Edit" : "Details"}</h3>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div className="row-inline">
             {!editing && canEdit && (
               <button className="btn btn-gold" onClick={() => setEditing(true)}>Edit</button>
             )}
@@ -633,7 +633,7 @@ export default function RequestDetailModal({
           {data && !loading && !msg && !editing && (
             <div className="detail-grid">
               {/* FH/CEM full row */}
-              <section style={{ gridColumn: "1 / -1" }}>
+              <section className="span-all">
                 <h4>Funeral Home / Cemetery</h4>
                 <div className="kv"><span>FH/CEM Name</span><strong>{data.fhName || "—"}</strong></div>
                 <div className="kv"><span>FH/CEM REP</span><strong>{data.fhRep || "—"}</strong></div>
@@ -699,8 +699,8 @@ export default function RequestDetailModal({
                 </section>
               )}
 
-              {/* Policies (policy cards colors fixed to match sections) */}
-              <section style={{ gridColumn: "1 / -1" }}>
+              {/* Policies */}
+              <section className="span-all">
                 <h4>Policies</h4>
                 {viewPolicies.length ? (
                   <div className="policies">
@@ -711,8 +711,8 @@ export default function RequestDetailModal({
                           <div className="kv"><span>Policy Number</span><strong>{row.policyNumber || "—"}</strong></div>
                           <div className="kv"><span>Face Amount</span><strong>{row.faceAmount || "—"}</strong></div>
                         </div>
-                        <div style={{ marginTop: 8 }}>
-                          <span style={{ display: "block", marginBottom: 6 }}>Beneficiaries</span>
+                        <div className="mt-8">
+                          <span className="block mb-6">Beneficiaries</span>
                           {row.beneficiaries.length ? (
                             <div className="bene-list">
                               {row.beneficiaries.filter(b => (b.name || "").trim()).map((b, i) => (
@@ -733,7 +733,7 @@ export default function RequestDetailModal({
               </section>
 
               {/* Financials full row */}
-              <section style={{ gridColumn: "1 / -1" }}>
+              <section className="span-all">
                 <h4>Financials</h4>
                 <div className="kv"><span>Total Service Amount</span><strong>{data.totalServiceAmount || "—"}</strong></div>
                 <div className="kv"><span>Family Advancement Amount</span><strong>{data.familyAdvancementAmount || "—"}</strong></div>
@@ -742,19 +742,19 @@ export default function RequestDetailModal({
               </section>
 
               {/* Additional Notes full row */}
-              <section style={{ gridColumn: "1 / -1" }}>
+              <section className="span-all">
                 <h4>Additional Notes</h4>
                 <div className="kv"><span>Notes</span>
-                  <div style={{ whiteSpace: "pre-wrap" }}><strong>{data.notes || "—"}</strong></div>
+                  <div className="prewrap"><strong>{data.notes || "—"}</strong></div>
                 </div>
               </section>
 
               {/* Attachments full row */}
-              <section style={{ gridColumn: "1 / -1" }}>
+              <section className="span-all">
                 <h4>Attachments</h4>
                 <div className="kv"><span>Assignment Files</span>
                   {data.assignmentUploadPaths?.length ? (
-                    <div style={{ display: "grid", gap: 6, marginTop: 6 }}>
+                    <div className="list mt-6">
                       {data.assignmentUploadPaths.map((_, idx) => (
                         <a key={idx} className="btn" href={`/api/requests/${id}/assignment?i=${idx}`} target="_blank" rel="noopener">
                           Download Assignment #{idx + 1}
@@ -768,9 +768,9 @@ export default function RequestDetailModal({
                   ) : <em>None</em>}
                 </div>
 
-                <div className="kv" style={{ marginTop: 8 }}><span>Other Documents</span>
+                <div className="kv mt-8"><span>Other Documents</span>
                   {Array.isArray(data.otherUploadPaths) && data.otherUploadPaths.length ? (
-                    <div style={{ display: "grid", gap: 6, marginTop: 6 }}>
+                    <div className="list mt-6">
                       {data.otherUploadPaths.map((_, idx) => (
                         <a key={idx} className="btn" href={`/api/requests/${id}/other-docs/${idx}`} target="_blank" rel="noopener">
                           Download Document #{idx + 1}
@@ -787,7 +787,7 @@ export default function RequestDetailModal({
           {data && !loading && !msg && editing && (
             <form onSubmit={onSave} className="edit-grid">
               {/* FH/CEM full row */}
-              <section style={{ gridColumn: "1 / -1" }}>
+              <section className="span-all">
                 <h4>Funeral Home / Cemetery</h4>
                 <label>FH/CEM Name (read-only)
                   <input type="text" value={data.fhName || ""} readOnly />
@@ -895,10 +895,10 @@ export default function RequestDetailModal({
               </section>
 
               {/* Insurance (IC editable + employer question & fields) */}
-              <section style={{ gridColumn: "1 / -1" }}>
+              <section className="span-all">
                 <h4>Insurance</h4>
                 {/* Editable IC like form */}
-                <div className="ic-box" ref={icBoxRef} style={{ marginTop: 6 }}>
+                <div className="ic-box mt-6" ref={icBoxRef}>
                   <label>Insurance Company (type to search)
                     <input
                       type="text"
@@ -925,7 +925,7 @@ export default function RequestDetailModal({
                   )}
                 </div>
 
-                <label style={{ marginTop: 8 }}>Is the insurance through the deceased&apos;s employer?
+                <label className="mt-8">Is the insurance through the deceased&apos;s employer?
                   <select value={isEmployerInsurance} onChange={(e)=>setIsEmployerInsurance(e.currentTarget.value as "" | "Yes" | "No")}>
                     <option value="">— Select —</option>
                     <option value="No">No</option>
@@ -934,7 +934,7 @@ export default function RequestDetailModal({
                 </label>
 
                 {isEmployerInsurance === "Yes" && (
-                  <div className="nested" style={{ marginTop: 8 }}>
+                  <div className="nested mt-8">
                     <div className="grid2">
                       <label>Relation
                         <select value={employerRelation} onChange={(e)=>setEmployerRelation(e.currentTarget.value as "" | "Employee" | "Dependent")}>
@@ -952,7 +952,7 @@ export default function RequestDetailModal({
                         </select>
                       </label>
                     </div>
-                    <div className="grid2" style={{ marginTop: 8 }}>
+                    <div className="grid2 mt-8">
                       <label>Employer Contact Name
                         <input type="text" value={employerContact} onChange={(e)=>setEmployerContact(e.target.value)} />
                       </label>
@@ -960,7 +960,7 @@ export default function RequestDetailModal({
                         <input type="tel" value={employerPhone} onChange={(e)=>setEmployerPhone(formatPhone(e.target.value))} placeholder="(555) 555-5555" />
                       </label>
                     </div>
-                    <div className="grid2" style={{ marginTop: 8 }}>
+                    <div className="grid2 mt-8">
                       <label>Employer Email
                         <input type="email" value={employerEmail} onChange={(e)=>setEmployerEmail(e.target.value)} placeholder="name@example.com" />
                       </label>
@@ -969,8 +969,8 @@ export default function RequestDetailModal({
                 )}
               </section>
 
-              {/* Policies (same colors as other sections) */}
-              <section style={{ gridColumn: "1 / -1" }}>
+              {/* Policies */}
+              <section className="span-all">
                 <h4>Policies</h4>
                 <div className="policies">
                   {editPolicies.map((p, i) => {
@@ -996,8 +996,8 @@ export default function RequestDetailModal({
                           </label>
                         </div>
 
-                        <div style={{ marginTop: 8 }}>
-                          <div style={{ fontWeight: 600, marginBottom: 6 }}>Beneficiaries</div>
+                        <div className="mt-8">
+                          <div className="mb-6" style={{ fontWeight: 600 }}>Beneficiaries</div>
                           {beneForPolicy.length ? (
                             <div className="bene-list">
                               {beneForPolicy.map((ben, bIdx) => (
@@ -1018,7 +1018,7 @@ export default function RequestDetailModal({
               </section>
 
               {/* Financials full row */}
-              <section style={{ gridColumn: "1 / -1" }}>
+              <section className="span-all">
                 <h4>Financials</h4>
                 <div className="grid3">
                   <label>Total Service Amount
@@ -1037,7 +1037,7 @@ export default function RequestDetailModal({
               </section>
 
               {/* Attachments (now ABOVE the upload sections) */}
-              <section style={{ gridColumn: "1 / -1" }}>
+              <section className="span-all">
                 <h4>Attachments</h4>
 
                 <div className="list">
@@ -1061,7 +1061,7 @@ export default function RequestDetailModal({
                   ) : <em>None</em>}
                 </div>
 
-                <div className="list" style={{ marginTop: 8 }}>
+                <div className="list mt-8">
                   <div className="kv"><span>Other Documents</span></div>
                   {Array.isArray(data.otherUploadPaths) && data.otherUploadPaths.length ? (
                     <div className="list">
@@ -1092,7 +1092,7 @@ export default function RequestDetailModal({
                     if (space > 0 && incoming.length) setAssignAdds(prev => [...prev, ...incoming.slice(0, space)]);
                     (e.currentTarget as HTMLInputElement).value = "";
                   }}
-                  style={{ display: "none" }}
+                  className="hidden"
                 />
                 <div
                   className={`dz ${assignOver ? "over" : ""}`}
@@ -1112,7 +1112,7 @@ export default function RequestDetailModal({
                 >
                   <div>
                     <strong>Drag & drop the assignment file(s) here</strong>
-                    <div style={{ marginTop: 6 }}>
+                    <div className="mt-6">
                       <button type="button" className="btn-link" onClick={(e)=>{ e.stopPropagation(); assignInputRef.current?.click(); }}>
                         Browse files
                       </button>
@@ -1148,7 +1148,7 @@ export default function RequestDetailModal({
                     if (space > 0 && incoming.length) setOtherAdds(prev => [...prev, ...incoming.slice(0, space)]);
                     (e.currentTarget as HTMLInputElement).value = "";
                   }}
-                  style={{ display: "none" }}
+                  className="hidden"
                 />
                 <div
                   className={`dz ${otherOver ? "over" : ""}`}
@@ -1169,7 +1169,7 @@ export default function RequestDetailModal({
                 >
                   <div>
                     <strong>Drag & drop documents here</strong>
-                    <div style={{ marginTop: 6 }}>
+                    <div className="mt-6">
                       <button type="button" className="btn-link" onClick={(e)=>{ e.stopPropagation(); otherInputRef.current?.click(); }}>
                         Browse files
                       </button>
@@ -1190,7 +1190,7 @@ export default function RequestDetailModal({
                 )}
               </section>
 
-              <div className="form-actions" style={{ gridColumn: "1 / -1" }}>
+              <div className="form-actions span-all">
                 <button className="btn" type="button" onClick={() => { setEditing(false); setAssignAdds([]); setOtherAdds([]); }}>Cancel</button>
                 <button className="btn btn-gold" type="submit" disabled={saving}>{saving ? "Saving…" : "Save Changes"}</button>
               </div>
@@ -1208,13 +1208,13 @@ export default function RequestDetailModal({
       {/* Beneficiary view modal */}
       {beneOpen && beneSelected && (
         <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="bene-title">
-          <div className="modal" style={{ maxWidth: "min(760px, 94vw)" }}>
+          <div className="modal modal-narrow">
             <div className="modal-header">
               <h3 id="bene-title">Beneficiary Info</h3>
               <button className="btn btn-ghost modal-close" onClick={() => setBeneOpen(false)} aria-label="Close">✕</button>
             </div>
             <div className="modal-body">
-              <div className="detail-grid" style={{ gridTemplateColumns: "1fr" }}>
+              <div className="detail-grid one-col">
                 <section>
                   <h4>Basic</h4>
                   <div className="kv"><span>Name</span><strong>{beneSelected.name || "—"}</strong></div>
@@ -1246,13 +1246,13 @@ export default function RequestDetailModal({
       {/* Beneficiary edit modal */}
       {beneEditOpen && beneEditRef && (
         <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="bene-edit-title">
-          <div className="modal" style={{ maxWidth: "min(760px, 94vw)" }}>
+          <div className="modal modal-narrow">
             <div className="modal-header">
               <h3 id="bene-edit-title" className="modal-title">Edit Beneficiary</h3>
               <button className="btn btn-ghost modal-close" onClick={() => setBeneEditOpen(false)} aria-label="Close">✕</button>
             </div>
             <div className="modal-body">
-              <div className="detail-grid" style={{ gridTemplateColumns: "1fr" }}>
+              <div className="detail-grid one-col">
                 <section>
                   <h4>Basic</h4>
                   <label>Name
@@ -1309,64 +1309,6 @@ export default function RequestDetailModal({
           </div>
         </div>
       )}
-
-      {/* Styles */}
-      <style jsx>{`
-  .detail-grid, .edit-grid { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(260px, 1fr)); }
-  @media (max-width: 900px) { .detail-grid, .edit-grid { grid-template-columns: 1fr; } }
-
-  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: grid; place-items: center; z-index: 50; }
-  .modal { background: var(--modal-bg); border: 1px solid var(--border); width: min(980px, 96vw); max-height: 92vh; overflow: auto; }
-  .modal-header { display:flex; align-items:center; justify-content:space-between; padding: 12px; border-bottom: 1px solid var(--border); }
-  .modal-body { padding: 12px; }
-  .modal-footer { padding: 12px; border-top: 1px solid var(--border); display:flex; justify-content:flex-end; gap:8px; }
-
-  section { border: 1px solid var(--border); padding: 12px; background: var(--card-bg); }
-  h4 { margin: 0 0 8px; color: var(--title); font-weight: 800; }
-  .error { color: var(--danger); }
-  .muted { color: var(--muted); }
-
-  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-  label { display: grid; gap: 4px; }
-
-  input, select, textarea, .ro {
-    width: 100%;
-    padding: 8px 10px;
-    border: 1px solid var(--field-border);
-    background: var(--field-bg);
-    color: var(--text);
-  }
-  .readonly { background: rgba(255,255,255,.08); }
-  .dz { border: 1px dashed var(--border); background: var(--field-bg); padding: 14px; display: grid; place-items: center; text-align: center; cursor: pointer; }
-  .dz.over { outline: 2px dashed var(--gold); outline-offset: 2px; }
-
-  .btn { border: 1px solid var(--border); background: var(--btn-bg); color: var(--text); padding: 8px 10px; cursor: pointer; }
-  .btn-gold { background: var(--gold); border-color: var(--gold); color: var(--primary-contrast); }
-  .btn-link { background: var(--btn-bg); border: 1px solid var(--border); color: var(--text); padding: 6px 10px; cursor: pointer; }
-
-  .file-list { display: grid; gap: 6px; margin-top: 8px; }
-  .file-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .bene-list { display: grid; gap: 8px; margin-top: 6px; }
-  .bene-row { display:flex; align-items:center; justify-content:space-between; gap:8px; border: 1px solid var(--border); padding: 6px 8px; }
-  .bene-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-  /* Policies styled like sections for parity */
-  .policies { display: grid; grid-template-columns: 1fr; gap: 12px; }
-  .policy-card { border: 1px solid var(--border); background: var(--card-bg); padding: 10px; width: 100%; }
-  .policy-head { display: flex; align-items: center; justify-content: space-between; }
-  .policy-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  @media (max-width: 700px) { .policy-grid { grid-template-columns: 1fr; } }
-
-  /* Key-value spacing (label/value) */
-  .kv > span { margin-right: 6px; display: inline-block; }
-  .nested { border: 1px dashed var(--border); padding: 10px; margin-top: 6px; }
-
-  /* IC dropdown container */
-  .ic-box { position: relative; }
-  .ic-list { position:absolute; z-index:30; top:calc(100% + 4px); left:0; right:0; background: var(--card-bg); border:1px solid var(--border); max-height:240px; overflow:auto; }
-  .ic-item { padding: 8px 10px; cursor: pointer; }
-`}</style>
     </div>
   );
 }

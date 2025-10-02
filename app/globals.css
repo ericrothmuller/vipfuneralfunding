@@ -967,3 +967,92 @@ textarea[disabled] {
 .fs-18 { font-size: 18px; }
 .text-success { color: var(--success); }
 .text-danger  { color: var(--danger); }
+
+/* ===== RequestDetailModal — extracted styles & utilities ===== */
+
+/* Layout grids */
+.detail-grid,
+.edit-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+}
+@media (max-width: 900px) {
+  .detail-grid,
+  .edit-grid { grid-template-columns: 1fr; }
+}
+
+/* Span full width across grid columns */
+.span-all { grid-column: 1 / -1; }
+
+/* Head row action buttons */
+.header-actions { display: flex; gap: 8px; align-items: center; }
+
+/* Section cards (reuse global card palette) */
+section.section-card {
+  border: 1px solid var(--border);
+  padding: 12px;
+  background: var(--card-bg);
+  border-radius: 12px;
+}
+.section-card h4 {
+  margin: 0 0 8px;
+  color: var(--title-color, var(--title, var(--text)));
+  font-weight: 800;
+}
+
+/* Key–value rows inside sections
+   (Works with existing .detail-grid section > div styles too) */
+.section-card .kv > span {
+  margin-right: 6px;
+  display: inline-block;
+}
+
+/* Utility lists/rows */
+.list { display: grid; gap: 8px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+@media (max-width: 700px) { .policy-grid { grid-template-columns: 1fr; } }
+
+/* Policies */
+.policies { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.policy-card {
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  padding: 10px;
+  border-radius: 10px;
+}
+.policy-head { display: flex; align-items: center; justify-content: space-between; }
+.policy-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* Beneficiaries list */
+.bene-list { display: grid; gap: 8px; margin-top: 6px; }
+.bene-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; border: 1px solid var(--border); padding: 6px 8px; border-radius: 8px;
+}
+.bene-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Nested sub-card (employer) */
+.nested { border: 1px dashed var(--border); padding: 10px; margin-top: 6px; border-radius: 8px; }
+
+/* Readonly input look */
+.readonly { background: rgba(255,255,255,.08); }
+
+/* Common helpers */
+.mt-6 { margin-top: 6px; }
+.mt-8 { margin-top: 8px; }
+.pre-wrap { white-space: pre-wrap; }
+.hidden { display: none !important; }
+
+/* Modal width variants */
+.modal-w-980 { width: min(980px, 96vw); }
+.modal-w-760 { width: min(760px, 94vw); }
+
+/* Header button row (right side) */
+.modal .header-actions { display: flex; gap: 8px; align-items: center; }
+
+/* File items (use existing .file-list / .file-row from earlier work) */
+
+/* Insurance company typeahead — already themed globally; ensure spacing here */
+.ic-box.mt-6 { margin-top: 6px; }
