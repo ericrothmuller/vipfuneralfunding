@@ -78,7 +78,6 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [isAdmin, query]);
 
   async function onDelete(id: string) {
-    // NEW: confirmation prompt before delete
     const confirmed = window.confirm("Delete this funding request? This cannot be undone.");
     if (!confirmed) return;
 
@@ -108,10 +107,11 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
 
   return (
     <>
-      {/* Filters (always mounted so the cursor doesn't lose focus) */}
-      <div className="card" style={{ padding: 12, marginBottom: 12 }}>
-        <h3 className="panel-title" style={{ marginBottom: 8 }}>Filters</h3>
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(220px, 1fr) 180px 180px 180px auto", gap: 8 }}>
+      {/* Filters */}
+      <div className="card p-12 mb-12">
+        <h3 className="panel-title mb-8">Filters</h3>
+
+        <div className="filters-grid">
           <label>
             Search
             <input
@@ -142,7 +142,7 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
             <input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
           </label>
 
-          <div style={{ display: "flex", alignItems: "end", gap: 8 }}>
+          <div className="row-inline items-end">
             <button className="btn" onClick={load}>Apply</button>
             <button
               className="btn btn-ghost"
@@ -154,12 +154,12 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
         </div>
       </div>
 
-      <div className="panel-row" style={{ marginBottom: 8 }}>
+      <div className="panel-row mb-8">
         <div className="muted">{rows.length} result{rows.length === 1 ? "" : "s"}</div>
         {loadingRows && <div className="muted">Loading…</div>}
       </div>
 
-      {msg && <p className="error" style={{ marginBottom: 8 }}>{msg}</p>}
+      {msg && <p className="error mb-8">{msg}</p>}
 
       <div className="table-wrap">
         <table className="table">
@@ -202,21 +202,23 @@ export default function RequestsTable({ isAdmin = false }: { isAdmin?: boolean }
                     )}
                   </td>
                   {isAdmin && <td>{r.ownerEmail || ""}</td>}
-                  <td style={{ whiteSpace: "nowrap", display: "flex", gap: 8 }}>
-                    <button className="btn btn-ghost" onClick={() => setSelectedId(r.id)}>View</button>
-                    {isAdmin && (
-                      <a className="btn" href={`/requests/${r.id}/verification`}>Verification</a>
-                    )}
-                    {showDelete && (
-                      <button className="btn" onClick={() => onDelete(r.id)}>Delete</button>
-                    )}
+                  <td className="nowrap">
+                    <div className="row-inline">
+                      <button className="btn btn-ghost" onClick={() => setSelectedId(r.id)}>View</button>
+                      {isAdmin && (
+                        <a className="btn" href={`/requests/${r.id}/verification`}>Verification</a>
+                      )}
+                      {showDelete && (
+                        <button className="btn" onClick={() => onDelete(r.id)}>Delete</button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );
             })}
             {rows.length === 0 && !loadingRows && (
               <tr>
-                <td colSpan={isAdmin ? 9 : 8} className="muted" style={{ padding: 16 }}>
+                <td colSpan={isAdmin ? 9 : 8} className="muted p-16">
                   No funding requests match your filters.
                 </td>
               </tr>

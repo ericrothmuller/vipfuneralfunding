@@ -1056,3 +1056,117 @@ section.section-card {
 
 /* Insurance company typeahead — already themed globally; ensure spacing here */
 .ic-box.mt-6 { margin-top: 6px; }
+
+/* ===== RequestDetailModal — utilities & component styles ===== */
+
+/* Grid containers */
+.detail-grid,
+.edit-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+}
+@media (max-width: 900px) {
+  .detail-grid,
+  .edit-grid { grid-template-columns: 1fr; }
+}
+
+/* Span full width within grid */
+.span-all { grid-column: 1 / -1; }
+
+/* Simple grids used inside sections */
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+@media (max-width: 700px) { .grid3 { grid-template-columns: 1fr; } }
+
+/* KV rows (label/value) */
+.kv > span { margin-right: 6px; display: inline-block; }
+
+/* Section shell (aligns with your themed sections) */
+.detail-grid section,
+.edit-grid section {
+  border: 1px solid var(--border);
+  padding: 12px;
+  background: var(--card-bg);
+}
+.detail-grid h4,
+.edit-grid h4 {
+  margin: 0 0 8px;
+  color: var(--title-color, var(--title, var(--text)));
+  font-weight: 800;
+}
+
+/* Readonly inputs */
+.readonly { background: rgba(255,255,255,.08); }
+
+/* Nested dashed block (employer details) */
+.nested {
+  border: 1px dashed var(--border);
+  padding: 10px;
+  margin-top: 6px;
+}
+
+/* Lists, files, beneficiaries */
+.list { display: grid; gap: 8px; }
+.file-list { display: grid; gap: 6px; margin-top: 8px; }
+.file-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.bene-list { display: grid; gap: 8px; margin-top: 6px; }
+.bene-row { display:flex; align-items:center; justify-content:space-between; gap:8px; border: 1px solid var(--border); padding: 6px 8px; }
+.bene-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Policies */
+.policies { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.policy-card { border: 1px solid var(--border); background: var(--card-bg); padding: 10px; width: 100%; }
+.policy-head { display: flex; align-items: center; justify-content: space-between; }
+.policy-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+@media (max-width: 700px) { .policy-grid { grid-template-columns: 1fr; } }
+
+/* Dropzones (re-use from other components; included for completeness) */
+.dz { border: 1px dashed var(--border); background: var(--field-bg); padding: 14px; display: grid; place-items: center; text-align: center; cursor: pointer; }
+.dz.over { outline: 2px dashed var(--gold); outline-offset: 2px; }
+
+/* Modal width variants */
+.modal-wide   { width: min(980px, 96vw); }
+.modal-narrow { width: min(760px, 94vw); }
+
+/* One-column override for grid blocks inside modals */
+.one-col { grid-template-columns: 1fr !important; }
+
+/* Spacing utilities */
+.mt-6 { margin-top: 6px; }
+.mt-8 { margin-top: 8px; }
+.mb-6 { margin-bottom: 6px; }
+.block { display: block; }
+.nowrap { white-space: nowrap; }
+
+/* Preformatted wrap for notes text */
+.prewrap { white-space: pre-wrap; }
+
+/* Inline row */
+.row-inline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+/* ===== RequestsTable — small utilities ===== */
+.p-12 { padding: 12px; }
+.p-16 { padding: 16px; }
+.mb-8 { margin-bottom: 8px; }
+/* (.mb-12 already exists from earlier components) */
+
+.flex { display: flex; }
+.items-end { align-items: flex-end; }
+
+/* Filters grid layout */
+.filters-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 180px 180px 180px auto;
+  gap: 8px;
+}
+@media (max-width: 980px) {
+  .filters-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 560px) {
+  .filters-grid {
+    grid-template-columns: 1fr;
+  }
+}
