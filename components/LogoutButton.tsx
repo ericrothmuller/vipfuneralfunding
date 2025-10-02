@@ -11,10 +11,7 @@ export default function LogoutButton() {
   }
 
   return (
-    <button
-      onClick={handleLogout}
-      style={{ padding: 10 }}
-    >
+    <button className="btn" onClick={handleLogout}>
       Log out
     </button>
   );
