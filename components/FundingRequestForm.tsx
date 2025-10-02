@@ -762,74 +762,6 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
   /** ------------------- Render ------------------- */
   return (
     <form onSubmit={onSubmit} className="fr-form">
-      <style jsx>{`
-        .fr-form {
-          /* Pull from global tokens */
-          --gold: var(--gold);
-          --title-color: var(--title-color);
-          --card-bg: var(--card-bg);
-          --border: var(--border);
-          --field-bg: var(--field-bg);
-          --muted: var(--muted);
-
-          font-size:18px; line-height:1.45; display:grid; gap:16px;
-          color: var(--text);
-        }
-
-        .fr-card { background: var(--card-bg); border:1px solid var(--border); border-radius:0; padding:14px; }
-        .fr-legend { position:absolute !important; height:1px; width:1px; overflow:hidden; clip:rect(1px,1px,1px,1px); white-space:nowrap; }
-        .fr-section-title { color: var(--title-color); font-weight:800; margin:0 0 12px 0; font-size:20px; }
-        .fr-readonly { background: rgba(255,255,255,.05); color:inherit; opacity:.9; cursor:not-allowed; }
-
-        .fr-grid-2 { display:grid; gap:10px; grid-template-columns:1fr 1fr; }
-        .fr-grid-3 { display:grid; gap:10px; grid-template-columns:repeat(3, minmax(220px, 1fr)); }
-        .fr-grid-3-tight { display:grid; gap:8px; grid-template-columns:repeat(3, minmax(220px, 1fr)); }
-
-        .fr-inline-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-        .fr-del { background:transparent; border:1px solid var(--border); border-radius:0; padding:6px 10px; cursor:pointer; color:var(--text); opacity:.85; }
-        .fr-del:hover { background:rgba(255,255,255,.06); border-color:rgba(255,255,255,.25); }
-
-        .fr-muted { color: var(--muted); font-size:.95em; }
-        .fr-gold { background: var(--gold); border:1px solid var(--gold); color: var(--primary-contrast); padding:10px 14px; border-radius:0; cursor:pointer; }
-        .fr-submit { border:1px solid var(--border); }
-
-        input[type="text"], input[type="email"], input[type="tel"], input[type="date"], input[type="file"], select, textarea {
-          width:100%; padding:10px 12px; border:1px solid var(--field-border); border-radius:0; background: var(--field-bg); color: var(--text);
-        }
-
-        @media (max-width:900px) { .fr-grid-2, .fr-grid-3, .fr-grid-3-tight { grid-template-columns:1fr; } .fr-form { font-size:17px; } }
-        @media (max-width:600px) { .fr-form { font-size:16px; } }
-
-        .ic-box { position: relative; }
-        .ic-list { position:absolute; z-index:30; top:calc(100% + 4px); left:0; right:0; background:var(--card-bg); border:1px solid var(--border); border-radius:0; max-height:240px; overflow:auto; }
-        .ic-item { padding:8px 10px; cursor:pointer; }
-        .ic-item:hover { background:rgba(255,255,255,.06); }
-
-        .pb { border:1px dashed var(--border); padding:10px; margin-top:8px; }
-        .pb-head { display:flex; justify-content:space-between; align-items:center; gap:8px; }
-
-        /* Dropzones */
-        .dz { border:1px dashed var(--border); background:var(--field-bg); padding:14px; display:grid; place-items:center; text-align:center; cursor:pointer; }
-        .dz.over { outline: 2px dashed var(--gold); outline-offset: 2px; }
-        .dz small { color: var(--muted); }
-
-        .file-list { display:grid; gap:6px; margin-top:8px; }
-        .file-row { display:flex; align-items:center; justify-content:space-between; gap:8px; }
-        .file-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-        .btn-link { background:transparent; border:1px solid var(--border); padding:4px 8px; cursor:pointer; color: var(--text); }
-
-        .btn-ghost, .btn.btn-ghost {
-          border:1px solid var(--border);
-          background: var(--btn-bg);
-          color: inherit;
-          border-radius:0;
-          padding:8px 10px;
-          cursor:pointer;
-          text-decoration:none;
-          display:inline-block;
-        }
-      `}</style>
-
       {/* FH / CEM */}
       <fieldset className="fr-card">
         <legend className="fr-legend">Funeral Home / Cemetery</legend>
@@ -978,7 +910,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         <h3 className="fr-section-title">Insurance</h3>
 
         {/* Insurance Company FIRST */}
-        <div className="ic-box" ref={icBoxRef} style={{ marginTop: 8 }}>
+        <div className="ic-box mt-8" ref={icBoxRef}>
           <label>Insurance Company (type to search)
             <input
               type="text"
@@ -1017,13 +949,13 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         </div>
 
         {!!selectedIC?.verificationTime && (
-          <p className="fr-muted" style={{ marginTop: 6 }}>
+          <p className="fr-muted mt-6">
             <strong>Estimated Verification Time:</strong> {selectedIC.verificationTime}
           </p>
         )}
 
         {/* Employer question */}
-        <label style={{ marginTop: 8 }}>Is the insurance through the deceased&apos;s employer?
+        <label className="mt-8">Is the insurance through the deceased&apos;s employer?
           <select
             name="employerInsuranceSelect"
             required
@@ -1038,7 +970,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
 
         {/* Employer fields shown only if Yes */}
         {isEmployerInsurance === "Yes" && (
-          <div className="fr-card" style={{ marginTop: 8, background: "var(--field-bg)" }}>
+          <div className="fr-card fr-subcard mt-8">
             <div className="fr-grid-2">
               <label>Relation
                 <select
@@ -1064,7 +996,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                 </select>
               </label>
             </div>
-            <div className="fr-grid-2" style={{ marginTop: 8 }}>
+            <div className="fr-grid-2 mt-8">
               <label>Employer Contact Name
                 <input
                   name="employerContact"
@@ -1086,7 +1018,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                 />
               </label>
             </div>
-            <div className="fr-grid-2" style={{ marginTop: 8 }}>
+            <div className="fr-grid-2 mt-8">
               <label>Employer Email
                 <input
                   name="employerEmail"
@@ -1101,7 +1033,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         )}
 
         {/* Policies */}
-        <div style={{ marginTop: 8 }}>
+        <div className="mt-8">
           {bundles.map((b, i) => {
             const nonEmptyCount = b.beneficiaries.filter(n => !!n && !!n.trim()).length;
             const addLabel = nonEmptyCount ? "+ Add Another Beneficiary" : "+ Add Beneficiary";
@@ -1139,14 +1071,14 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                 </label>
 
                 {/* Beneficiary section */}
-                <div style={{ marginTop: 8 }}>
+                <div className="mt-8">
                   <label>{beneHeader}</label>
 
                   {b.beneficiaries.map((val, j) => {
                     const trimmed = (val || "").trim();
                     if (!trimmed) return null;
                     return (
-                      <div key={j} className="fr-inline-actions" style={{ marginTop: 8 }}>
+                      <div key={j} className="fr-inline-actions mt-8">
                         <div style={{ fontWeight: 600 }}>{trimmed}</div>
                         <button type="button" className="btn btn-ghost" onClick={() => openViewBeneficiary(i, j)}>
                           View Info
@@ -1158,7 +1090,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                     );
                   })}
 
-                  <div className="fr-inline-actions" style={{ marginTop: 8 }}>
+                  <div className="fr-inline-actions mt-8">
                     <button type="button" className="btn btn-ghost" onClick={() => handleAddNew(i)}>
                       {addLabel}
                     </button>
@@ -1171,7 +1103,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
                 </div>
 
                 {/* Face Amount */}
-                <label style={{ marginTop: 8 }}>Face Amount
+                <label className="mt-8">Face Amount
                   <input
                     type="text"
                     inputMode="decimal"
@@ -1184,7 +1116,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
 
                 {/* Add Policy button */}
                 {i === bundles.length - 1 && (
-                  <button type="button" className="btn btn-ghost" onClick={addPolicyBundle} style={{ marginTop: 8 }}>
+                  <button type="button" className="btn btn-ghost mt-8" onClick={addPolicyBundle}>
                     + Add Policy Number
                   </button>
                 )}
@@ -1228,7 +1160,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
             />
           </label>
         </div>
-        <p className="fr-muted" style={{ marginTop: 6 }}>
+        <p className="fr-muted mt-6">
           VIP fee is calculated as 3% of (Service + Advancement), with a minimum of $100.<br />
           Total Assignment = Service + Advancement + VIP.
         </p>
@@ -1238,10 +1170,10 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
       <fieldset className="fr-card">
         <legend className="fr-legend">Download Assignment</legend>
         <h3 className="fr-section-title">Download Assignment</h3>
-        <p className="fr-muted" style={{ marginBottom: 10 }}>
+        <p className="fr-muted mb-10">
           Download and print the assignment, complete all required fields in their entirety, obtain the signatures of all necessary parties, and ensure the document is properly notarized.
         </p>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div className="row-inline">
           <a href={"/Funding%20Request%20Assignment.pdf"} download className="btn btn-ghost" aria-label="Download blank assignment PDF">Download Blank</a>
           <button type="button" className="btn btn-ghost" onClick={downloadFilledAssignment} aria-label="Download filled assignment PDF">Download Filled</button>
         </div>
@@ -1263,7 +1195,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
             addAssignmentFiles(incoming);
             (e.currentTarget as HTMLInputElement).value = "";
           }}
-          style={{ display: "none" }}
+          className="hidden"
         />
 
         <div
@@ -1284,7 +1216,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         >
           <div>
             <strong>Drag & drop the assignment file(s) here</strong>
-            <div style={{ marginTop: 6 }}>
+            <div className="mt-6">
               {/* stop bubbling so parent doesn't re-open the picker */}
               <button
                 type="button"
@@ -1332,7 +1264,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
             setOtherFiles(prev => [...prev, ...incoming.slice(0, space)]);
             (e.currentTarget as HTMLInputElement).value = "";
           }}
-          style={{ display: "none" }}
+          className="hidden"
         />
 
         <div
@@ -1356,7 +1288,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         >
           <div>
             <strong>Drag & drop documents here</strong>
-            <div style={{ marginTop: 6 }}>
+            <div className="mt-6">
               {/* stop bubbling so parent doesn't re-open the picker */}
               <button
                 type="button"
@@ -1401,7 +1333,7 @@ export default function FundingRequestForm({ isAdmin = false }: { isAdmin?: bool
         {saving ? "Submitting…" : "Submit Funding Request"}
       </button>
 
-      {msg && <p role="alert" style={{ color: "crimson", marginTop: 8 }}>{msg}</p>}
+      {msg && <p role="alert" className="error mt-8">{msg}</p>}
 
       {/* Add Beneficiary Modal (Add/Edit) */}
       {beneModalOpen && (

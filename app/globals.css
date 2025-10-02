@@ -682,3 +682,188 @@ a:visited { color: var(--link-visited); }
 .ic-item:hover {
   background-color: var(--field-bg) !important;
 }
+
+/* ===== FundingRequestForm — extracted styles from inline ===== */
+
+/* Layout container for the whole form */
+.fr-form {
+  font-size: 18px;
+  line-height: 1.45;
+  display: grid;
+  gap: 16px;
+  color: var(--text);
+}
+
+/* Card & legend */
+.fr-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  padding: 14px;
+}
+.fr-legend {
+  position: absolute !important;
+  height: 1px;
+  width: 1px;
+  overflow: hidden;
+  clip: rect(1px, 1px, 1px, 1px);
+  white-space: nowrap;
+}
+
+/* Section title (you already had spacing rules for .fr-section-title;
+   this preserves the look the component relied on) */
+.fr-section-title {
+  color: var(--title-color);
+  font-weight: 800;
+  margin: 0 0 12px 0;
+  font-size: 20px;
+}
+
+/* Read-only field appearance */
+.fr-readonly {
+  background: rgba(255, 255, 255, 0.05);
+  color: inherit;
+  opacity: 0.9;
+  cursor: not-allowed;
+}
+
+/* Grids */
+.fr-grid-2 {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr 1fr;
+}
+.fr-grid-3 {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+}
+.fr-grid-3-tight {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+}
+
+/* Inline actions row */
+.fr-inline-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Small destructive/secondary button used in policy blocks */
+.fr-del {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  padding: 6px 10px;
+  cursor: pointer;
+  color: var(--text);
+  opacity: 0.85;
+}
+.fr-del:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+/* Muted text helper already exists, keep here for clarity */
+.fr-muted { color: var(--muted); font-size: 0.95em; }
+
+/* Gold CTA & submit border touch-up */
+.fr-gold {
+  background: var(--gold);
+  border: 1px solid var(--gold);
+  color: var(--primary-contrast);
+  padding: 10px 14px;
+  border-radius: 0;
+  cursor: pointer;
+}
+.fr-submit { border: 1px solid var(--border); }
+
+/* Inputs — rely on your global input styles; ensure 100% width */
+.fr-form input[type="text"],
+.fr-form input[type="email"],
+.fr-form input[type="tel"],
+.fr-form input[type="date"],
+.fr-form input[type="file"],
+.fr-form select,
+.fr-form textarea {
+  width: 100%;
+}
+
+/* Typeahead container (you already theme this elsewhere) */
+.ic-box { position: relative; }
+
+/* Policy block */
+.pb {
+  border: 1px dashed var(--border);
+  padding: 10px;
+  margin-top: 8px;
+}
+.pb-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Dropzones */
+.dz {
+  border: 1px dashed var(--border);
+  background: var(--field-bg);
+  padding: 14px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  cursor: pointer;
+}
+.dz.over { outline: 2px dashed var(--gold); outline-offset: 2px; }
+.dz small { color: var(--muted); }
+
+/* File list */
+.file-list { display: grid; gap: 6px; margin-top: 8px; }
+.file-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Simple flex row used in Download Assignment buttons */
+.row-inline { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Utility spacing (only what this component needs) */
+.mt-6 { margin-top: 6px; }
+.mt-8 { margin-top: 8px; }
+.mb-10 { margin-bottom: 10px; }
+
+/* Utility visibility */
+.hidden { display: none !important; }
+
+/* 2-up rows inside modals */
+.row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+/* Modal button row */
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* Sub-card variant for employer details (field-bg surface) */
+.fr-subcard {
+  background: var(--field-bg) !important;
+}
+
+/* Responsive tweaks matching the original */
+@media (max-width: 900px) {
+  .fr-grid-2,
+  .fr-grid-3,
+  .fr-grid-3-tight { grid-template-columns: 1fr; }
+  .fr-form { font-size: 17px; }
+}
+@media (max-width: 600px) {
+  .fr-form { font-size: 16px; }
+}
