@@ -61,9 +61,9 @@ export default function UsersAdminPanel() {
 
   return (
     <div className="users-admin">
-      <div className="panel-row" style={{ marginBottom: 10 }}>
+      <div className="panel-row mb-10">
         <h2 className="panel-title">Users</h2>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div className="row-inline">
           <select
             value={filter}
             onChange={(e) => setFilter(e.target.value as any)}
@@ -123,7 +123,7 @@ export default function UsersAdminPanel() {
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="muted" style={{ padding: 16 }}>
+                  <td colSpan={5} className="muted p-16">
                     No users found.
                   </td>
                 </tr>
