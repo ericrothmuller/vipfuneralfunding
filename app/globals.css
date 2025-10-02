@@ -1174,3 +1174,17 @@ section.section-card {
 .mr-8 { margin-right: 8px; }
 
 .mb-10 { margin-bottom: 10px; }
+
+/* ===== VerificationEditor — small utilities ===== */
+.cols-2 { grid-template-columns: 1fr 1fr; }
+.cols-3-tight { grid-template-columns: repeat(3, minmax(220px, 1fr)); }
+
+.gap-12 { gap: 12px; }            /* already added earlier; included for clarity */
+.mt-12 { margin-top: 12px; }
+.items-center { align-items: center; }
+
+/* Responsive stacking for the grid utilities above */
+@media (max-width: 900px) {
+  .cols-2 { grid-template-columns: 1fr; }
+  .cols-3-tight { grid-template-columns: 1fr; }
+}

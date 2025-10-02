@@ -92,11 +92,11 @@ export default function VerificationEditor({
   }
 
   return (
-    <form onSubmit={onSubmit} style={{ display: "grid", gap: 12 }}>
+    <form onSubmit={onSubmit} className="grid gap-12">
       {/* Auto-populated, read-only header info */}
-      <fieldset className="card" style={{ padding: 12 }}>
+      <fieldset className="card p-12">
         <legend className="panel-title">Policy Snapshot</legend>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div className="grid cols-2 gap-12">
           <label>Insurance Company
             <input type="text" value={prefill.insuranceCompany} readOnly />
           </label>
@@ -116,10 +116,10 @@ export default function VerificationEditor({
       </fieldset>
 
       {/* Answers */}
-      <fieldset className="card" style={{ padding: 12 }}>
+      <fieldset className="card p-12">
         <legend className="panel-title">Verification Details</legend>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(220px, 1fr))", gap: 12 }}>
+        <div className="grid cols-3-tight gap-12">
           <label><input type="checkbox" checked={!!form.active} onChange={(e) => set("active", e.target.checked)} /> Active?</label>
           <label><input type="checkbox" checked={!!form.inForce} onChange={(e) => set("inForce", e.target.checked)} /> In Force?</label>
           <label><input type="checkbox" checked={!!form.receivedAssignment} onChange={(e) => set("receivedAssignment", e.target.checked)} /> Received Our Assignment?</label>
@@ -156,17 +156,17 @@ export default function VerificationEditor({
           </label>
           <label><input type="checkbox" checked={!!form.signingBenesPortionCoverAssignment} onChange={(e) => set("signingBenesPortionCoverAssignment", e.target.checked)} /> Signing Benes Portion Cover Assignment?</label>
 
-          <label>Documents Needed To Pay Claim
+          <label className="mt-12">Documents Needed To Pay Claim
             <input type="text" value={form.documentsNeeded || ""} onChange={(e) => set("documentsNeeded", e.target.value)} placeholder="e.g., Assignment, CF, DC" />
           </label>
         </div>
 
-        <label style={{ marginTop: 12 }}>Notes
+        <label className="mt-12">Notes
           <textarea rows={4} value={form.notes || ""} onChange={(e) => set("notes", e.target.value)} />
         </label>
       </fieldset>
 
-      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      <div className="row-inline items-center">
         <button className="btn" disabled={saving} type="submit">{saving ? "Saving…" : "Save Verification"}</button>
         {msg && <span className={msg === "Saved." ? "muted" : "error"}>{msg}</span>}
       </div>
