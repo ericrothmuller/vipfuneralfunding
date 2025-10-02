@@ -867,3 +867,23 @@ a:visited { color: var(--link-visited); }
 @media (max-width: 600px) {
   .fr-form { font-size: 16px; }
 }
+
+/* ===== InsuranceCompaniesPanel — small utilities ===== */
+.mb-12 { margin-bottom: 12px; }
+.minw-260 { min-width: 260px; }
+.nowrap { white-space: nowrap; }
+
+/* Reuse our standard inline row with spacing */
+.row-inline { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+/* Modal: grid content with consistent spacing and scroll behavior */
+.modal-grid {
+  display: grid;
+  gap: 10px;
+  min-height: 0;
+  max-height: 70vh; /* keeps footer visible */
+  overflow: auto;
+}
+
+/* Footer alignment helper (override default space-between) */
+.justify-end { justify-content: flex-end; }

@@ -156,15 +156,15 @@ export default function InsuranceCompaniesPanel() {
 
   return (
     <div>
-      <div className="panel-row" style={{ marginBottom: 12 }}>
+      <div className="panel-row mb-12">
         <h2 className="panel-title">Insurance Companies</h2>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div className="row-inline">
           <input
             type="search"
+            className="minw-260"
             placeholder="Search name, email, notes, documents…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            style={{ padding: "8px 10px", minWidth: 260 }}
           />
           <button className="btn" onClick={onAdd}>+ Add</button>
         </div>
@@ -198,15 +198,17 @@ export default function InsuranceCompaniesPanel() {
                   <td>{i.verificationTime}</td>
                   <td>{i.sendAssignmentBy}</td>
                   <td>{i.acceptsAdvancements ? "Yes" : "No"}</td>
-                  <td style={{ whiteSpace: "nowrap", display: "flex", gap: 8 }}>
-                    <button className="btn btn-ghost" onClick={() => onEdit(i)}>Edit</button>
-                    <button className="btn" onClick={() => onDelete(i.id, i.name)}>Delete</button>
+                  <td className="nowrap">
+                    <div className="row-inline">
+                      <button className="btn btn-ghost" onClick={() => onEdit(i)}>Edit</button>
+                      <button className="btn" onClick={() => onDelete(i.id, i.name)}>Delete</button>
+                    </div>
                   </td>
                 </tr>
               ))}
               {items.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="muted" style={{ padding: 16 }}>
+                  <td colSpan={8} className="muted">
                     No insurance companies found.
                   </td>
                 </tr>
@@ -225,17 +227,8 @@ export default function InsuranceCompaniesPanel() {
             </div>
 
             <form onSubmit={onSave}>
-              {/* SCROLLABLE body */}
-              <div
-                className="modal-body"
-                style={{
-                  maxHeight: "70vh",
-                  overflow: "auto",
-                  minHeight: 0,
-                  display: "grid",
-                  gap: 10,
-                }}
-              >
+              {/* Scrollable body with consistent spacing */}
+              <div className="modal-body modal-grid">
                 {msg && <p className="error">{msg}</p>}
 
                 <label>Name
@@ -286,7 +279,7 @@ export default function InsuranceCompaniesPanel() {
                 </label>
               </div>
 
-              <div className="modal-footer" style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <div className="modal-footer justify-end">
                 <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
                 <button type="submit" className="btn">{editing.id ? "Save Changes" : "Create"}</button>
               </div>
