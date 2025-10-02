@@ -33,37 +33,55 @@ export default function LoginForm() {
   }
 
   return (
-    <main className="centered" style={{paddingTop: 25}}>
+    <main className="centered pt-25">
       <Image
-        className="centered"
+        className="login-logo"
         src="/VIP-Funeral-Funding-Logo-Gold.png"
         alt="VIP Funeral Funding logo"
         width={898}
         height={152}
-        style={{ width: "30%", height: "auto" }}
         priority
       />
-      <div style={{ maxWidth: 420, margin: "64px auto", padding: 24 }}>
+
+      <div className="auth-box">
         <h1>Login</h1>
-        <form onSubmit={onSubmit} style={{ display: "grid", gap: 12 }}>
+
+        <form onSubmit={onSubmit} className="grid gap-12">
           <label>
             Email
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} required style={{ width: "100%", padding: 8 }} />
+            <input
+              type="email"
+              className="w-full"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+            />
           </label>
+
           <label>
             Password
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} required style={{ width: "100%", padding: 8 }} />
+            <input
+              type="password"
+              className="w-full"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+            />
           </label>
-          <button disabled={loading} type="submit" style={{ padding: 10 }}>
+
+          <button disabled={loading} type="submit" className="btn btn-gold">
             {loading ? "Signing in..." : "Sign in"}
           </button>
-          {msg && <p style={{ color: "crimson" }}>{msg}</p>}
+
+          {msg && <p className="error">{msg}</p>}
         </form>
-        <br/>
+
+        <br />
+
         <button
           type="button"
+          className="btn btn-ghost mt-8"
           onClick={() => router.push("/register")}
-          style={{ padding: 10, marginTop: 8 }}
         >
           Need an account? Register
         </button>

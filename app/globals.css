@@ -887,3 +887,31 @@ a:visited { color: var(--link-visited); }
 
 /* Footer alignment helper (override default space-between) */
 .justify-end { justify-content: flex-end; }
+
+/* ===== LoginForm — small utilities ===== */
+.pt-25 { padding-top: 25px; }
+.w-full { width: 100%; }
+.grid { display: grid; }
+.gap-12 { gap: 12px; }
+
+/* Auth box container */
+.auth-box {
+  max-width: 420px;
+  margin: 64px auto;
+  padding: 24px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+}
+
+/* Login logo sizing */
+.login-logo {
+  width: 30%;
+  height: auto;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Space helpers reused here */
+.mt-8 { margin-top: 8px; }
