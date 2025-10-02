@@ -1,128 +1,28 @@
-/* globals.css — vanilla CSS */
+/* =========================
+   globals.css — vanilla CSS
+   VIP Funeral Funding
+   ========================= */
 
-/* Modern font (Inter) */
+/* Font */
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 
-/* Universal font size: at least 18px */
-html {
-  font-size: 18px;
-}
-@media (min-width: 1440px) {
-  html { font-size: 19px; }
-}
+/* Base font size (>=18px) */
+html { font-size: 18px; }
+@media (min-width: 1440px) { html { font-size: 19px; } }
 
-/* ------------- Centered Class ------------- */
-
-.centered {
-  text-align: center;
-}
-
-/* ---------- Modal (theme-aware) ---------- */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--overlay);
-  backdrop-filter: blur(2px);
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  z-index: 1000;
-}
-
-.modal {
-  width: min(1120px, 100%); /* widened */
-  max-height: min(85vh, 1200px);
-  overflow: hidden;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  box-shadow: 0 20px 80px rgba(0, 0, 0, 0.35);
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-  color: var(--text);
-}
-
-.modal-header,
-.modal-footer {
-  padding: 16px 20px; /* a bit more breathing room */
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.modal-footer {
-  border-top: 1px solid var(--border);
-  border-bottom: none;
-}
-.modal-header h3 {
-  margin: 0;
-  font-size: 18px;
-}
-.modal-close {
-  font-size: 16px;
-}
-
-/* Scrollable body */
-.modal-body {
-  padding: 18px 20px; /* a touch more */
-  overflow: auto;
-}
-
-/* Details grid */
-.detail-grid {
-  display: grid;
-  gap: 20px; /* increased spacing between sections */
-}
-.detail-grid section {
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 14px 16px; /* a bit more padding */
-  background: var(--card);
-}
-.detail-grid h4 {
-  margin: 0 0 10px;
-  font-size: 18px; /* ensure >= 18px */
-}
-.detail-grid section > div {
-  display: grid;
-  grid-template-columns: 240px 1fr; /* slightly wider key column */
-  gap: 10px;
-  padding: 8px 0;
-  border-bottom: 1px dashed var(--border);
-}
-.detail-grid section > div:last-child {
-  border-bottom: none;
-}
-.detail-grid span {
-  color: var(--muted);
-}
-
-
-/* ------------- CSS Reset (light) ------------- */
+/* Reset */
 *,
 *::before,
-*::after {
-  box-sizing: border-box;
-}
-html, body {
-  margin: 0;
-  padding: 0;
-  min-height: 100%;
-}
-img {
-  max-width: 100%;
-  display: block;
-}
+*::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; min-height: 100%; }
+img { max-width: 100%; display: block; }
 
-/* --- Theme-aware logos --- */
-.theme-logo-light { display: none; }
-.theme-logo-dark  { display: inline-block; }
+/* Center helper (used by auth pages) */
+.centered { text-align: center; }
 
-:root[data-theme="light"] .theme-logo-dark  { display: none; }
-:root[data-theme="light"] .theme-logo-light { display: inline-block; }
-
-
-/* ------------- Theme ------------- */
+/* ========================================
+   THEME TOKENS
+   ======================================== */
 :root {
   --bg: #0f1115;
   --card: #151821;
@@ -131,429 +31,28 @@ img {
   --border: #232835;
   --accent: #d6b16d;
   --accent-weak: #f3e4c1;
-  --focus: 0 0 0 3px rgba(214, 177, 109, 0.35);
   --overlay: rgba(6, 8, 12, 0.6);
-}
 
-body {
-  background: radial-gradient(1200px 800px at 20% -10%, #1b2030 0%, var(--bg) 55%) no-repeat,
-              var(--bg);
-  color: var(--text);
-  font-family: "Inter", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
-               "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
-  line-height: 1.5; /* slightly more comfortable leading */
-}
-
-/* ------------- Layout ------------- */
-.wrap {
-  max-width: 1360px; /* widened */
-  margin: 36px auto 72px; /* more top/bottom spacing */
-  padding: 0 24px; /* a bit more gutter */
-}
-
-.card {
-  background: linear-gradient(180deg, #171b26 0%, #151821 100%);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 22px; /* slightly more padding */
-  box-shadow: 0 10px 40px rgba(0,0,0,0.25);
-}
-
-/* ------------- Header ------------- */
-.dash-header {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: 18px;
-  margin-bottom: 18px;
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-.brand-logo {
-  width: 160px;
-  height: auto;
-  filter: drop-shadow(0 4px 16px rgba(0,0,0,0.25));
-}
-.brand-copy h1 {
-  margin: 0 0 6px;
-  font-size: 28px; /* ensure comfortably > 18 */
-  letter-spacing: 0.2px;
-}
-.muted {
-  color: var(--muted);
-  margin: 0;
-}
-
-/* ------------- Buttons ------------- */
-.btn {
-  appearance: none;
-  border: 1px solid var(--border);
-  background: #1b2030;
-  color: var(--text);
-  padding: 10px 14px; /* more hit area */
-  border-radius: 10px;
-  cursor: pointer;
-  transition: transform .06s ease, background .2s ease, border-color .2s ease, box-shadow .2s ease;
-}
-.btn:hover {
-  background: #20263a;
-  border-color: #2a3147;
-}
-.btn:active {
-  transform: translateY(1px);
-}
-.btn:focus {
-  outline: none;
-  box-shadow: var(--focus);
-}
-.btn-ghost {
-  background: transparent;
-  border-color: var(--border);
-}
-.btn-ghost:hover {
-  background: #181c28;
-}
-
-/* ------------- Tabs ------------- */
-.tabs {
-  display: block;
-}
-.tablist {
-  display: flex;
-  gap: 8px;           /* more spacing */
-  padding: 8px;
-  background: #121622;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  margin-bottom: 16px;
-}
-.tab {
-  appearance: none;
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--muted);
-  padding: 12px 16px; /* bigger target */
-  border-radius: 10px;
-  cursor: pointer;
-  transition: background .2s ease, color .2s ease, border-color .2s ease, transform .06s ease;
-}
-.tab:hover {
-  color: var(--text);
-  background: #181d2a;
-}
-.tab[aria-selected="true"] {
-  color: var(--text);
-  background: #1b2030;
-  border-color: var(--border);
-  box-shadow: inset 0 -3px 0 0 var(--accent);
-}
-.tab:focus {
-  outline: none;
-  box-shadow: var(--focus);
-}
-.tabpanel {
-  padding: 14px 8px 6px;
-}
-
-/* ------------- Panel headers ------------- */
-.panel-title {
-  margin: 6px 0 8px;
-  font-size: 22px; /* slightly larger */
-  font-weight: 650;
-  letter-spacing: 0.2px;
-}
-.panel-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-}
-
-/* ------------- Forms ------------- */
-label {
-  display: grid;
-  gap: 8px;           /* more vertical space within labels */
-  font-size: 18px;    /* ensure >= 18px */
-}
-input[type="text"],
-input[type="email"],
-input[type="tel"],
-input[type="date"],
-input[type="file"],
-textarea {
-  background: #0f1320;
-  color: var(--text);
-  border: 1px solid #29314b;
-  border-radius: 10px;
-  padding: 12px 14px;           /* bigger input padding */
-  transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
-}
-input::placeholder,
-textarea::placeholder {
-  color: #77809a;
-}
-input:focus,
-textarea:focus {
-  outline: none;
-  border-color: #394264;
-  box-shadow: var(--focus);
-}
-textarea {
-  resize: vertical;
-}
-
-/* Add more space BEFORE section titles in the Funding Request form */
-.fr-section-title {
-  margin-top: 18px !important;  /* space above */
-  margin-bottom: 12px !important;
-}
-
-/* ------------- Tables ------------- */
-.table-wrap {
-  width: 100%;
-  overflow: auto;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-}
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 18px;       /* ensure >= 18px */
-}
-.table thead th {
-  text-align: left;
-  padding: 14px;         /* more padding */
-  background: #121622;
-  border-bottom: 1px solid var(--border);
-  color: var(--muted);
-  font-weight: 600;
-}
-.table tbody td {
-  padding: 14px;         /* more padding */
-  border-bottom: 1px solid #1c2134;
-}
-.table tbody tr:hover {
-  background: #141a28;
-}
-
-/* ------------- Utility ------------- */
-.error {
-  color: #ff6b6b;
-}
-
-/* ---------- Light Theme Variables ---------- */
-:root[data-theme="light"] {
-  --bg: #f7f7fb;
-  --card: #ffffff;
-  --muted: #5e6470;
-  --text: #111318;
-  --border: #e3e6ee;
-  --accent: #b18b3f;
-  --accent-weak: #e9d9b2;
-  --overlay: rgba(17, 19, 24, 0.35);
-}
-
-:root[data-theme="light"] body {
-  background: radial-gradient(1200px 800px at 20% -10%, #e9ecf7 0%, var(--bg) 55%) no-repeat,
-              var(--bg);
-  color: var(--text);
-}
-
-:root[data-theme="light"] .card {
-  background: linear-gradient(180deg, #ffffff 0%, #fafbff 100%);
-  border-color: var(--border);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.08);
-}
-
-:root[data-theme="light"] .dash-header .muted,
-:root[data-theme="light"] .muted {
-  color: var(--muted);
-}
-
-:root[data-theme="light"] .btn {
-  background: #f3f5fb;
-  border-color: var(--border);
-  color: var(--text);
-}
-:root[data-theme="light"] .btn:hover {
-  background: #eef1f8;
-  border-color: #d8ddec;
-}
-:root[data-theme="light"] .btn-ghost {
-  background: transparent;
-}
-
-:root[data-theme="light"] .tablist {
-  background: #f3f5fb;
-  border-color: var(--border);
-}
-:root[data-theme="light"] .tab {
-  color: var(--muted);
-}
-:root[data-theme="light"] .tab:hover {
-  background: #eef1f8;
-  color: var(--text);
-}
-:root[data-theme="light"] .tab[aria-selected="true"] {
-  background: #ffffff;
-  border-color: var(--border);
-  box-shadow: inset 0 -3px 0 0 var(--accent);
-}
-
-:root[data-theme="light"] input[type="text"],
-:root[data-theme="light"] input[type="email"],
-:root[data-theme="light"] input[type="tel"],
-:root[data-theme="light"] input[type="date"],
-:root[data-theme="light"] input[type="file"],
-:root[data-theme="light"] textarea {
-  background: #ffffff;
-  color: var(--text);
-  border: 1px solid var(--border);
-}
-:root[data-theme="light"] input::placeholder,
-:root[data-theme="light"] textarea::placeholder {
-  color: #9aa1ad;
-}
-
-:root[data-theme="light"] .table-wrap {
-  border-color: var(--border);
-}
-:root[data-theme="light"] .table thead th {
-  background: #f6f8fd;
-  border-bottom: 1px solid var(--border);
-  color: var(--muted);
-}
-:root[data-theme="light"] .table tbody td {
-  border-bottom: 1px solid #edf0f7;
-}
-:root[data-theme="light"] .table tbody tr:hover {
-  background: #f9fbff;
-}
-
-/* Small helper styles for the toggle */
-.theme-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-.theme-toggle .toggle-opt {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: transparent;
-  cursor: pointer;
-  user-select: none;
-}
-.theme-toggle .toggle-opt.active {
-  background: rgba(214, 177, 109, 0.12);
-  border-color: var(--accent);
-}
-.theme-toggle input {
-  accent-color: var(--accent);
-}
-
-/* =========================
-   VIP Funeral Funding Theme
-   (Light/Dark via [data-theme])
-   ========================= */
-
-/* Brand & Status (shared) */
-:root {
+  /* Brand & state */
   --primary: #d6b16d;
   --primary-contrast: #0b0d10;
-
   --success: #1fa971;
   --warning: #b7791f;
   --danger:  #d92d20;
   --focus:   #2b6ef7;
 
+  /* Shadows */
   --shadow-color: 0deg 0% 0%;
   --shadow-1: 0 1px 2px hsl(var(--shadow-color) / 0.15);
   --shadow-2: 0 4px 10px hsl(var(--shadow-color) / 0.12);
 }
 
-/* ---------- LIGHT THEME (contrast-tuned) ---------- */
-html[data-theme="light"] {
-  --bg:           #f7f7fb;
-  --text:         #121418;
-  --muted:        #5c6677;
+/* Links & focus ring */
+a { color: var(--link); }
+a:visited { color: var(--link-visited); }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
-  --surface-1:    #ffffff;
-  --surface-2:    #eef2f7;   
-  --border:       #c9cfdb;
-
-  --gold:         var(--primary);
-  --title:        #000000;
-  --title-color:  #000000;
-
-  --card-bg:      var(--surface-1);
-  --modal-bg:     #f7f7fb;
-  --field-bg:     var(--surface-2);
-  --field:        var(--surface-2);
-  --field-border: var(--border);
-
-  --btn-bg:       #e7ebf3;
-
-  --link:         #175cd3;
-  --link-visited: #6e59a5;
-}
-
-/* Light-only emphasis: inputs & buttons stand out more */
-html[data-theme="light"] input,
-html[data-theme="light"] select,
-html[data-theme="light"] textarea,
-html[data-theme="light"] .ro {
-  background: var(--field-bg);
-  border: 1px solid var(--field-border);
-  box-shadow: var(--shadow-1);
-}
-
-/* Buttons in light mode: clearer fill + hover/active feedback */
-html[data-theme="light"] .btn,
-html[data-theme="light"] .btn-link {
-  background: var(--btn-bg);
-  color: var(--text);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-1);
-}
-
-html[data-theme="light"] .btn:hover,
-html[data-theme="light"] .btn-link:hover {
-  background: #dfe6f0;
-}
-
-html[data-theme="light"] .btn:active,
-html[data-theme="light"] .btn-link:active {
-  background: #d6dee9;
-  box-shadow: var(--shadow-2);
-}
-
-/* Gold buttons keep brand, but add light-mode shadow for visibility */
-html[data-theme="light"] .btn-gold,
-html[data-theme="light"] .fr-gold {
-  background: var(--gold);
-  color: var(--primary-contrast);
-  border: 1px solid var(--gold);
-  box-shadow: var(--shadow-1);
-}
-
-/* (Optional but nice): make cards/sections read crisply on the page */
-html[data-theme="light"] .card,
-html[data-theme="light"] .pf-card,
-html[data-theme="light"] .fr-card,
-html[data-theme="light"] section {
-  box-shadow: var(--shadow-1);
-}
-
-
-/* ---------- DARK THEME ---------- */
+/* Dark mode (default) */
 html[data-theme="dark"] {
   --bg:           #0b0d10;
   --text:         #e7ebf0;
@@ -564,8 +63,7 @@ html[data-theme="dark"] {
   --border:       #222832;
 
   --gold:         var(--primary);
-  --title:        var(--gold);
-  --title-color:  var(--gold);
+  --title-color:  var(--primary);
 
   --card-bg:      var(--surface-1);
   --modal-bg:     #0b0d10;
@@ -578,33 +76,88 @@ html[data-theme="dark"] {
   --link-visited: #9f86ff;
 }
 
-/* App background & text */
-html, body {
-  background: var(--bg);
-  color: var(--text);
+/* Light mode */
+html[data-theme="light"] {
+  --bg:           #f7f7fb;
+  --text:         #121418;
+  --muted:        #5c6677;
+
+  --surface-1:    #ffffff;
+  --surface-2:    #eef2f7;
+  --border:       #c9cfdb;
+
+  --gold:         var(--primary);
+  --title-color:  #000;
+
+  --card-bg:      var(--surface-1);
+  --modal-bg:     #f7f7fb;
+  --field-bg:     var(--surface-2);
+  --field:        var(--surface-2);
+  --field-border: var(--border);
+  --btn-bg:       #e7ebf3;
+
+  --link:         #175cd3;
+  --link-visited: #6e59a5;
 }
 
-/* Common surfaces */
+/* Body background & base text */
+body {
+  background:
+    radial-gradient(1200px 800px at 20% -10%, #1b2030 0%, var(--bg) 55%) no-repeat,
+    var(--bg);
+  color: var(--text);
+  font-family: "Inter", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
+    "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+  line-height: 1.5;
+}
+html[data-theme="light"] body {
+  background:
+    radial-gradient(1200px 800px at 20% -10%, #e9ecf7 0%, var(--bg) 55%) no-repeat,
+    var(--bg);
+}
+
+/* ========================================
+   SURFACES / TEXT
+   ======================================== */
+.muted { color: var(--muted); margin: 0; }
+.error { color: #ff6b6b; }
+
 .card,
+section,
 .pf-card,
-.fr-card,
-section {
+.fr-card {
   background: var(--card-bg);
   border: 1px solid var(--border);
+  border-radius: 16px;
   box-shadow: var(--shadow-1);
 }
+.card { padding: 22px; }
 
-/* Controls */
-input, select, textarea, .ro {
-  background: var(--field-bg);
-  color: var(--text);
-  border: 1px solid var(--field-border);
-}
+/* Theme-aware logos (if used) */
+.theme-logo-light { display: none; }
+.theme-logo-dark  { display: inline-block; }
+:root[data-theme="light"] .theme-logo-dark  { display: none; }
+:root[data-theme="light"] .theme-logo-light { display: inline-block; }
 
-/* Buttons (base) */
+/* ========================================
+   BUTTONS
+   ======================================== */
 .btn {
+  appearance: none;
+  border: 1px solid var(--border);
   background: var(--btn-bg);
   color: var(--text);
+  padding: 10px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform .06s ease, background .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+.btn:hover { filter: brightness(1.04); }
+.btn:active { transform: translateY(1px); }
+.btn:focus { outline: none; box-shadow: 0 0 0 3px rgba(214, 177, 109, 0.35); }
+
+.btn-ghost {
+  background: transparent;
   border: 1px solid var(--border);
 }
 .btn-gold,
@@ -613,476 +166,314 @@ input, select, textarea, .ro {
   color: var(--primary-contrast);
   border: 1px solid var(--gold);
 }
+
+/* Light-mode button emphasis */
+html[data-theme="light"] .btn,
+html[data-theme="light"] .btn-link {
+  background: var(--btn-bg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-1);
+}
+html[data-theme="light"] .btn:hover,
+html[data-theme="light"] .btn-link:hover { filter: brightness(0.97); }
+html[data-theme="light"] .btn:active,
+html[data-theme="light"] .btn-link:active { box-shadow: var(--shadow-2); }
+
+/* Link-style button */
 .btn-link {
   background: transparent;
   color: var(--text);
   border: 1px solid var(--border);
 }
 
-/* Dark theme button fixes */
-html[data-theme="dark"] .btn,
-html[data-theme="dark"] .btn-link,
-html[data-theme="dark"] .btn-gold,
-html[data-theme="dark"] .fr-gold {
-  background: #151a20;
-  color: #e7ebf0;
+/* ========================================
+   TABS
+   ======================================== */
+.tabs { display: block; }
+.tablist {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  background: #121622;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+.tab {
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--muted);
+  padding: 12px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background .2s ease, color .2s ease, border-color .2s ease, transform .06s ease;
+}
+.tab:hover { color: var(--text); background: #181d2a; }
+.tab[aria-selected="true"] {
+  color: var(--text);
+  background: #1b2030;
   border-color: var(--border);
+  box-shadow: inset 0 -3px 0 0 var(--accent);
+}
+.tab:focus { outline: none; box-shadow: 0 0 0 3px rgba(214, 177, 109, 0.35); }
+.tabpanel { padding: 14px 8px 6px; }
+
+/* Light mode tablist */
+:root[data-theme="light"] .tablist { background: #f3f5fb; }
+:root[data-theme="light"] .tab { color: var(--muted); }
+:root[data-theme="light"] .tab:hover { background: #eef1f8; color: var(--text); }
+:root[data-theme="light"] .tab[aria-selected="true"] {
+  background: #ffffff;
+  border-color: var(--border);
+  box-shadow: inset 0 -3px 0 0 var(--accent);
 }
 
-/* Date picker icon (dark) – brighten the indicator */
+/* Panel header */
+.panel-title {
+  margin: 6px 0 8px;
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: 0.2px;
+}
+.panel-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+/* ========================================
+   FORMS / INPUTS
+   ======================================== */
+label { display: grid; gap: 8px; font-size: 18px; }
+
+input[type="text"],
+input[type="email"],
+input[type="tel"],
+input[type="date"],
+input[type="file"],
+select,
+textarea {
+  background: var(--field-bg);
+  color: var(--text);
+  border: 1px solid var(--field-border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
+}
+input::placeholder,
+textarea::placeholder { color: #77809a; }
+input:focus, textarea:focus { outline: none; box-shadow: 0 0 0 3px rgba(214, 177, 109, 0.35); }
+textarea { resize: vertical; }
+
+/* Read-only surface blocks (ProfileForm etc.) */
+.ro {
+  background: var(--field-bg);
+  color: var(--text);
+  border: 1px solid var(--field-border);
+  padding: 10px 12px;
+  border-radius: 0;
+}
+input[disabled], textarea[disabled] { opacity: 0.85; cursor: not-allowed; }
+
+/* Date picker icon (dark) */
 html[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(0.9) brightness(1.2) contrast(1.1);
   opacity: 0.95;
 }
 
-/* Links & focus */
-a { color: var(--link); }
-a:visited { color: var(--link-visited); }
-:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
+/* ========================================
+   TABLES
+   ======================================== */
+.table-wrap {
+  width: 100%;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
 }
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 18px;
+}
+.table thead th {
+  text-align: left;
+  padding: 14px;
+  background: #121622;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-weight: 600;
+}
+.table tbody td {
+  padding: 14px;
+  border-bottom: 1px solid #1c2134;
+}
+.table tbody tr:hover { background: #141a28; }
 
-/* Modal surface (ensure dark modal looks dark) */
+/* Light table contrasts */
+:root[data-theme="light"] .table-wrap { border-color: var(--border); }
+:root[data-theme="light"] .table thead th {
+  background: #f6f8fd;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+}
+:root[data-theme="light"] .table tbody td { border-bottom: 1px solid #edf0f7; }
+:root[data-theme="light"] .table tbody tr:hover { background: #f9fbff; }
+
+/* ========================================
+   MODAL
+   ======================================== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay);
+  backdrop-filter: blur(2px);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  z-index: 1000;
+}
 .modal {
+  width: min(1120px, 100%);
+  max-height: min(85vh, 1200px);
+  overflow: hidden;
   background: var(--modal-bg);
   border: 1px solid var(--border);
-}
-
-/* === Insurance Company typeahead: force solid themed background === */
-
-/* Ensure the dropdown’s stacking context isn’t polluted by parent blur/backdrop */
-.ic-box {
-  position: relative;
-  isolation: isolate;
-}
-
-/* Solid background with fallback: use --card-bg if present, else --card */
-.ic-list {
-  background-color: var(--card-bg, var(--card)) !important;
-  border: 1px solid var(--border) !important;
-  box-shadow: var(--shadow-2) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  border-radius: 10px;
-  z-index: 9999 !important;
-}
-
-/* Items inherit text color; draw a hairline between rows for clarity */
-.ic-item {
-  color: var(--text);
-  background: transparent;
-}
-
-.ic-item + .ic-item {
-  border-top: 1px solid var(--border);
-}
-
-/* Hover state should be clearly visible in both themes */
-.ic-item:hover {
-  background-color: var(--field-bg) !important;
-}
-
-/* ===== FundingRequestForm — extracted styles from inline ===== */
-
-/* Layout container for the whole form */
-.fr-form {
-  font-size: 18px;
-  line-height: 1.45;
+  border-radius: 16px;
+  box-shadow: 0 20px 80px rgba(0,0,0,0.35);
   display: grid;
-  gap: 16px;
+  grid-template-rows: auto 1fr auto;
   color: var(--text);
 }
-
-/* Card & legend */
-.fr-card {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: 0;
-  padding: 14px;
-}
-.fr-legend {
-  position: absolute !important;
-  height: 1px;
-  width: 1px;
-  overflow: hidden;
-  clip: rect(1px, 1px, 1px, 1px);
-  white-space: nowrap;
-}
-
-/* Section title (you already had spacing rules for .fr-section-title;
-   this preserves the look the component relied on) */
-.fr-section-title {
-  color: var(--title-color);
-  font-weight: 800;
-  margin: 0 0 12px 0;
-  font-size: 20px;
-}
-
-/* Read-only field appearance */
-.fr-readonly {
-  background: rgba(255, 255, 255, 0.05);
-  color: inherit;
-  opacity: 0.9;
-  cursor: not-allowed;
-}
-
-/* Grids */
-.fr-grid-2 {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: 1fr 1fr;
-}
-.fr-grid-3 {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(3, minmax(220px, 1fr));
-}
-.fr-grid-3-tight {
-  display: grid;
-  gap: 8px;
-  grid-template-columns: repeat(3, minmax(220px, 1fr));
-}
-
-/* Inline actions row */
-.fr-inline-actions {
+.modal-header,
+.modal-footer {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
   display: flex;
-  gap: 8px;
   align-items: center;
-  flex-wrap: wrap;
+  justify-content: space-between;
+}
+.modal-footer { border-top: 1px solid var(--border); border-bottom: none; }
+.modal-header h3 { margin: 0; font-size: 18px; }
+.modal-close { font-size: 16px; }
+.modal-body { padding: 18px 20px; overflow: auto; }
+
+/* Size variants used by RequestDetailModal/beneficiary sub-modals */
+.modal-wide   { width: min(980px, 96vw); }
+.modal-narrow { width: min(760px, 94vw); }
+
+/* Scrollable grid content (IC modal etc.) */
+.modal-grid {
+  display: grid;
+  gap: 10px;
+  min-height: 0;
+  max-height: 70vh;
+  overflow: auto;
 }
 
-/* Small destructive/secondary button used in policy blocks */
-.fr-del {
-  background: transparent;
+/* ========================================
+   THEME TOGGLE
+   ======================================== */
+.theme-toggle { display: inline-flex; align-items: center; gap: 8px; }
+.theme-toggle .toggle-opt {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-radius: 10px; border: 1px solid var(--border);
+  background: transparent; cursor: pointer; user-select: none;
+}
+.theme-toggle .toggle-opt.active { background: rgba(214,177,109,0.12); border-color: var(--accent); }
+.theme-toggle input { accent-color: var(--accent); }
+
+/* ========================================
+   IC TYPEAHEAD (shared)
+   ======================================== */
+.ic-box { position: relative; isolation: isolate; }
+.ic-list {
+  position: absolute; z-index: 9999; top: calc(100% + 4px); left: 0; right: 0;
+  background-color: var(--card-bg);
   border: 1px solid var(--border);
-  border-radius: 0;
-  padding: 6px 10px;
-  cursor: pointer;
-  color: var(--text);
-  opacity: 0.85;
+  border-radius: 10px;
+  max-height: 240px; overflow: auto;
+  box-shadow: var(--shadow-2);
+  backdrop-filter: none; -webkit-backdrop-filter: none;
 }
-.fr-del:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.25);
-}
+.ic-item { padding: 8px 10px; color: var(--text); background: transparent; cursor: pointer; }
+.ic-item + .ic-item { border-top: 1px solid var(--border); }
+.ic-item:hover { background-color: var(--field-bg); }
 
-/* Muted text helper already exists, keep here for clarity */
-.fr-muted { color: var(--muted); font-size: 0.95em; }
-
-/* Gold CTA & submit border touch-up */
-.fr-gold {
-  background: var(--gold);
-  border: 1px solid var(--gold);
-  color: var(--primary-contrast);
-  padding: 10px 14px;
-  border-radius: 0;
-  cursor: pointer;
+/* ========================================
+   FUNDING REQUEST FORM
+   ======================================== */
+.fr-form { display: grid; gap: 16px; color: var(--text); font-size: 18px; line-height: 1.45; }
+.fr-card { border-radius: 0; padding: 14px; }
+.fr-legend {
+  position: absolute !important; height: 1px; width: 1px; overflow: hidden;
+  clip: rect(1px,1px,1px,1px); white-space: nowrap;
 }
+.fr-section-title { color: var(--title-color); font-weight: 800; margin: 0 0 12px; font-size: 20px; }
+.fr-readonly { background: rgba(255,255,255,.05); color: inherit; opacity: .9; cursor: not-allowed; }
+
+.fr-grid-2 { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+.fr-grid-3 { display: grid; gap: 10px; grid-template-columns: repeat(3, minmax(220px, 1fr)); }
+.fr-grid-3-tight { display: grid; gap: 8px; grid-template-columns: repeat(3, minmax(220px, 1fr)); }
+
+.fr-inline-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.fr-del {
+  background: transparent; border: 1px solid var(--border); border-radius: 0;
+  padding: 6px 10px; cursor: pointer; color: var(--text); opacity: .85;
+}
+.fr-del:hover { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.25); }
+
+.fr-muted { color: var(--muted); font-size: .95em; }
 .fr-submit { border: 1px solid var(--border); }
 
-/* Inputs — rely on your global input styles; ensure 100% width */
 .fr-form input[type="text"],
 .fr-form input[type="email"],
 .fr-form input[type="tel"],
 .fr-form input[type="date"],
 .fr-form input[type="file"],
 .fr-form select,
-.fr-form textarea {
-  width: 100%;
-}
-
-/* Typeahead container (you already theme this elsewhere) */
-.ic-box { position: relative; }
+.fr-form textarea { width: 100%; }
 
 /* Policy block */
-.pb {
-  border: 1px dashed var(--border);
-  padding: 10px;
-  margin-top: 8px;
-}
-.pb-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-}
+.pb { border: 1px dashed var(--border); padding: 10px; margin-top: 8px; border-radius: 10px; }
+.pb-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 
-/* Dropzones */
+/* Dropzones (shared by edit modal too) */
 .dz {
-  border: 1px dashed var(--border);
-  background: var(--field-bg);
-  padding: 14px;
-  display: grid;
-  place-items: center;
-  text-align: center;
-  cursor: pointer;
+  border: 1px dashed var(--border); background: var(--field-bg); padding: 14px;
+  display: grid; place-items: center; text-align: center; cursor: pointer;
 }
 .dz.over { outline: 2px dashed var(--gold); outline-offset: 2px; }
 .dz small { color: var(--muted); }
 
-/* File list */
+/* Files list */
 .file-list { display: grid; gap: 6px; margin-top: 8px; }
 .file-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* Simple flex row used in Download Assignment buttons */
-.row-inline { display: flex; gap: 8px; flex-wrap: wrap; }
-
-/* Utility spacing (only what this component needs) */
-.mt-6 { margin-top: 6px; }
-.mt-8 { margin-top: 8px; }
-.mb-10 { margin-bottom: 10px; }
-
-/* Utility visibility */
-.hidden { display: none !important; }
-
-/* 2-up rows inside modals */
-.row-2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-/* Modal button row */
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-/* Sub-card variant for employer details (field-bg surface) */
-.fr-subcard {
-  background: var(--field-bg) !important;
-}
-
-/* Responsive tweaks matching the original */
+/* Responsive tweaks (FR form) */
 @media (max-width: 900px) {
-  .fr-grid-2,
-  .fr-grid-3,
-  .fr-grid-3-tight { grid-template-columns: 1fr; }
+  .fr-grid-2, .fr-grid-3, .fr-grid-3-tight { grid-template-columns: 1fr; }
   .fr-form { font-size: 17px; }
 }
-@media (max-width: 600px) {
-  .fr-form { font-size: 16px; }
-}
+@media (max-width: 600px) { .fr-form { font-size: 16px; } }
 
-/* ===== InsuranceCompaniesPanel — small utilities ===== */
-.mb-12 { margin-bottom: 12px; }
-.minw-260 { min-width: 260px; }
-.nowrap { white-space: nowrap; }
-
-/* Reuse our standard inline row with spacing */
-.row-inline { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-
-/* Modal: grid content with consistent spacing and scroll behavior */
-.modal-grid {
-  display: grid;
-  gap: 10px;
-  min-height: 0;
-  max-height: 70vh; /* keeps footer visible */
-  overflow: auto;
-}
-
-/* Footer alignment helper (override default space-between) */
-.justify-end { justify-content: flex-end; }
-
-/* ===== LoginForm — small utilities ===== */
-.pt-25 { padding-top: 25px; }
-.w-full { width: 100%; }
-.grid { display: grid; }
-.gap-12 { gap: 12px; }
-
-/* Auth box container */
-.auth-box {
-  max-width: 420px;
-  margin: 64px auto;
-  padding: 24px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.25);
-}
-
-/* Login logo sizing */
-.login-logo {
-  width: 30%;
-  height: auto;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-/* Space helpers reused here */
-.mt-8 { margin-top: 8px; }
-
-/* ===== ProfileForm — extracted styles & tiny utils ===== */
-.pf-form {
-  display: grid;
-  gap: 14px;
-  font-size: 18px;
-  line-height: 1.45;
-  color: var(--text);
-}
-
-.pf-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.pf-actions {
-  display: flex;
-  gap: 8px;
-}
-
-/* Title styling for sections in ProfileForm */
-.pf-title {
-  color: var(--title-color, var(--title, var(--text)));
-  font-weight: 800;
-  margin: 0 0 12px 0;
-  font-size: 20px;
-}
-
-/* Read-only surface for FH/CEM name (non-input) */
-.ro {
-  background: var(--field-bg);
-  color: var(--text);
-  border: 1px solid var(--field-border, var(--border));
-  padding: 10px 12px;
-  border-radius: 0;
-}
-
-/* Disabled inputs feel inactive */
-input[disabled],
-textarea[disabled] {
-  opacity: 0.85;
-  cursor: not-allowed;
-}
-
-/* Tiny utilities used in this component */
-.mt-0 { margin-top: 0; }
-.mt-8 { margin-top: 8px; }
-.fs-18 { font-size: 18px; }
-.text-success { color: var(--success); }
-.text-danger  { color: var(--danger); }
-
-/* ===== RequestDetailModal — extracted styles & utilities ===== */
-
-/* Layout grids */
+/* ========================================
+   REQUEST DETAIL MODAL (view/edit)
+   ======================================== */
 .detail-grid,
-.edit-grid {
-  display: grid;
-  gap: 14px;
-  grid-template-columns: repeat(2, minmax(260px, 1fr));
-}
-@media (max-width: 900px) {
-  .detail-grid,
-  .edit-grid { grid-template-columns: 1fr; }
-}
+.edit-grid { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(260px, 1fr)); }
+@media (max-width: 900px) { .detail-grid, .edit-grid { grid-template-columns: 1fr; } }
 
-/* Span full width across grid columns */
 .span-all { grid-column: 1 / -1; }
 
-/* Head row action buttons */
-.header-actions { display: flex; gap: 8px; align-items: center; }
-
-/* Section cards (reuse global card palette) */
-section.section-card {
-  border: 1px solid var(--border);
-  padding: 12px;
-  background: var(--card-bg);
-  border-radius: 12px;
-}
-.section-card h4 {
-  margin: 0 0 8px;
-  color: var(--title-color, var(--title, var(--text)));
-  font-weight: 800;
-}
-
-/* Key–value rows inside sections
-   (Works with existing .detail-grid section > div styles too) */
-.section-card .kv > span {
-  margin-right: 6px;
-  display: inline-block;
-}
-
-/* Utility lists/rows */
-.list { display: grid; gap: 8px; }
-.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-@media (max-width: 700px) { .policy-grid { grid-template-columns: 1fr; } }
-
-/* Policies */
-.policies { display: grid; grid-template-columns: 1fr; gap: 12px; }
-.policy-card {
-  border: 1px solid var(--border);
-  background: var(--card-bg);
-  padding: 10px;
-  border-radius: 10px;
-}
-.policy-head { display: flex; align-items: center; justify-content: space-between; }
-.policy-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-
-/* Beneficiaries list */
-.bene-list { display: grid; gap: 8px; margin-top: 6px; }
-.bene-row {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 8px; border: 1px solid var(--border); padding: 6px 8px; border-radius: 8px;
-}
-.bene-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-/* Nested sub-card (employer) */
-.nested { border: 1px dashed var(--border); padding: 10px; margin-top: 6px; border-radius: 8px; }
-
-/* Readonly input look */
-.readonly { background: rgba(255,255,255,.08); }
-
-/* Common helpers */
-.mt-6 { margin-top: 6px; }
-.mt-8 { margin-top: 8px; }
-.pre-wrap { white-space: pre-wrap; }
-.hidden { display: none !important; }
-
-/* Modal width variants */
-.modal-w-980 { width: min(980px, 96vw); }
-.modal-w-760 { width: min(760px, 94vw); }
-
-/* Header button row (right side) */
-.modal .header-actions { display: flex; gap: 8px; align-items: center; }
-
-/* File items (use existing .file-list / .file-row from earlier work) */
-
-/* Insurance company typeahead — already themed globally; ensure spacing here */
-.ic-box.mt-6 { margin-top: 6px; }
-
-/* ===== RequestDetailModal — utilities & component styles ===== */
-
-/* Grid containers */
-.detail-grid,
-.edit-grid {
-  display: grid;
-  gap: 14px;
-  grid-template-columns: repeat(2, minmax(260px, 1fr));
-}
-@media (max-width: 900px) {
-  .detail-grid,
-  .edit-grid { grid-template-columns: 1fr; }
-}
-
-/* Span full width within grid */
-.span-all { grid-column: 1 / -1; }
-
-/* Simple grids used inside sections */
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 @media (max-width: 700px) { .grid3 { grid-template-columns: 1fr; } }
 
-/* KV rows (label/value) */
 .kv > span { margin-right: 6px; display: inline-block; }
 
-/* Section shell (aligns with your themed sections) */
 .detail-grid section,
 .edit-grid section {
   border: 1px solid var(--border);
@@ -1092,139 +483,85 @@ section.section-card {
 .detail-grid h4,
 .edit-grid h4 {
   margin: 0 0 8px;
-  color: var(--title-color, var(--title, var(--text)));
+  color: var(--title-color);
   font-weight: 800;
 }
 
-/* Readonly inputs */
-.readonly { background: rgba(255,255,255,.08); }
-
-/* Nested dashed block (employer details) */
-.nested {
-  border: 1px dashed var(--border);
-  padding: 10px;
-  margin-top: 6px;
-}
-
-/* Lists, files, beneficiaries */
-.list { display: grid; gap: 8px; }
-.file-list { display: grid; gap: 6px; margin-top: 8px; }
-.file-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .bene-list { display: grid; gap: 8px; margin-top: 6px; }
-.bene-row { display:flex; align-items:center; justify-content:space-between; gap:8px; border: 1px solid var(--border); padding: 6px 8px; }
+.bene-row { display:flex; align-items:center; justify-content:space-between; gap:8px; border: 1px solid var(--border); padding: 6px 8px; border-radius: 8px; }
 .bene-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* Policies */
 .policies { display: grid; grid-template-columns: 1fr; gap: 12px; }
-.policy-card { border: 1px solid var(--border); background: var(--card-bg); padding: 10px; width: 100%; }
+.policy-card { border: 1px solid var(--border); background: var(--card-bg); padding: 10px; border-radius: 10px; }
 .policy-head { display: flex; align-items: center; justify-content: space-between; }
 .policy-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 @media (max-width: 700px) { .policy-grid { grid-template-columns: 1fr; } }
 
-/* Dropzones (re-use from other components; included for completeness) */
-.dz { border: 1px dashed var(--border); background: var(--field-bg); padding: 14px; display: grid; place-items: center; text-align: center; cursor: pointer; }
-.dz.over { outline: 2px dashed var(--gold); outline-offset: 2px; }
+.nested { border: 1px dashed var(--border); padding: 10px; margin-top: 6px; border-radius: 8px; }
+.readonly { background: rgba(255,255,255,.08); }
 
-/* Modal width variants */
-.modal-wide   { width: min(980px, 96vw); }
-.modal-narrow { width: min(760px, 94vw); }
-
-/* One-column override for grid blocks inside modals */
+/* modal body one-col override for sub-modals */
 .one-col { grid-template-columns: 1fr !important; }
 
-/* Spacing utilities */
-.mt-6 { margin-top: 6px; }
-.mt-8 { margin-top: 8px; }
-.mb-6 { margin-bottom: 6px; }
-.block { display: block; }
-.nowrap { white-space: nowrap; }
-
-/* Preformatted wrap for notes text */
-.prewrap { white-space: pre-wrap; }
-
-/* Inline row */
-.row-inline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-
-/* ===== RequestsTable — small utilities ===== */
+/* ========================================
+   REQUESTS TABLE
+   ======================================== */
 .p-12 { padding: 12px; }
 .p-16 { padding: 16px; }
 .mb-8 { margin-bottom: 8px; }
-/* (.mb-12 already exists from earlier components) */
+.mb-10 { margin-bottom: 10px; }
+.mb-12 { margin-bottom: 12px; }
 
-.flex { display: flex; }
-.items-end { align-items: flex-end; }
-
-/* Filters grid layout */
 .filters-grid {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) 180px 180px 180px auto;
   gap: 8px;
 }
-@media (max-width: 980px) {
-  .filters-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-@media (max-width: 560px) {
-  .filters-grid {
-    grid-template-columns: 1fr;
-  }
-}
+@media (max-width: 980px) { .filters-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px) { .filters-grid { grid-template-columns: 1fr; } }
 
-.mr-8 { margin-right: 8px; }
-
-.mb-10 { margin-bottom: 10px; }
-
-/* ===== VerificationEditor — small utilities ===== */
-.cols-2 { grid-template-columns: 1fr 1fr; }
-.cols-3-tight { grid-template-columns: repeat(3, minmax(220px, 1fr)); }
-
-.gap-12 { gap: 12px; }            /* already added earlier; included for clarity */
-.mt-12 { margin-top: 12px; }
-.items-center { align-items: center; }
-
-/* Responsive stacking for the grid utilities above */
-@media (max-width: 900px) {
-  .cols-2 { grid-template-columns: 1fr; }
-  .cols-3-tight { grid-template-columns: 1fr; }
-}
-
-/* ===== FHCemsAdminPanel — layout & utilities ===== */
-
-/* Layout for the two-pane area: left list (fixed ~320px) + right detail */
-.fhcems-layout {
-  display: grid;
-  grid-template-columns: 320px 1fr;
-  gap: 12px;
-}
-@media (max-width: 900px) {
-  .fhcems-layout {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* Generic gaps, paddings, margins (used across items) */
-.gap-14 { gap: 14px; }
-.gap-12 { gap: 12px; } /* you likely have this already */
-.gap-8  { gap: 8px; }
-.gap-6  { gap: 6px; }
-.p-8    { padding: 8px; }
-.mt-8   { margin-top: 8px; }
-.mt-16  { margin-top: 16px; }
-
-/* Flex & grid helpers */
-.flex { display: flex; }
-.items-center { align-items: center; }
-.items-start  { align-items: flex-start; }
-.justify-between { justify-content: space-between; }
+/* ========================================
+   LOGIN / REGISTER
+   ======================================== */
+.pt-25 { padding-top: 25px; }
+.w-full { width: 100%; }
 .grid { display: grid; }
+.gap-12 { gap: 12px; }
 
-/* Borders & overflow */
+.auth-box {
+  max-width: 420px; margin: 64px auto; padding: 24px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+}
+.login-logo {
+  width: 30%; height: auto; margin-left: auto; margin-right: auto;
+}
+
+/* ========================================
+   PROFILE FORM
+   ======================================== */
+.pf-form { display: grid; gap: 14px; font-size: 18px; line-height: 1.45; color: var(--text); }
+.pf-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pf-actions { display: flex; gap: 8px; }
+.pf-title { color: var(--title-color); font-weight: 800; margin: 0 0 12px; font-size: 20px; }
+
+/* ========================================
+   VERIFICATION EDITOR
+   ======================================== */
+.cols-2 { display: grid; grid-template-columns: 1fr 1fr; }
+.cols-3-tight { display: grid; grid-template-columns: repeat(3, minmax(220px, 1fr)); }
+@media (max-width: 900px) { .cols-2, .cols-3-tight { grid-template-columns: 1fr; } }
+
+/* ========================================
+   FHCEMS ADMIN PANEL
+   ======================================== */
+.fhcems-layout { display: grid; grid-template-columns: 320px 1fr; gap: 12px; }
+@media (max-width: 900px) { .fhcems-layout { grid-template-columns: 1fr; } }
+
 .bordered { border: 1px solid var(--border); border-radius: 10px; background: var(--card-bg); }
 .overflow-x-auto { overflow-x: auto; }
 .overflow-auto { overflow: auto; }
 
-/* Text & width helpers */
 .fw-700 { font-weight: 700; }
 .text-13 { font-size: 13px; }
 .text-12 { font-size: 12px; }
@@ -1233,13 +570,28 @@ section.section-card {
 .w-720 { width: 720px; }
 .maxh-90vh { max-height: 90vh; }
 
-/* Column span (alias of .span-all used elsewhere) */
 .col-span-full { grid-column: 1 / -1; }
 
-/* Simple two-column form grid */
-.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-@media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
-
-
-/* ===== DashboardTabs — small utility used here ===== */
+/* ========================================
+   SMALL UTILS
+   ======================================== */
+.row-inline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.flex { display: flex; }
+.items-center { align-items: center; }
+.items-start  { align-items: flex-start; }
+.items-end    { align-items: flex-end; }
+.justify-between { justify-content: space-between; }
+.mt-0 { margin-top: 0; }
+.mt-6 { margin-top: 6px; }
+.mt-8 { margin-top: 8px; }
+.mt-12 { margin-top: 12px; }
+.mt-16 { margin-top: 16px; }
+.mr-8 { margin-right: 8px; }
 .pt-8 { padding-top: 8px; }
+.nowrap { white-space: nowrap; }
+.block { display: block; }
+.hidden { display: none !important; }
+
+/* ========================================
+   END
+   ======================================== */
