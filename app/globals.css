@@ -1239,3 +1239,7 @@ section.section-card {
 /* Simple two-column form grid */
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 @media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
+
+
+/* ===== DashboardTabs — small utility used here ===== */
+.pt-8 { padding-top: 8px; }
