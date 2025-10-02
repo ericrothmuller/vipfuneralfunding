@@ -3,7 +3,7 @@
 /* Modern font (Inter) */
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 
-/* Slight universal font-size bump */
+/* Universal font size: at least 18px */
 html {
   font-size: 18px;
 }
@@ -30,21 +30,21 @@ html {
 }
 
 .modal {
-  width: min(1120px, 100%); /* widened from 1040px */
+  width: min(1120px, 100%); /* widened */
   max-height: min(85vh, 1200px);
   overflow: hidden;
-  background: var(--card);                 /* <- theme-aware */
-  border: 1px solid var(--border);         /* <- theme-aware */
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: 16px;
   box-shadow: 0 20px 80px rgba(0, 0, 0, 0.35);
   display: grid;
   grid-template-rows: auto 1fr auto;
-  color: var(--text);                      /* <- theme-aware text */
+  color: var(--text);
 }
 
 .modal-header,
 .modal-footer {
-  padding: 14px 16px;
+  padding: 16px 20px; /* a bit more breathing room */
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
@@ -64,31 +64,31 @@ html {
 
 /* Scrollable body */
 .modal-body {
-  padding: 16px;
+  padding: 18px 20px; /* a touch more */
   overflow: auto;
 }
 
 /* Details grid */
 .detail-grid {
   display: grid;
-  gap: 16px;
+  gap: 20px; /* increased spacing between sections */
 }
 .detail-grid section {
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 12px;
-  background: var(--card);                 /* <- use card color for both themes */
+  padding: 14px 16px; /* a bit more padding */
+  background: var(--card);
 }
 .detail-grid h4 {
-  margin: 0 0 8px;
-  font-size: 16px;
+  margin: 0 0 10px;
+  font-size: 18px; /* ensure >= 18px */
 }
 .detail-grid section > div {
   display: grid;
-  grid-template-columns: 220px 1fr;
-  gap: 8px;
-  padding: 6px 0;
-  border-bottom: 1px dashed var(--border); /* <- theme-aware divider */
+  grid-template-columns: 240px 1fr; /* slightly wider key column */
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--border);
 }
 .detail-grid section > div:last-child {
   border-bottom: none;
@@ -124,15 +124,15 @@ img {
 
 /* ------------- Theme ------------- */
 :root {
-  --bg: #0f1115;           /* page background */
-  --card: #151821;         /* card background */
-  --muted: #a0a7b4;        /* secondary text */
-  --text: #e9edf5;         /* primary text */
-  --border: #232835;       /* borders */
-  --accent: #d6b16d;       /* gold accent */
+  --bg: #0f1115;
+  --card: #151821;
+  --muted: #a0a7b4;
+  --text: #e9edf5;
+  --border: #232835;
+  --accent: #d6b16d;
   --accent-weak: #f3e4c1;
   --focus: 0 0 0 3px rgba(214, 177, 109, 0.35);
-  --overlay: rgba(6, 8, 12, 0.6); /* dark: richer dim */
+  --overlay: rgba(6, 8, 12, 0.6);
 }
 
 body {
@@ -141,21 +141,21 @@ body {
   color: var(--text);
   font-family: "Inter", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
                "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
-  line-height: 1.45;
+  line-height: 1.5; /* slightly more comfortable leading */
 }
 
 /* ------------- Layout ------------- */
 .wrap {
-  max-width: 1360px; /* widened from 1280px */
-  margin: 32px auto 64px;
-  padding: 0 20px;
+  max-width: 1360px; /* widened */
+  margin: 36px auto 72px; /* more top/bottom spacing */
+  padding: 0 24px; /* a bit more gutter */
 }
 
 .card {
   background: linear-gradient(180deg, #171b26 0%, #151821 100%);
   border: 1px solid var(--border);
   border-radius: 16px;
-  padding: 20px;
+  padding: 22px; /* slightly more padding */
   box-shadow: 0 10px 40px rgba(0,0,0,0.25);
 }
 
@@ -164,14 +164,14 @@ body {
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 16px;
+  gap: 18px;
+  margin-bottom: 18px;
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
 }
 .brand-logo {
   width: 160px;
@@ -179,8 +179,8 @@ body {
   filter: drop-shadow(0 4px 16px rgba(0,0,0,0.25));
 }
 .brand-copy h1 {
-  margin: 0 0 4px;
-  font-size: 26px;
+  margin: 0 0 6px;
+  font-size: 28px; /* ensure comfortably > 18 */
   letter-spacing: 0.2px;
 }
 .muted {
@@ -194,7 +194,7 @@ body {
   border: 1px solid var(--border);
   background: #1b2030;
   color: var(--text);
-  padding: 8px 12px;
+  padding: 10px 14px; /* more hit area */
   border-radius: 10px;
   cursor: pointer;
   transition: transform .06s ease, background .2s ease, border-color .2s ease, box-shadow .2s ease;
@@ -224,19 +224,19 @@ body {
 }
 .tablist {
   display: flex;
-  gap: 6px;
-  padding: 6px;
+  gap: 8px;           /* more spacing */
+  padding: 8px;
   background: #121622;
   border: 1px solid var(--border);
   border-radius: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 .tab {
   appearance: none;
   background: transparent;
   border: 1px solid transparent;
   color: var(--muted);
-  padding: 10px 14px;
+  padding: 12px 16px; /* bigger target */
   border-radius: 10px;
   cursor: pointer;
   transition: background .2s ease, color .2s ease, border-color .2s ease, transform .06s ease;
@@ -256,13 +256,13 @@ body {
   box-shadow: var(--focus);
 }
 .tabpanel {
-  padding: 12px 6px 4px;
+  padding: 14px 8px 6px;
 }
 
 /* ------------- Panel headers ------------- */
 .panel-title {
-  margin: 4px 0 6px;
-  font-size: 20px;
+  margin: 6px 0 8px;
+  font-size: 22px; /* slightly larger */
   font-weight: 650;
   letter-spacing: 0.2px;
 }
@@ -270,14 +270,14 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 14px;
 }
 
 /* ------------- Forms ------------- */
 label {
   display: grid;
-  gap: 6px;
-  font-size: 14px;
+  gap: 8px;           /* more vertical space within labels */
+  font-size: 18px;    /* ensure >= 18px */
 }
 input[type="text"],
 input[type="email"],
@@ -289,7 +289,7 @@ textarea {
   color: var(--text);
   border: 1px solid #29314b;
   border-radius: 10px;
-  padding: 10px 12px;
+  padding: 12px 14px;           /* bigger input padding */
   transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
 }
 input::placeholder,
@@ -306,6 +306,12 @@ textarea {
   resize: vertical;
 }
 
+/* Add more space BEFORE section titles in the Funding Request form */
+.fr-section-title {
+  margin-top: 18px !important;  /* space above */
+  margin-bottom: 12px !important;
+}
+
 /* ------------- Tables ------------- */
 .table-wrap {
   width: 100%;
@@ -316,18 +322,18 @@ textarea {
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: 18px;       /* ensure >= 18px */
 }
 .table thead th {
   text-align: left;
-  padding: 12px;
+  padding: 14px;         /* more padding */
   background: #121622;
   border-bottom: 1px solid var(--border);
   color: var(--muted);
   font-weight: 600;
 }
 .table tbody td {
-  padding: 12px;
+  padding: 14px;         /* more padding */
   border-bottom: 1px solid #1c2134;
 }
 .table tbody tr:hover {
@@ -341,14 +347,14 @@ textarea {
 
 /* ---------- Light Theme Variables ---------- */
 :root[data-theme="light"] {
-  --bg: #f7f7fb;               /* page background */
-  --card: #ffffff;             /* card background */
-  --muted: #5e6470;            /* secondary text */
-  --text: #111318;             /* primary text */
-  --border: #e3e6ee;           /* borders */
-  --accent: #b18b3f;           /* gold accent (slightly deeper for light) */
+  --bg: #f7f7fb;
+  --card: #ffffff;
+  --muted: #5e6470;
+  --text: #111318;
+  --border: #e3e6ee;
+  --accent: #b18b3f;
   --accent-weak: #e9d9b2;
-  --overlay: rgba(17, 19, 24, 0.35); /* light: softer dim */
+  --overlay: rgba(17, 19, 24, 0.35);
 }
 
 :root[data-theme="light"] body {
@@ -432,13 +438,13 @@ textarea {
 .theme-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 .theme-toggle .toggle-opt {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
+  gap: 8px;
+  padding: 8px 12px;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: transparent;
@@ -446,7 +452,7 @@ textarea {
   user-select: none;
 }
 .theme-toggle .toggle-opt.active {
-  background: rgba(214, 177, 109, 0.12); /* hint of gold */
+  background: rgba(214, 177, 109, 0.12);
   border-color: var(--accent);
 }
 .theme-toggle input {
@@ -460,7 +466,7 @@ textarea {
 
 /* Brand & Status (shared) */
 :root {
-  --primary: #d6b16d;         /* VIP gold */
+  --primary: #d6b16d;
   --primary-contrast: #0b0d10;
 
   --success: #1fa971;
@@ -475,30 +481,24 @@ textarea {
 
 /* ---------- LIGHT THEME (contrast-tuned) ---------- */
 html[data-theme="light"] {
-  /* App surfaces & text */
-  --bg:           #f7f7fb;   /* page background */
+  --bg:           #f7f7fb;
   --text:         #121418;
   --muted:        #5c6677;
 
-  --surface-1:    #ffffff;   /* cards / sections */
-  /* Inputs / fields: slightly darker than page bg for contrast */
+  --surface-1:    #ffffff;
   --surface-2:    #eef2f7;   
-
-  /* Border: a step darker for clearer separation */
   --border:       #c9cfdb;
 
-  /* Brand bridge */
   --gold:         var(--primary);
   --title:        #000000;
   --title-color:  #000000;
 
   --card-bg:      var(--surface-1);
-  --modal-bg:     #f7f7fb;   /* page-like modal shell */
+  --modal-bg:     #f7f7fb;
   --field-bg:     var(--surface-2);
   --field:        var(--surface-2);
   --field-border: var(--border);
 
-  /* Buttons: more distinct than fields/page */
   --btn-bg:       #e7ebf3;
 
   --link:         #175cd3;
@@ -512,7 +512,7 @@ html[data-theme="light"] textarea,
 html[data-theme="light"] .ro {
   background: var(--field-bg);
   border: 1px solid var(--field-border);
-  box-shadow: var(--shadow-1);                 /* subtle lift */
+  box-shadow: var(--shadow-1);
 }
 
 /* Buttons in light mode: clearer fill + hover/active feedback */
@@ -526,12 +526,12 @@ html[data-theme="light"] .btn-link {
 
 html[data-theme="light"] .btn:hover,
 html[data-theme="light"] .btn-link:hover {
-  background: #dfe6f0;                        /* a step darker */
+  background: #dfe6f0;
 }
 
 html[data-theme="light"] .btn:active,
 html[data-theme="light"] .btn-link:active {
-  background: #d6dee9;                        /* pressed */
+  background: #d6dee9;
   box-shadow: var(--shadow-2);
 }
 
@@ -559,8 +559,8 @@ html[data-theme="dark"] {
   --text:         #e7ebf0;
   --muted:        #9aa4b2;
 
-  --surface-1:    #101317;     /* cards / sections */
-  --surface-2:    #151a20;     /* inputs / fields */
+  --surface-1:    #101317;
+  --surface-2:    #151a20;
   --border:       #222832;
 
   --gold:         var(--primary);
@@ -619,13 +619,13 @@ input, select, textarea, .ro {
   border: 1px solid var(--border);
 }
 
-/* Dark theme button fixes (readability: use #151A20 everywhere requested) */
+/* Dark theme button fixes */
 html[data-theme="dark"] .btn,
 html[data-theme="dark"] .btn-link,
 html[data-theme="dark"] .btn-gold,
 html[data-theme="dark"] .fr-gold {
-  background: #151a20;       /* requested tone */
-  color: #e7ebf0;            /* high contrast */
+  background: #151a20;
+  color: #e7ebf0;
   border-color: var(--border);
 }
 
@@ -654,7 +654,7 @@ a:visited { color: var(--link-visited); }
 /* Ensure the dropdown’s stacking context isn’t polluted by parent blur/backdrop */
 .ic-box {
   position: relative;
-  isolation: isolate; /* prevents backdrop/filter from ancestors from affecting children */
+  isolation: isolate;
 }
 
 /* Solid background with fallback: use --card-bg if present, else --card */
@@ -665,7 +665,7 @@ a:visited { color: var(--link-visited); }
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   border-radius: 10px;
-  z-index: 9999 !important; /* float above inputs/cards */
+  z-index: 9999 !important;
 }
 
 /* Items inherit text color; draw a hairline between rows for clarity */
