@@ -1170,3 +1170,5 @@ section.section-card {
     grid-template-columns: 1fr;
   }
 }
+
+.mr-8 { margin-right: 8px; }

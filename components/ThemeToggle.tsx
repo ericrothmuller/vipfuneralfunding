@@ -32,7 +32,7 @@ export default function ThemeToggle() {
 
   return (
     <div className="theme-toggle">
-      <span className="muted" style={{ marginRight: 8 }}>Theme:</span>
+      <span className="muted mr-8">Theme:</span>
       <label className={`toggle-opt ${theme === "dark" ? "active" : ""}`}>
         <input
           type="radio"
