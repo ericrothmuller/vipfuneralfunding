@@ -1188,3 +1188,54 @@ section.section-card {
   .cols-2 { grid-template-columns: 1fr; }
   .cols-3-tight { grid-template-columns: 1fr; }
 }
+
+/* ===== FHCemsAdminPanel — layout & utilities ===== */
+
+/* Layout for the two-pane area: left list (fixed ~320px) + right detail */
+.fhcems-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 12px;
+}
+@media (max-width: 900px) {
+  .fhcems-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Generic gaps, paddings, margins (used across items) */
+.gap-14 { gap: 14px; }
+.gap-12 { gap: 12px; } /* you likely have this already */
+.gap-8  { gap: 8px; }
+.gap-6  { gap: 6px; }
+.p-8    { padding: 8px; }
+.mt-8   { margin-top: 8px; }
+.mt-16  { margin-top: 16px; }
+
+/* Flex & grid helpers */
+.flex { display: flex; }
+.items-center { align-items: center; }
+.items-start  { align-items: flex-start; }
+.justify-between { justify-content: space-between; }
+.grid { display: grid; }
+
+/* Borders & overflow */
+.bordered { border: 1px solid var(--border); border-radius: 10px; background: var(--card-bg); }
+.overflow-x-auto { overflow-x: auto; }
+.overflow-auto { overflow: auto; }
+
+/* Text & width helpers */
+.fw-700 { font-weight: 700; }
+.text-13 { font-size: 13px; }
+.text-12 { font-size: 12px; }
+.ellipsis { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.minw-240 { min-width: 240px; }
+.w-720 { width: 720px; }
+.maxh-90vh { max-height: 90vh; }
+
+/* Column span (alias of .span-all used elsewhere) */
+.col-span-full { grid-column: 1 / -1; }
+
+/* Simple two-column form grid */
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }

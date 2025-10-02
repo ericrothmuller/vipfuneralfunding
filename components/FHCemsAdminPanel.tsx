@@ -207,7 +207,7 @@ export default function FHCemsAdminPanel() {
 
   return (
     <div className="fhcems-wrap grid gap-14">
-      <div className="row grid gap-12 grid-cols-1 md:grid-cols-[320px_1fr]">
+      <div className="fhcems-layout">
         {/* Left list */}
         <div className="card grid gap-8">
           <h3 className="title">FH/CEMs</h3>
