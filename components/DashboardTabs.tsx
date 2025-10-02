@@ -101,9 +101,7 @@ export default function DashboardTabs({ isAdmin, role }: { isAdmin: boolean; rol
               <button className="btn" onClick={() => onSelectTab("new")}>+ New Request</button>
             </div>
             {role === "NEW" ? (
-              <p className="muted" style={{ paddingTop: 8 }}>
-                Your account needs to be approved before you can submit or view funding requests.
-              </p>
+              <p className="muted pt-8">Your account needs to be approved before you can submit or view funding requests.</p>
             ) : (
               <RequestsTable isAdmin={isAdmin} />
             )}
@@ -113,12 +111,9 @@ export default function DashboardTabs({ isAdmin, role }: { isAdmin: boolean; rol
         {active === "new" && (
           <div role="tabpanel" id="new-panel" aria-labelledby="new-tab" className="tabpanel">
             <h2 className="panel-title">New Funding Request</h2>
-            {/* Updated helper text */}
             <p className="muted">Submit a new funding request.</p>
             {role === "NEW" ? (
-              <p className="muted" style={{ paddingTop: 8 }}>
-                Your account needs to be approved before you can submit or view funding requests.
-              </p>
+              <p className="muted pt-8">Your account needs to be approved before you can submit or view funding requests.</p>
             ) : (
               <FundingRequestForm isAdmin={isAdmin} />
             )}
