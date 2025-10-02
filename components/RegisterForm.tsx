@@ -48,26 +48,28 @@ export default function RegisterForm() {
   }
 
   return (
-    <main className="centered" style={{ paddingTop: 25 }}>
+    <main className="centered pt-25">
       <Image
+        className="login-logo"
         src="/VIP-Funeral-Funding-Logo-Gold.png"
         alt="VIP Funeral Funding logo"
         width={898}
         height={152}
-        style={{ width: "30%", height: "auto" }}
         priority
       />
-      <div style={{ maxWidth: 420, margin: "64px auto", padding: 24 }}>
+
+      <div className="auth-box">
         <h1>Create an account</h1>
-        <form onSubmit={onSubmit} style={{ display: "grid", gap: 12 }}>
+
+        <form onSubmit={onSubmit} className="grid gap-12">
           <label>
             Email
             <input
               type="email"
+              className="w-full"
               value={email}
               onChange={e => setEmail(e.target.value)}
               required
-              style={{ width: "100%", padding: 8 }}
             />
           </label>
 
@@ -75,10 +77,10 @@ export default function RegisterForm() {
             Password
             <input
               type="password"
+              className="w-full"
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
-              style={{ width: "100%", padding: 8 }}
               placeholder="At least 8 characters"
             />
           </label>
@@ -87,18 +89,18 @@ export default function RegisterForm() {
             Confirm password
             <input
               type="password"
+              className="w-full"
               value={confirm}
               onChange={e => setConfirm(e.target.value)}
               required
-              style={{ width: "100%", padding: 8 }}
             />
           </label>
 
-          <button disabled={loading} type="submit" style={{ padding: 10 }}>
+          <button disabled={loading} type="submit" className="btn btn-gold">
             {loading ? "Creating account..." : "Create account"}
           </button>
 
-          {msg && <p style={{ color: "crimson" }}>{msg}</p>}
+          {msg && <p className="error">{msg}</p>}
         </form>
       </div>
     </main>
