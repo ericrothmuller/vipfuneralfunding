@@ -324,6 +324,70 @@ html[data-theme="light"] .btn-link:active {
   box-shadow: var(--shadow-2);
 }
 
+/* ========================================
+   BUTTON SIZE UTILITIES
+   ======================================== */
+
+/* Small buttons */
+.btn-sm,
+.btn-ghost.btn-sm,
+.btn-link.btn-sm,
+.btn-gold.btn-sm,
+.fr-gold.btn-sm {
+  font-size: 16px;
+  padding: 8px 12px;
+  min-height: 38px;
+  border-radius: 8px;
+}
+
+/* Large buttons (great for CTAs) */
+.btn-lg,
+.btn-ghost.btn-lg,
+.btn-link.btn-lg,
+.btn-gold.btn-lg,
+.fr-gold.btn-lg {
+  font-size: 20px;
+  padding: 14px 20px;
+  min-height: 50px;
+  border-radius: 12px;
+}
+
+/* Full-width button */
+.btn-block,
+.btn-ghost.btn-block,
+.btn-link.btn-block,
+.btn-gold.btn-block,
+.fr-gold.btn-block {
+  display: inline-flex;
+  width: 100%;
+  justify-content: center;
+}
+
+/* Icon-only (square) buttons */
+.btn-icon,
+.btn-ghost.btn-icon,
+.btn-link.btn-icon {
+  padding: 10px;
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-grid;
+  place-items: center;
+}
+
+/* Helpful spacing when mixing icons + text inside buttons */
+.btn .icon-left,
+.btn-ghost .icon-left,
+.btn-link .icon-left,
+.btn-gold .icon-left,
+.fr-gold .icon-left { margin-right: 8px; display: inline-grid; place-items: center; }
+
+.btn .icon-right,
+.btn-ghost .icon-right,
+.btn-link .icon-right,
+.btn-gold .icon-right,
+.fr-gold .icon-right { margin-left: 8px; display: inline-grid; place-items: center; }
+
+
 
 /* ========================================
    TABS
