@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 
-export default function LoginForm() {
+export default function LoginForm({ showLogo = true }: { showLogo?: boolean }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -35,23 +35,27 @@ export default function LoginForm() {
 
   return (
     <main className="centered pt-25">
-      {/* Theme-aware logos */}
-      <Image
-        className="login-logo theme-logo-dark"
-        src="/VIP-Funeral-Funding-Logo-Gold.png"
-        alt="VIP Funeral Funding logo (dark theme)"
-        width={898}
-        height={152}
-        priority
-      />
-      <Image
-        className="login-logo theme-logo-light"
-        src="/VIP-Funeral-Funding-Logo-Black.png"
-        alt="VIP Funeral Funding logo (light theme)"
-        width={898}
-        height={152}
-        priority
-      />
+      {showLogo && (
+        <>
+          {/* Theme-aware logos */}
+          <Image
+            className="login-logo theme-logo-dark"
+            src="/VIP-Funeral-Funding-Logo-Gold.png"
+            alt="VIP Funeral Funding logo (dark theme)"
+            width={898}
+            height={152}
+            priority
+          />
+          <Image
+            className="login-logo theme-logo-light"
+            src="/VIP-Funeral-Funding-Logo-Black.png"
+            alt="VIP Funeral Funding logo (light theme)"
+            width={898}
+            height={152}
+            priority
+          />
+        </>
+      )}
 
       <div className="auth-box">
         <h1>Login</h1>
@@ -81,14 +85,14 @@ export default function LoginForm() {
             />
           </label>
 
-          <button disabled={loading} type="submit" className="btn btn-gold">
+        <button disabled={loading} type="submit" className="btn btn-gold">
             {loading ? "Signing in..." : "Sign in"}
           </button>
 
           {msg && <p className="error">{msg}</p>}
         </form>
 
-        {/* Text + button back to Register */}
+        {/* CTA back to Register */}
         <p className="muted mt-12">Don’t have an account?</p>
         <Link href="/register" className="btn btn-link btn-block" aria-label="Create an account">
           Create an account

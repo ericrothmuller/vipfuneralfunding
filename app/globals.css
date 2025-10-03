@@ -372,6 +372,18 @@ a.btn-link:hover {
   text-decoration: none;
 }
 
+/* Ensure link-style buttons use text color, not link/visited purple */
+a.btn-link,
+a.btn-link:link,
+a.btn-link:visited,
+a.btn-link:hover,
+a.btn-link:active,
+a.btn-link:focus {
+  color: var(--text) !important;    /* white in dark, black in light */
+  text-decoration: none;
+}
+
+
 
 /* ========================================
    BUTTON SIZE UTILITIES

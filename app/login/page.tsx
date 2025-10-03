@@ -33,18 +33,9 @@ export default async function LoginPage() {
       </header>
 
       <h1 className="login-title">Sign in</h1>
-      <p className="muted login-intro">
-        Welcome back. Enter your credentials to continue, or{" "}
-        <Link href="/register">create an account</Link>.
-      </p>
 
-      {/* The form renders its own card container (.auth-box) */}
-      <LoginForm />
-
-      <p className="muted login-outro">
-        Don’t have an account?{" "}
-        <Link href="/register">Register here</Link>.
-      </p>
+      {/* Render form without its own logo to avoid duplicate */}
+      <LoginForm showLogo={false} />
     </main>
   );
 }
