@@ -809,22 +809,47 @@ html[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
 /* modal body one-col override for sub-modals */
 .one-col { grid-template-columns: 1fr !important; }
 
-/* =========================
-   Beneficiary Modal polish
-   ========================= */
-
-/* Space after each control so the next field title isn't jammed up */
-.modal-body label > input,
-.modal-body label > select,
-.modal-body label > textarea {
-  margin-bottom: 10px;   /* previously 0 */
-}
-
 /* Action row: more space from the last input and between buttons */
 .modal-actions {
   gap: 12px;             /* was 8px */
   margin-top: 16px;      /* adds space above the buttons */
 }
+
+/* =========================
+   Beneficiary Modal — action row fixes
+   ========================= */
+
+/* Ensure spacing & layout always apply in modals */
+.modal .modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;         /* clear space between Cancel / Save */
+  margin-top: 18px;  /* breathing room above the buttons */
+}
+
+/* Normalize button sizing just in modal action rows */
+.modal .modal-actions .btn,
+.modal .modal-actions .btn-ghost,
+.modal .modal-actions .btn-link,
+.modal .modal-actions .btn-gold,
+.modal .modal-actions .fr-gold {
+  padding: 10px 16px !important;  /* same padding = same height */
+  min-height: 44px;               /* consistent tap target */
+  border-radius: 10px;
+  line-height: 1.4;
+  flex: 0 0 auto;                 /* prevent stretch/squish */
+}
+
+/* (Optional but nice) add a subtle separation from the fields above */
+.modal .modal-actions::before {
+  content: "";
+  display: block;
+  position: absolute;
+  /* If your modal footer is separate, remove this rule.
+     If actions live inside .modal-body, this adds a soft divide: */
+}
+
 
 /* ========================================
    REQUESTS TABLE
