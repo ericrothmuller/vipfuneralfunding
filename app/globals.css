@@ -877,6 +877,30 @@ html[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 /* ========================================
+   Modal form field spacing — ensure room
+   between a control and the next field title
+   ======================================== */
+
+/* Add bottom space to text-like controls ONLY (not checkboxes) */
+.modal .modal-body label > input:not([type="checkbox"]),
+.modal .modal-body label > select,
+.modal .modal-body label > textarea {
+  margin-bottom: 12px;     /* increased for clear separation */
+  display: block;          /* ensures margin applies reliably inside grids */
+}
+
+/* In tighter grid rows, preserve the same spacing */
+.modal .modal-body .row-2 label > input:not([type="checkbox"]),
+.modal .modal-body .row-2 label > select,
+.modal .modal-body .row-2 label > textarea,
+.modal .modal-body .grid3 label > input:not([type="checkbox"]),
+.modal .modal-body .grid3 label > select,
+.modal .modal-body .grid3 label > textarea {
+  margin-bottom: 12px;
+}
+
+
+/* ========================================
    REQUESTS TABLE
    ======================================== */
 .p-12 { padding: 12px; }
