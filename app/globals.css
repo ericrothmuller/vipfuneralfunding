@@ -742,7 +742,7 @@ html[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
 
 /* Policy block */
 .pb { border: 1px dashed var(--border); padding: 10px; margin-top: 8px; border-radius: 10px; }
-.pb-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.pb-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px;}
 
 /* Dropzones (shared by edit modal too) */
 .dz {
