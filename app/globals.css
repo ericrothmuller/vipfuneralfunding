@@ -219,6 +219,23 @@ section,
   .header-welcome { text-align: center; white-space: normal; }
 }
 
+/* Fix header logo visibility per theme (wins over .header-logo img) */
+.header-logo .theme-logo-light { display: none; }
+.header-logo .theme-logo-dark  { display: block; }
+
+:root[data-theme="light"] .header-logo .theme-logo-light { display: block; }
+:root[data-theme="light"] .header-logo .theme-logo-dark  { display: none; }
+
+/* Make sure we don't force visibility on both logos */
+.header-logo img {
+  /* display: block;  <-- remove or comment out this line */
+  height: auto;
+  width: 320px;
+  max-width: 100%;
+  filter: drop-shadow(0 4px 16px rgba(0,0,0,0.18));
+}
+
+
 /* ========================================
    BUTTONS (unified sizing & interactions)
    ======================================== */
