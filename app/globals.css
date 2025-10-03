@@ -578,6 +578,19 @@ html[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
 .fr-form select,
 .fr-form textarea { width: 100%; }
 
+/* New Funding Request: submit button sizing */
+.fr-gold {
+  font-size: 18px;           /* larger text */
+  padding: 12px 18px;        /* more breathing room */
+  line-height: 1.4;
+  border-radius: 10px;       /* matches .btn look */
+}
+
+.fr-submit {
+  min-height: 44px;          /* ensures a nice tall tap target */
+  border: 1px solid var(--border);
+}
+
 /* Policy block */
 .pb { border: 1px dashed var(--border); padding: 10px; margin-top: 8px; border-radius: 10px; }
 .pb-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
