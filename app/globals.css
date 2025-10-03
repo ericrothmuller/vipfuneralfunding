@@ -529,12 +529,14 @@ html[data-theme="light"] .btn-link:active { box-shadow: var(--shadow-2); }
 }
 
 /* ========================================
-   FORMS / INPUTS (updated font-size)
+   FORMS / INPUTS (ensure password matches)
    ======================================== */
+
 label { display: grid; gap: 8px; font-size: 18px; }
 
 input[type="text"],
 input[type="email"],
+input[type="password"],        /* <-- added */
 input[type="tel"],
 input[type="date"],
 input[type="file"],
@@ -545,15 +547,16 @@ textarea {
   border: 1px solid var(--field-border);
   border-radius: 10px;
   padding: 12px 14px;
-  font-size: 17px;                 /* NEW: larger text inside fields */
-  line-height: 1.45;               /* comfy line height */
+  font-size: 17px;
+  line-height: 1.45;
+  min-height: 44px;            /* consistent height incl. password */
   transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
 }
 
 input::placeholder,
 textarea::placeholder {
   color: #77809a;
-  font-size: 17px;                 /* match field size for consistency */
+  font-size: 17px;
 }
 
 input:focus,

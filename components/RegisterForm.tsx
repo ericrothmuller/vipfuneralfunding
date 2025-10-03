@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 
 export default function RegisterForm() {
   const router = useRouter();
@@ -37,7 +38,6 @@ export default function RegisterForm() {
       if (!res.ok) {
         setMsg(data?.error || "Registration failed");
       } else {
-        // Auto-login (cookie set by API), send to dashboard
         router.push("/dashboard");
       }
     } catch {
@@ -49,10 +49,19 @@ export default function RegisterForm() {
 
   return (
     <main className="centered pt-25">
+      {/* Theme-aware logos */}
       <Image
-        className="login-logo"
+        className="login-logo theme-logo-dark"
         src="/VIP-Funeral-Funding-Logo-Gold.png"
-        alt="VIP Funeral Funding logo"
+        alt="VIP Funeral Funding logo (dark theme)"
+        width={898}
+        height={152}
+        priority
+      />
+      <Image
+        className="login-logo theme-logo-light"
+        src="/VIP-Funeral-Funding-Logo-Black.png"
+        alt="VIP Funeral Funding logo (light theme)"
         width={898}
         height={152}
         priority
@@ -70,6 +79,7 @@ export default function RegisterForm() {
               value={email}
               onChange={e => setEmail(e.target.value)}
               required
+              placeholder="you@example.com"
             />
           </label>
 
@@ -93,6 +103,7 @@ export default function RegisterForm() {
               value={confirm}
               onChange={e => setConfirm(e.target.value)}
               required
+              placeholder="Re-enter your password"
             />
           </label>
 
@@ -102,6 +113,12 @@ export default function RegisterForm() {
 
           {msg && <p className="error">{msg}</p>}
         </form>
+
+        {/* Back to sign-in */}
+        <p className="muted mt-12">Already have an account?</p>
+        <Link href="/login" className="btn btn-link btn-block" aria-label="Back to sign in">
+          Sign in
+        </Link>
       </div>
     </main>
   );

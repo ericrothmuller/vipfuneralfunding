@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -34,7 +35,7 @@ export default function LoginForm() {
 
   return (
     <main className="centered pt-25">
-      {/* Theme-aware logos for the form header (gold in dark, black in light) */}
+      {/* Theme-aware logos */}
       <Image
         className="login-logo theme-logo-dark"
         src="/VIP-Funeral-Funding-Logo-Gold.png"
@@ -64,6 +65,7 @@ export default function LoginForm() {
               value={email}
               onChange={e => setEmail(e.target.value)}
               required
+              placeholder="you@example.com"
             />
           </label>
 
@@ -85,6 +87,12 @@ export default function LoginForm() {
 
           {msg && <p className="error">{msg}</p>}
         </form>
+
+        {/* Text + button back to Register */}
+        <p className="muted mt-12">Don’t have an account?</p>
+        <Link href="/register" className="btn btn-link btn-block" aria-label="Create an account">
+          Create an account
+        </Link>
       </div>
     </main>
   );
