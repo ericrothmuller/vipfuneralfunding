@@ -952,6 +952,69 @@ html[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 /* ========================================
+   Login page layout (no inline styles)
+   ======================================== */
+.login-page {
+  max-width: 720px;
+  margin: 64px auto;
+}
+
+.login-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.login-logo-lg {
+  width: 220px;
+  height: auto;
+}
+
+.login-title {
+  margin: 8px 0 12px;
+  text-align: center;
+}
+
+.login-intro,
+.login-outro {
+  text-align: center;
+  margin: 0 0 20px;
+}
+
+.login-outro { margin-top: 16px; }
+
+/* Make the auth card use themed surface in light mode (it was using --card before) */
+.auth-box {
+  background: var(--card-bg);  /* ensures light theme is truly light */
+}
+
+/* Inputs (site-wide): improve usability/tap target, incl. password */
+input,
+select,
+textarea {
+  min-height: 44px;            /* NEW: taller fields incl. password */
+}
+
+/* Optional: keep placeholders consistent with larger inputs */
+input::placeholder,
+textarea::placeholder {
+  font-size: 17px;
+}
+
+/* Ensure header logo visibility is correct for both themes in this header too */
+.header-logo .theme-logo-light,
+.login-header .theme-logo-light { display: none; }
+.header-logo .theme-logo-dark,
+.login-header .theme-logo-dark  { display: block; }
+:root[data-theme="light"] .header-logo .theme-logo-light,
+:root[data-theme="light"] .login-header .theme-logo-light { display: block; }
+:root[data-theme="light"] .header-logo .theme-logo-dark,
+:root[data-theme="light"] .login-header .theme-logo-dark  { display: none; }
+
+
+/* ========================================
    PROFILE FORM
    ======================================== */
 .pf-form { display: grid; gap: 14px; font-size: 18px; line-height: 1.45; color: var(--text); }
