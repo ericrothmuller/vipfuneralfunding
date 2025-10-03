@@ -13,35 +13,43 @@ export default async function DashboardPage() {
 
   return (
     <main className="wrap">
-      <header className="dash-header">
-        <div className="brand">
-          {/* Dark theme logo (gold) */}
-          <img
-            src="/VIP-Funeral-Funding-Logo-Gold.png"
-            alt="VIP Funeral Funding"
-            className="brand-logo theme-logo-dark"
-            width={160}
-            height={40}
-          />
-          {/* Light theme logo (black) */}
-          <img
-            src="/VIP-Funeral-Funding-Logo-Black.png"
-            alt="VIP Funeral Funding"
-            className="brand-logo theme-logo-light"
-            width={160}
-            height={40}
-          />
-          <div className="brand-copy">
-            <h1>Dashboard</h1>
-            <p className="muted">Welcome, {user.email}</p>
+      {/* New responsive header (classes only) */}
+      <header className="header">
+        <div className="header-inner">
+          {/* Row 1: centered logo (desktop & mobile) */}
+          <div className="header-logo">
+            {/* Dark theme logo (gold) */}
+            <img
+              src="/VIP-Funeral-Funding-Logo-Gold.png"
+              alt="VIP Funeral Funding"
+              className="theme-logo-dark"
+              width={898}
+              height={152}
+            />
+            {/* Light theme logo (black) */}
+            <img
+              src="/VIP-Funeral-Funding-Logo-Black.png"
+              alt="VIP Funeral Funding"
+              className="theme-logo-light"
+              width={898}
+              height={152}
+            />
+          </div>
+
+          {/* Row 2: desktop -> title left, welcome+logout right; mobile -> stacked centered */}
+          <div className="header-row">
+            <h1 className="header-title">Dashboard</h1>
+
+            <div className="header-right">
+              <span className="header-welcome">Welcome, {user.email}</span>
+              <form action="/api/logout" method="POST">
+                <button className="btn btn-ghost" type="submit" aria-label="Log out">
+                  Log out
+                </button>
+              </form>
+            </div>
           </div>
         </div>
-
-        <form action="/api/logout" method="POST">
-          <button className="btn btn-ghost" type="submit" aria-label="Log out">
-            Log out
-          </button>
-        </form>
       </header>
 
       <section className="card">
