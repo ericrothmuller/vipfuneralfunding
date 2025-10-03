@@ -220,69 +220,110 @@ section,
 }
 
 /* ========================================
-   BUTTONS
+   BUTTONS (unified sizing & interactions)
    ======================================== */
-.btn {
-  appearance: none;
-  border: 1px solid var(--border);
-  background: var(--btn-bg);
-  color: var(--text);
-  padding: 10px 14px;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: transform .06s ease, background .2s ease, border-color .2s ease, box-shadow .2s ease;
-}
-.btn:hover { filter: brightness(1.04); }
-.btn:active { transform: translateY(1px); }
-.btn:focus { outline: none; box-shadow: 0 0 0 3px rgba(214, 177, 109, 0.35); }
 
-.btn-ghost {
-  background: transparent;
-  border: 1px solid var(--border);
-}
-.btn-gold,
-.fr-gold {
-  background: var(--gold);
-  color: var(--primary-contrast);
-  border: 1px solid var(--gold);
-}
-
-/* ========================================
-   BUTTONS
-   ======================================== */
-.btn {
+/* Base sizing for all button variants */
+.btn,
+.btn-ghost,
+.btn-link {
   appearance: none;
-  border: 1px solid var(--border);
-  background: var(--btn-bg);
-  color: var(--text);
-  padding: 10px 16px;
-  border-radius: 10px;
-  cursor: pointer;
-  font-size: 18px;          /* NEW: ensure buttons are larger */
+  font-size: 18px;
   line-height: 1.4;
-  transition: transform .06s ease, background .2s ease, border-color .2s ease, box-shadow .2s ease;
+  padding: 10px 16px;
+  min-height: 44px;                 /* accessible tap target */
+  border-radius: 10px;
+  cursor: pointer;
+  transition:
+    transform .06s ease,
+    background .2s ease,
+    border-color .2s ease,
+    box-shadow .2s ease,
+    filter .2s ease;
 }
-.btn:hover { filter: brightness(1.04); }
-.btn:active { transform: translateY(1px); }
-.btn:focus { outline: none; box-shadow: 0 0 0 3px rgba(214, 177, 109, 0.35); }
 
-/* Ghost / Gold / Link variants follow same base font size */
-.btn-ghost {
-  background: transparent;
+/* Focus ring (consistent) */
+.btn:focus,
+.btn-ghost:focus,
+.btn-link:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(214, 177, 109, 0.35);
+}
+
+/* Active press */
+.btn:active,
+.btn-ghost:active,
+.btn-link:active {
+  transform: translateY(1px);
+}
+
+/* Disabled */
+.btn[disabled],
+.btn-ghost[disabled],
+.btn-link[disabled],
+.is-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* -------- Solid button -------- */
+.btn {
+  background: var(--btn-bg);
+  color: var(--text);
   border: 1px solid var(--border);
 }
-.btn-gold,
-.fr-gold {
-  background: var(--gold);
-  color: var(--primary-contrast);
-  border: 1px solid var(--gold);
+.btn:hover { filter: brightness(1.04); }
+
+/* -------- Ghost button -------- */
+.btn-ghost {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
 }
+.btn-ghost:hover {
+  filter: brightness(1.04);
+  background: rgba(255,255,255,0.04);   /* subtle fill in dark; barely visible in light */
+}
+
+/* -------- Link-style button -------- */
 .btn-link {
   background: transparent;
   color: var(--text);
   border: 1px solid var(--border);
-  font-size: 18px; /* match base buttons */
 }
+.btn-link:hover {
+  filter: brightness(1.04);
+  background: rgba(255,255,255,0.04);
+}
+
+/* -------- Brand/Gold button -------- */
+.btn-gold,
+.fr-gold {
+  background: var(--gold);
+  color: var(--primary-contrast);
+  border: 1px solid var(--gold);
+  font-size: 18px;                   /* stays consistent */
+  padding: 12px 18px;                /* comfy */
+}
+
+/* Light-mode emphasis (keeps your existing look) */
+html[data-theme="light"] .btn,
+html[data-theme="light"] .btn-ghost,
+html[data-theme="light"] .btn-link {
+  box-shadow: var(--shadow-1);
+}
+html[data-theme="light"] .btn:hover,
+html[data-theme="light"] .btn-ghost:hover,
+html[data-theme="light"] .btn-link:hover {
+  filter: brightness(0.97);
+}
+html[data-theme="light"] .btn:active,
+html[data-theme="light"] .btn-ghost:active,
+html[data-theme="light"] .btn-link:active {
+  box-shadow: var(--shadow-2);
+}
+
 
 /* ========================================
    TABS
