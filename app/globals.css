@@ -247,6 +247,60 @@ section,
   border: 1px solid var(--gold);
 }
 
+/* ========================================
+   BUTTONS
+   ======================================== */
+.btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--btn-bg);
+  color: var(--text);
+  padding: 10px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 18px;          /* NEW: ensure buttons are larger */
+  line-height: 1.4;
+  transition: transform .06s ease, background .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+.btn:hover { filter: brightness(1.04); }
+.btn:active { transform: translateY(1px); }
+.btn:focus { outline: none; box-shadow: 0 0 0 3px rgba(214, 177, 109, 0.35); }
+
+/* Ghost / Gold / Link variants follow same base font size */
+.btn-ghost {
+  background: transparent;
+  border: 1px solid var(--border);
+}
+.btn-gold,
+.fr-gold {
+  background: var(--gold);
+  color: var(--primary-contrast);
+  border: 1px solid var(--gold);
+}
+.btn-link {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  font-size: 18px; /* match base buttons */
+}
+
+/* ========================================
+   TABS
+   ======================================== */
+.tab {
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--muted);
+  padding: 12px 18px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 20px;          /* NEW: larger than normal buttons */
+  line-height: 1.4;
+  transition: background .2s ease, color .2s ease, border-color .2s ease, transform .06s ease;
+}
+
+
 /* Light-mode emphasis */
 html[data-theme="light"] .btn,
 html[data-theme="light"] .btn-link {
