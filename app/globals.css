@@ -943,6 +943,22 @@ html[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
 .pf-title { color: var(--title-color); font-weight: 800; margin: 0 0 12px; font-size: 20px; }
 
 /* ========================================
+   Profile Form — field spacing
+   ======================================== */
+
+/* Give inputs a bit of space before the next field title */
+.pf-card label > input:not([type="checkbox"]),
+.pf-card label > select,
+.pf-card label > textarea {
+  margin-bottom: 10px;   /* comfortable gap under each control */
+  display: block;        /* ensures the margin applies in grid/flow layouts */
+}
+
+/* Keep the section title snug at top of padded card */
+.pf-title { margin-top: 0; }
+
+
+/* ========================================
    VERIFICATION EDITOR
    ======================================== */
 .cols-2 { display: grid; grid-template-columns: 1fr 1fr; }
