@@ -652,23 +652,6 @@ html[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
   overflow: auto;
 }
 
-/* =========================
-   Beneficiary Modal polish
-   ========================= */
-
-/* Space after each control so the next field title isn't jammed up */
-.modal-body label > input,
-.modal-body label > select,
-.modal-body label > textarea {
-  margin-bottom: 10px;   /* previously 0 */
-}
-
-/* Action row: more space from the last input and between buttons */
-.modal-actions {
-  gap: 12px;             /* was 8px */
-  margin-top: 16px;      /* adds space above the buttons */
-}
-
 
 /* ========================================
    THEME TOGGLE
@@ -825,6 +808,23 @@ html[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
 
 /* modal body one-col override for sub-modals */
 .one-col { grid-template-columns: 1fr !important; }
+
+/* =========================
+   Beneficiary Modal polish
+   ========================= */
+
+/* Space after each control so the next field title isn't jammed up */
+.modal-body label > input,
+.modal-body label > select,
+.modal-body label > textarea {
+  margin-bottom: 10px;   /* previously 0 */
+}
+
+/* Action row: more space from the last input and between buttons */
+.modal-actions {
+  gap: 12px;             /* was 8px */
+  margin-top: 16px;      /* adds space above the buttons */
+}
 
 /* ========================================
    REQUESTS TABLE
