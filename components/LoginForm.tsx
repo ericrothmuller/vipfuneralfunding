@@ -34,10 +34,19 @@ export default function LoginForm() {
 
   return (
     <main className="centered pt-25">
+      {/* Theme-aware logos for the form header (gold in dark, black in light) */}
       <Image
-        className="login-logo"
+        className="login-logo theme-logo-dark"
         src="/VIP-Funeral-Funding-Logo-Gold.png"
-        alt="VIP Funeral Funding logo"
+        alt="VIP Funeral Funding logo (dark theme)"
+        width={898}
+        height={152}
+        priority
+      />
+      <Image
+        className="login-logo theme-logo-light"
+        src="/VIP-Funeral-Funding-Logo-Black.png"
+        alt="VIP Funeral Funding logo (light theme)"
         width={898}
         height={152}
         priority
@@ -66,6 +75,7 @@ export default function LoginForm() {
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
+              placeholder="Enter your password"
             />
           </label>
 
@@ -75,16 +85,6 @@ export default function LoginForm() {
 
           {msg && <p className="error">{msg}</p>}
         </form>
-
-        <br />
-
-        <button
-          type="button"
-          className="btn btn-ghost mt-8"
-          onClick={() => router.push("/register")}
-        >
-          Need an account? Register
-        </button>
       </div>
     </main>
   );
