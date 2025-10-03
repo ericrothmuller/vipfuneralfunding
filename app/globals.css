@@ -850,6 +850,31 @@ html[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
      If actions live inside .modal-body, this adds a soft divide: */
 }
 
+/* =========================
+   Beneficiary Modal — center buttons
+   ========================= */
+
+/* Center the Cancel / Save row */
+.modal .modal-actions {
+  display: flex;
+  justify-content: center;   /* center horizontally */
+  align-items: center;
+  gap: 14px;                 /* space between Cancel and Save */
+  margin-top: 20px;          /* breathing room above the buttons */
+  padding-bottom: 6px;       /* keeps them off the modal edge */
+}
+
+/* Normalize both buttons so they match in height/width feel */
+.modal .modal-actions .btn,
+.modal .modal-actions .btn-ghost,
+.modal .modal-actions .btn-link,
+.modal .modal-actions .btn-gold,
+.modal .modal-actions .fr-gold {
+  padding: 10px 20px;
+  min-height: 44px;
+  border-radius: 10px;
+  line-height: 1.4;
+}
 
 /* ========================================
    REQUESTS TABLE
