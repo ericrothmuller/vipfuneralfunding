@@ -319,6 +319,7 @@ section,
   filter: brightness(0.96);
   box-shadow: 0 6px 18px rgba(214, 177, 109, 0.35);
   transform: translateY(-1px);
+  cursor: pointer;
 }
 .fr-gold:active {
   transform: translateY(0); /* cancel the lift on press */
