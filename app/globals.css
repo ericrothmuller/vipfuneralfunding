@@ -1179,5 +1179,109 @@ textarea::placeholder {
 .hidden { display: none !important; }
 
 /* ========================================
+   Funding Request Modals — spacing & rhythm
+   (View + Edit)
+   ======================================== */
+
+/* 1) Section headers breathe before content */
+.detail-grid h4,
+.edit-grid h4 {
+  margin: 0 0 12px;            /* was 8px */
+}
+
+/* 2) Key–value rows: consistent vertical rhythm */
+.detail-grid section .kv,
+.edit-grid section .kv {
+  padding: 6px 0;              /* gentle row spacing */
+}
+.detail-grid section .kv + .kv,
+.edit-grid section .kv + .kv {
+  border-top: 1px dashed var(--border);   /* subtle divide */
+  padding-top: 8px;
+}
+
+/* 3) Space after controls so next field title isn’t jammed
+      (applies to all label-wrapped controls in the modals) */
+.edit-grid section label > input:not([type="checkbox"]),
+.edit-grid section label > select,
+.edit-grid section label > textarea,
+.detail-grid section label > input:not([type="checkbox"]),
+.detail-grid section label > select,
+.detail-grid section label > textarea {
+  margin-bottom: 10px;
+  display: block;
+}
+
+/* 4) Policy blocks: consistent spacing like other sections */
+.policy-head { margin-bottom: 8px; }            /* title row -> fields */
+.policy-grid { gap: 10px; }                     /* slightly roomier */
+
+/* Beneficiaries list spacing in each policy */
+.bene-list { gap: 10px; }
+.bene-row  { padding: 8px 10px; }
+
+/* 5) Attachments lists: create visual rhythm + non-underlined buttons */
+.detail-grid a.btn,
+.edit-grid a.btn {
+  text-decoration: none;
+}
+.detail-grid .list,
+.edit-grid .list {
+  gap: 10px;
+}
+.file-row { gap: 10px; }
+
+/* 6) Modal actions (when a row lives inside modal-body) */
+.modal .modal-actions {
+  display: flex;
+  justify-content: center;     /* center Cancel/Save/Close when used */
+  align-items: center;
+  gap: 14px;
+  margin-top: 18px;
+  padding-bottom: 6px;
+}
+.modal .modal-actions .btn,
+.modal .modal-actions .btn-ghost,
+.modal .modal-actions .btn-link,
+.modal .modal-actions .btn-gold,
+.modal .modal-actions .fr-gold {
+  padding: 10px 16px !important;
+  min-height: 44px;
+  border-radius: 10px;
+  line-height: 1.4;
+}
+
+/* 7) Footer-only action bars keep good spacing too */
+.modal-footer {
+  gap: 12px;                   /* matches visual spacing elsewhere */
+}
+
+/* 8) Readonly inputs shown in the Edit modal look clearly readonly
+      but not “disabled” gray */
+.readonly {
+  background: rgba(255,255,255,.06);
+  border-color: var(--border);
+}
+
+/* 9) IC typeahead in Edit modal — ensure it clears title spacing */
+.ic-box { margin-top: 6px; }
+
+/* 10) Slightly widen edit fields grid on large screens */
+@media (min-width: 1100px) {
+  .edit-grid { gap: 16px; }
+}
+
+/* 11) Keep download links/ghost buttons crisp on hover in modals */
+.modal a.btn-ghost:hover,
+.modal a.btn-link:hover {
+  background: rgba(255,255,255,0.04);
+  filter: brightness(1.02);
+}
+
+/* 12) “Close” button in the view modal footer not glued to content */
+.modal .modal-footer { padding-top: 16px; }
+
+
+/* ========================================
    END
    ======================================== */
