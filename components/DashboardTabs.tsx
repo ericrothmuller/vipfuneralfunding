@@ -23,7 +23,10 @@ const BASE_TABS: ReadonlyArray<{ key: TabKey; label: string }> = [
 
 export default function DashboardTabs({ isAdmin, role }: { isAdmin: boolean; role: Role }) {
   const tabs = useMemo<ReadonlyArray<{ key: TabKey; label: string }>>(
-    () => (isAdmin ? [...BASE_TABS, { key: "users", label: "Users" }, { key: "ics", label: "ICs" }, { key: "fhcems", label: "FH/CEMs" }] : BASE_TABS),
+    () =>
+      isAdmin
+        ? [...BASE_TABS, { key: "users", label: "Users" }, { key: "ics", label: "ICs" }, { key: "fhcems", label: "FH/CEMs" }]
+        : BASE_TABS,
     [isAdmin]
   );
 
@@ -34,6 +37,7 @@ export default function DashboardTabs({ isAdmin, role }: { isAdmin: boolean; rol
   const [mobileOpen, setMobileOpen] = useState(false);
   const labelId = useId();
 
+  // Initialize active tab from ?tab= or localStorage
   useEffect(() => {
     const q = (searchParams.get("tab") || "") as TabKey;
     const ls = (typeof window !== "undefined" ? localStorage.getItem("vipff.activeTab") : "") as TabKey;
@@ -45,12 +49,14 @@ export default function DashboardTabs({ isAdmin, role }: { isAdmin: boolean; rol
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tabs.length]);
 
+  // Update active tab if ?tab= changes
   useEffect(() => {
     const q = (searchParams.get("tab") || "") as TabKey;
     if (q && tabs.some(t => t.key === q) && q !== active) setActive(q);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
+  // Persist active tab and sync URL
   useEffect(() => {
     if (!active) return;
     try { localStorage.setItem("vipff.activeTab", active); } catch {}
@@ -67,7 +73,7 @@ export default function DashboardTabs({ isAdmin, role }: { isAdmin: boolean; rol
     setMobileOpen(false);
   }
 
-  // Close mobile menu on ESC
+  // Close mobile drawer with ESC
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") setMobileOpen(false);
@@ -79,9 +85,9 @@ export default function DashboardTabs({ isAdmin, role }: { isAdmin: boolean; rol
   return (
     <>
       <div className="tabs">
-        {/* Desktop tablist + Mobile hamburger button */}
+        {/* Bar that holds desktop tabs and the mobile hamburger */}
         <div className="tabs-bar">
-          {/* Desktop tab list */}
+          {/* Desktop tablist */}
           <div className="tablist" role="tablist" aria-label="Dashboard Sections" id={labelId}>
             {tabs.map((t) => (
               <button
@@ -112,13 +118,27 @@ export default function DashboardTabs({ isAdmin, role }: { isAdmin: boolean; rol
           </button>
         </div>
 
-        {/* Mobile drawer */}
-        <div className={`mobile-nav-overlay ${mobileOpen ? "open" : ""}`} onClick={() => setMobileOpen(false)} />
-        <nav id="mobile-nav" className={`mobile-nav ${mobileOpen ? "open" : ""}`} aria-labelledby={labelId}>
+        {/* Mobile drawer + overlay */}
+        <div
+          className={`mobile-nav-overlay ${mobileOpen ? "open" : ""}`}
+          onClick={() => setMobileOpen(false)}
+        />
+        <nav
+          id="mobile-nav"
+          className={`mobile-nav ${mobileOpen ? "open" : ""}`}
+          aria-labelledby={labelId}
+        >
           <div className="mobile-nav-header">
             <span className="muted">Navigation</span>
-            <button className="btn btn-ghost btn-icon" aria-label="Close menu" onClick={() => setMobileOpen(false)}>✕</button>
+            <button
+              className="btn btn-ghost btn-icon"
+              aria-label="Close menu"
+              onClick={() => setMobileOpen(false)}
+            >
+              ✕
+            </button>
           </div>
+
           <div className="mobile-tablist">
             {tabs.map((t) => (
               <button
@@ -129,6 +149,15 @@ export default function DashboardTabs({ isAdmin, role }: { isAdmin: boolean; rol
                 {t.label}
               </button>
             ))}
+          </div>
+
+          {/* Logout pushed to the bottom of the drawer */}
+          <div className="mobile-nav-footer">
+            <form action="/api/logout" method="POST">
+              <button className="btn btn-link btn-block" type="submit" aria-label="Log out">
+                Log out
+              </button>
+            </form>
           </div>
         </nav>
 
