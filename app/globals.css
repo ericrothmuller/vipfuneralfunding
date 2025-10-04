@@ -697,11 +697,43 @@ html[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
 .theme-toggle .toggle-opt.active { background: rgba(214,177,109,0.12); border-color: var(--accent); }
 .theme-toggle input { accent-color: var(--accent); }
 
+/* ========================================
+   Theme toggle — remove rectangular border
+   and use a clean circular dot
+   ======================================== */
+.theme-toggle .toggle-opt {
+  position: relative;
+}
+
 .theme-toggle .toggle-opt input {
   /* Remove native rectangle/focus ring */
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
+
+  /* Custom dot */
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: transparent;
+  margin: 0;
+
+  /* Kill native outlines/glows */
+  outline: none;
+  box-shadow: none;
+}
+
+/* Checked state = filled dot in brand accent */
+.theme-toggle .toggle-opt input:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Keep keyboard accessibility without the ugly rectangle */
+.theme-toggle .toggle-opt input:focus-visible {
+  box-shadow: 0 0 0 3px rgba(214, 177, 109, 0.35);
+  border-color: var(--accent);
 }
 
 /* ========================================
