@@ -715,7 +715,7 @@ html[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  border: 2px solid var(--border);
+  border: 0px solid var(--border);
   background: transparent;
   margin: 0;
 
