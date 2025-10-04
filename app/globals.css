@@ -705,6 +705,25 @@ html[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
   position: relative;
 }
 
+.theme-toggle .toggle-opt input {
+  /* Remove native rectangle/focus ring */
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+
+  /* Custom dot */
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: transparent;
+  margin: 0;
+
+  /* Kill native outlines/glows */
+  outline: none;
+  box-shadow: none;
+}
+
 /* Theme toggle — force the dot to be a perfect circle */
 .theme-toggle .toggle-opt input {
   box-sizing: border-box;
