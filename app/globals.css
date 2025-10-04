@@ -705,24 +705,20 @@ html[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
   position: relative;
 }
 
+/* Theme toggle — force the dot to be a perfect circle */
 .theme-toggle .toggle-opt input {
-  /* Remove native rectangle/focus ring */
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-
-  /* Custom dot */
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 2px solid var(--border);
-  background: transparent;
+  box-sizing: border-box;
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  aspect-ratio: 1 / 1;    /* guarantees a square box => perfect circle */
+  padding: 0;
   margin: 0;
-
-  /* Kill native outlines/glows */
-  outline: none;
-  box-shadow: none;
+  line-height: 0;         /* prevent vertical stretch */
+  border-radius: 50%;
+  vertical-align: middle; /* aligns nicely with label text */
 }
+
 
 /* Checked state = filled dot in brand accent */
 .theme-toggle .toggle-opt input:checked {
