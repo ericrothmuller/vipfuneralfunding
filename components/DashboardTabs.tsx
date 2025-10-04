@@ -31,6 +31,7 @@ export default function DashboardTabs({ isAdmin, role }: { isAdmin: boolean; rol
   const searchParams = useSearchParams();
   const [active, setActive] = useState<TabKey>("profile");
   const [showGate, setShowGate] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const labelId = useId();
 
   useEffect(() => {
@@ -59,30 +60,79 @@ export default function DashboardTabs({ isAdmin, role }: { isAdmin: boolean; rol
   function onSelectTab(next: TabKey) {
     if (role === "NEW" && (next === "requests" || next === "new")) {
       setShowGate(true);
+      setMobileOpen(false);
       return;
     }
     setActive(next);
+    setMobileOpen(false);
   }
+
+  // Close mobile menu on ESC
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setMobileOpen(false);
+    }
+    if (mobileOpen) document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [mobileOpen]);
 
   return (
     <>
       <div className="tabs">
-        <div className="tablist" role="tablist" aria-label="Dashboard Sections" id={labelId}>
-          {tabs.map((t) => (
-            <button
-              key={t.key}
-              role="tab"
-              aria-selected={active === t.key}
-              aria-controls={`${t.key}-panel`}
-              id={`${t.key}-tab`}
-              className="tab"
-              onClick={() => onSelectTab(t.key)}
-            >
-              {t.label}
-            </button>
-          ))}
+        {/* Desktop tablist + Mobile hamburger button */}
+        <div className="tabs-bar">
+          {/* Desktop tab list */}
+          <div className="tablist" role="tablist" aria-label="Dashboard Sections" id={labelId}>
+            {tabs.map((t) => (
+              <button
+                key={t.key}
+                role="tab"
+                aria-selected={active === t.key}
+                aria-controls={`${t.key}-panel`}
+                id={`${t.key}-tab`}
+                className="tab"
+                onClick={() => onSelectTab(t.key)}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Mobile hamburger */}
+          <button
+            type="button"
+            className="mobile-menu-btn btn btn-ghost"
+            aria-label="Open menu"
+            aria-haspopup="true"
+            aria-controls="mobile-nav"
+            aria-expanded={mobileOpen}
+            onClick={() => setMobileOpen(!mobileOpen)}
+          >
+            ☰ Menu
+          </button>
         </div>
 
+        {/* Mobile drawer */}
+        <div className={`mobile-nav-overlay ${mobileOpen ? "open" : ""}`} onClick={() => setMobileOpen(false)} />
+        <nav id="mobile-nav" className={`mobile-nav ${mobileOpen ? "open" : ""}`} aria-labelledby={labelId}>
+          <div className="mobile-nav-header">
+            <span className="muted">Navigation</span>
+            <button className="btn btn-ghost btn-icon" aria-label="Close menu" onClick={() => setMobileOpen(false)}>✕</button>
+          </div>
+          <div className="mobile-tablist">
+            {tabs.map((t) => (
+              <button
+                key={t.key}
+                className={`mobile-tab ${active === t.key ? "active" : ""}`}
+                onClick={() => onSelectTab(t.key)}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </nav>
+
+        {/* Panels */}
         {active === "profile" && (
           <div role="tabpanel" id="profile-panel" aria-labelledby="profile-tab" className="tabpanel">
             <div className="panel-row">
